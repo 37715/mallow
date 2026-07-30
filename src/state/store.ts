@@ -8,6 +8,7 @@ import {
 } from "@/data/cats";
 import { purchaseNextCat } from "@/systems/economy";
 import { drawCatDefinition } from "@/systems/cats";
+import { computeOfflineEarnings } from "@/systems/offline";
 import { tickVisitors, type Visitor } from "@/systems/visitors";
 import { loadSave } from "@/state/save";
 import { logEvent } from "@/analytics/analytics";
@@ -38,6 +39,11 @@ export interface GameState {
   adoptCat: () => CatInstance | null;
   /** Rename a cat. Empty/whitespace names are ignored — a cat always has a name. */
   renameCat: (id: string, name: string) => void;
+  /**
+   * Grant idle earnings for time spent away (§8). Returns the amount earned
+   * (0 below the minimum-away threshold) so the UI can show the welcome-back card.
+   */
+  grantOfflineEarnings: (awayMs: number) => number;
 }
 
 /** Breed ids the player has discovered — drives the cat-dex (§8 collection). */
@@ -55,8 +61,13 @@ function freshState(): Pick<GameState, "money" | "cats" | "nextCatId"> {
 
 const saved = loadSave();
 
+/** Wall-clock ms since the last save at boot — 0 for fresh games. main.ts turns this into offline earnings. */
+export const bootAwayMs = saved ? Math.max(0, Date.now() - saved.savedAt) : 0;
+
 export const gameStore = createStore<GameState>((set, get) => ({
-  ...(saved ?? freshState()),
+  ...(saved
+    ? { money: saved.money, cats: saved.cats, nextCatId: saved.nextCatId }
+    : freshState()),
   visitors: [],
   lastVisitorSpawnAt: 0,
 
@@ -117,5 +128,15 @@ export const gameStore = createStore<GameState>((set, get) => ({
 
     set({ cats: cats.map((c) => (c.id === id ? { ...c, name: trimmed } : c)) });
     logEvent({ name: "cat_named", breed: catDefinition(cat.definitionId).id });
+  },
+
+  grantOfflineEarnings: (awayMs) => {
+    const { money, cats } = get();
+    const earned = computeOfflineEarnings(totalAppeal(cats.map((c) => c.definitionId)), awayMs);
+    if (earned <= 0) return 0;
+
+    set({ money: money + earned });
+    logEvent({ name: "offline_income", awayMs: Math.round(awayMs), earned, money: money + earned });
+    return earned;
   },
 }));

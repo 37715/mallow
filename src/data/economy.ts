@@ -39,6 +39,16 @@ export const ECONOMY_CONFIG = {
 
   /** Growth factor applied per additional cat already owned. */
   catCostGrowth: 1.6,
+
+  /** Offline/idle earnings while the app is closed (§8 — idle income). */
+  offline: {
+    /** Fraction of the live income rate earned while away — away time is calmer, not dead. */
+    rateMultiplier: 0.5,
+    /** Longest away period that still accrues earnings. */
+    maxAccrualMs: 8 * 60 * 60 * 1000,
+    /** Away periods shorter than this are ignored (quick app switches, reloads). */
+    minAwayMs: 60 * 1000,
+  },
 } as const;
 
 /** Cost to buy the next cat, given how many cats are currently owned. */

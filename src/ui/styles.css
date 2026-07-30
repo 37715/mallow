@@ -218,6 +218,12 @@ body {
   letter-spacing: 0.08em;
 }
 
+.welcome-earned {
+  font-size: 34px;
+  font-weight: 800;
+  color: var(--accent);
+}
+
 .reveal-breed {
   font-size: 21px;
   font-weight: 700;

@@ -12,6 +12,14 @@ function formatMoney(amount: number): string {
   return `$${Math.floor(amount)}`;
 }
 
+function formatAwayDuration(ms: number): string {
+  const minutes = Math.floor(ms / 60000);
+  if (minutes < 60) return `${Math.max(1, minutes)}m`;
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  return rest > 0 ? `${hours}h ${rest}m` : `${hours}h`;
+}
+
 function cssColor(color: number): string {
   return `#${color.toString(16).padStart(6, "0")}`;
 }
@@ -45,8 +53,13 @@ function catSwatch(definition: CatDefinition, unknown = false): HTMLElement {
   return swatch;
 }
 
+export interface MountedUI {
+  /** Cosy "while you were away" card for offline earnings (§8). */
+  showWelcomeBack: (earned: number, awayMs: number) => void;
+}
+
 /** Builds the DOM HUD and wires it to the store. No game logic lives here. */
-export function mountUI(root: HTMLElement): void {
+export function mountUI(root: HTMLElement): MountedUI {
   root.innerHTML = "";
 
   // --- Top HUD -------------------------------------------------------------
@@ -192,6 +205,31 @@ export function mountUI(root: HTMLElement): void {
     panelLayer.classList.add("open");
   }
 
+  // --- Welcome back / offline earnings (§8) --------------------------------
+  function showWelcomeBack(earned: number, awayMs: number): void {
+    modalLayer.innerHTML = "";
+
+    const card = el("div", "reveal-card");
+    card.appendChild(el("div", "reveal-title", "Welcome back!"));
+    card.appendChild(el("div", "welcome-earned", `+${formatMoney(earned)}`));
+    card.appendChild(
+      el(
+        "div",
+        "reveal-flavor",
+        `Your cats kept the café cosy while you were away (${formatAwayDuration(awayMs)}).`,
+      ),
+    );
+    const confirm = el("button", "reveal-confirm", "Thanks, everyone") as HTMLButtonElement;
+    confirm.addEventListener("click", () => {
+      modalLayer.classList.remove("open");
+      modalLayer.innerHTML = "";
+    });
+    card.appendChild(confirm);
+
+    modalLayer.appendChild(card);
+    modalLayer.classList.add("open");
+  }
+
   adoptButton.addEventListener("click", () => {
     const cat = gameStore.getState().adoptCat();
     if (cat) showAdoptionModal(cat);
@@ -228,4 +266,6 @@ export function mountUI(root: HTMLElement): void {
 
   render();
   gameStore.subscribe(render);
+
+  return { showWelcomeBack };
 }

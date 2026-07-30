@@ -7,19 +7,26 @@ import type { CatInstance, GameState } from "@/state/store";
  * migrate instead of corrupting saves. Never lose a player's cats. Sacred.
  *
  * Visitors are transient scene state and deliberately not saved.
+ *
+ * v1 → v2: added `savedAt` (wall-clock ms) so offline earnings can be
+ * computed from time away on next launch.
  */
 
 const SAVE_KEY = "mallow-save";
-const SAVE_VERSION = 1;
+const SAVE_VERSION = 2;
 
-interface SaveDataV1 {
-  version: 1;
+interface SaveDataV2 {
+  version: 2;
   money: number;
   nextCatId: number;
   cats: CatInstance[];
+  /** Wall-clock (Date.now) timestamp of the last save — basis for offline earnings. */
+  savedAt: number;
 }
 
-export type LoadedSave = Pick<GameState, "money" | "cats" | "nextCatId">;
+export interface LoadedSave extends Pick<GameState, "money" | "cats" | "nextCatId"> {
+  savedAt: number;
+}
 
 function isValidCat(value: unknown): value is CatInstance {
   if (typeof value !== "object" || value === null) return false;
@@ -32,7 +39,7 @@ function isValidCat(value: unknown): value is CatInstance {
   );
 }
 
-/** Read + validate the save. Returns null (fresh start) on anything malformed. */
+/** Read + validate + migrate the save. Returns null (fresh start) on anything malformed. */
 export function loadSave(): LoadedSave | null {
   let raw: string | null = null;
   try {
@@ -43,8 +50,16 @@ export function loadSave(): LoadedSave | null {
   if (!raw) return null;
 
   try {
-    const data = JSON.parse(raw) as Partial<SaveDataV1>;
-    if (data.version !== SAVE_VERSION) return null; // future: migrate instead of discarding
+    const data = JSON.parse(raw) as Record<string, unknown>;
+
+    // v1 saves predate savedAt — migrate by treating "now" as last seen
+    // (no retroactive offline windfall, nothing lost).
+    if (data.version === 1) {
+      data.version = 2;
+      data.savedAt = Date.now();
+    }
+
+    if (data.version !== SAVE_VERSION) return null;
     if (typeof data.money !== "number" || !Number.isFinite(data.money)) return null;
     if (!Array.isArray(data.cats) || data.cats.length === 0) return null;
     if (!data.cats.every(isValidCat)) return null;
@@ -53,19 +68,24 @@ export function loadSave(): LoadedSave | null {
       typeof data.nextCatId === "number" && Number.isFinite(data.nextCatId)
         ? data.nextCatId
         : data.cats.length;
+    const savedAt =
+      typeof data.savedAt === "number" && Number.isFinite(data.savedAt)
+        ? data.savedAt
+        : Date.now();
 
-    return { money: Math.max(0, data.money), cats: data.cats, nextCatId };
+    return { money: Math.max(0, data.money), cats: data.cats, nextCatId, savedAt };
   } catch {
     return null;
   }
 }
 
 function persist(state: GameState): void {
-  const data: SaveDataV1 = {
+  const data: SaveDataV2 = {
     version: SAVE_VERSION,
     money: state.money,
     nextCatId: state.nextCatId,
     cats: state.cats,
+    savedAt: Date.now(),
   };
   try {
     localStorage.setItem(SAVE_KEY, JSON.stringify(data));
