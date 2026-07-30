@@ -37,7 +37,5 @@ export function buildCatMesh(appearanceIndex: number): THREE.Group {
   tail.rotation.x = -Math.PI / 3;
   cat.add(tail);
 
-  // Slightly larger so the silhouette reads on a phone screen.
-  cat.scale.setScalar(1.25);
   return cat;
 }

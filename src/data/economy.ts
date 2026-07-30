@@ -11,19 +11,19 @@ export const ECONOMY_CONFIG = {
   startingMoney: 20,
 
   /** Slowest time between visitor spawn attempts, with only one cat in the café. */
-  baseVisitorIntervalMs: 4500,
+  baseVisitorIntervalMs: 4800,
 
   /** Fastest possible time between visitor spawn attempts, no matter how many cats. */
-  minVisitorIntervalMs: 1600,
+  minVisitorIntervalMs: 1500,
 
-  /** How much each extra cat speeds up visitor arrivals (diminishing via division below). */
-  visitorIntervalPerCat: 1000,
+  /** How much each extra cat speeds up visitor arrivals — big enough that cat #2 feels busier. */
+  visitorIntervalPerCat: 1600,
 
   /** Base money paid by a visitor when they finish their visit. */
   baseVisitorPay: 5,
 
   /** Extra fractional pay per cat beyond the first (cuter café → bigger tips). */
-  visitorPayBonusPerExtraCat: 0.15,
+  visitorPayBonusPerExtraCat: 0.25,
 
   /** How long a visitor takes to walk from the door to their seat. */
   walkInDurationMs: 1200,

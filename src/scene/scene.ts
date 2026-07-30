@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { buildRoom, ROOM_SIZE } from "@/scene/room";
+import { buildRoom } from "@/scene/room";
 
 export interface SceneContext {
   scene: THREE.Scene;
