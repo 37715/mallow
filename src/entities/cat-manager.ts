@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import type { CatInstance } from "@/state/store";
+import { catDefinition } from "@/data/cats";
 import { buildCatMesh } from "@/entities/cat";
 import { CAT_DISPLAY_POSITIONS } from "@/scene/room";
 import type { CatLabelAnchor } from "@/ui/cat-labels";
@@ -29,12 +30,18 @@ export class CatManager {
     for (const cat of cats) {
       if (this.tracked.has(cat.id)) continue;
 
-      const mesh = buildCatMesh(cat.appearanceIndex);
+      const mesh = buildCatMesh(catDefinition(cat.definitionId));
       // buildCatMesh already scales; we animate from near-zero on spawn.
       mesh.scale.setScalar(0.01);
 
-      const displayIndex = this.tracked.size % CAT_DISPLAY_POSITIONS.length;
+      const slot = this.tracked.size;
+      const displayIndex = slot % CAT_DISPLAY_POSITIONS.length;
       const pos = CAT_DISPLAY_POSITIONS[displayIndex].clone();
+      // Once every lounge spot is taken, later cats nudge forward so they
+      // don't sit exactly inside an earlier cat.
+      const wrap = Math.floor(slot / CAT_DISPLAY_POSITIONS.length);
+      pos.z += wrap * 0.55;
+      pos.x += wrap * (displayIndex % 2 === 0 ? 0.25 : -0.25);
       mesh.position.copy(pos);
       mesh.rotation.y = pos.x < 0 ? Math.PI * 0.25 : -Math.PI * 0.25;
 

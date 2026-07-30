@@ -64,7 +64,7 @@ export function tickVisitors(
   visitors: Visitor[],
   now: number,
   lastSpawnAt: number,
-  catsOwned: number,
+  appeal: number,
   seatCount: number,
 ): VisitorTickResult {
   let moneyEarned = 0;
@@ -72,7 +72,7 @@ export function tickVisitors(
   const next = visitors
     .map((visitor) => {
       if (!visitor.hasPaid && now >= visitor.leavingAt) {
-        moneyEarned += visitorPayAmount(catsOwned);
+        moneyEarned += visitorPayAmount(appeal);
         return { ...visitor, hasPaid: true };
       }
       return visitor;
@@ -82,7 +82,7 @@ export function tickVisitors(
   let spawnedThisTick = false;
   let updatedLastSpawnAt = lastSpawnAt;
 
-  const readyToSpawn = now - lastSpawnAt >= visitorIntervalMs(catsOwned);
+  const readyToSpawn = now - lastSpawnAt >= visitorIntervalMs(appeal);
   if (readyToSpawn) {
     const seat = freeSeatIndex(next, seatCount);
     if (seat !== null) {

@@ -1,16 +1,24 @@
 import * as THREE from "three";
-import { appearanceForIndex } from "@/data/cats";
+import { type CatDefinition } from "@/data/cats";
 
 /**
  * Placeholder low-poly cat built from primitives. Swap for a GLB hero asset
  * once one exists (§9) — the silhouette/positions here are what matters for now.
  */
-export function buildCatMesh(appearanceIndex: number): THREE.Group {
-  const { furColor, accentColor } = appearanceForIndex(appearanceIndex);
+export function buildCatMesh(definition: CatDefinition): THREE.Group {
+  const { furColor, accentColor, rarity } = definition;
   const cat = new THREE.Group();
   cat.name = "cat";
 
-  const furMaterial = new THREE.MeshStandardMaterial({ color: furColor, roughness: 0.8 });
+  // Epic/legendary cats glow very softly so rarity reads in-scene (§8) —
+  // subtle enough to stay inside the warm palette (§9).
+  const emissiveIntensity = rarity === "legendary" ? 0.18 : rarity === "epic" ? 0.1 : 0;
+  const furMaterial = new THREE.MeshStandardMaterial({
+    color: furColor,
+    roughness: 0.8,
+    emissive: furColor,
+    emissiveIntensity,
+  });
   const accentMaterial = new THREE.MeshStandardMaterial({ color: accentColor, roughness: 0.8 });
 
   const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.22, 0.35, 4, 8), furMaterial);

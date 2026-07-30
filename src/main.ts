@@ -1,6 +1,7 @@
 import { createScene } from "@/scene/scene";
 import { startLoop } from "@/core/loop";
 import { gameStore } from "@/state/store";
+import { initAutosave } from "@/state/save";
 import { CatManager } from "@/entities/cat-manager";
 import { VisitorManager } from "@/entities/visitor-manager";
 import { mountUI } from "@/ui/ui";
@@ -17,6 +18,7 @@ function bootstrap(): void {
 
   mountUI(uiRoot);
   const catLabels = new CatLabelLayer(uiRoot);
+  initAutosave(gameStore);
   logEvent({ name: "session_start" });
 
   startLoop((now) => {

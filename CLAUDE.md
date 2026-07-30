@@ -216,11 +216,16 @@ Discoverability is the #1 risk, so treat marketing as a first-class workstream, 
 
 ## 15. Build order (validate first, invest after)
 
-**Milestone 1 — Playable core loop (the experiment):** one café scene, one cat, visitors arrive and pay, money accrues, buy a second cat. Ugly is fine. Prove the loop is pleasant. **Gate: get to TestFlight + a small cosy Discord and measure D1/D7. If D1 < 30% or D7 < 10%, fix the loop before anything else.**
+**Milestone 1 — Playable core loop (the experiment):** ✅ built — one café scene, one cat, visitors arrive and pay, money accrues, buy a second cat. Ugly is fine. Prove the loop is pleasant. **Gate: get to TestFlight + a small cosy Discord and measure D1/D7. If D1 < 30% or D7 < 10%, fix the loop before anything else.**
 
-**Milestone 2 — The hook:** cat rarity + collection ("cat-dex") + naming + roster screen.
+**Milestone 2 — The hook:** ✅ built — cat rarity + collection ("cat-dex") + naming + roster screen. Decisions made here:
+- **Adoption is gacha-lite** (§5): the adopt button costs earned money and draws a weighted-random breed (weights/appeal in `data/cats.ts`, draw logic in `systems/cats.ts`, seeded-rng unit tests alongside). Duplicates allowed — every cat is an individual the player names; the cat-dex tracks *breeds* discovered.
+- **Rarity feeds the economy via "appeal":** each rarity tier has an appeal value; visitor rate/pay scale on the café's total appeal instead of raw cat count (common = 1, so all-common cafés match the old M1 math exactly).
+- **Naming flow:** adoption opens a reveal card (rarity badge + breed + flavour line) with a prefilled, editable name — cats can be renamed anytime from the roster.
+- **Save system pulled forward from M3** (localStorage, versioned `state/save.ts`): naming cats that vanish on refresh would violate "never lose a player's cats." Offline/idle income remains M3.
+- `vitest` added (`npm test`) for the pure systems/economy math.
 
-**Milestone 3 — Depth:** upgrades, expansion, décor, idle/offline income, save system, and the **LTE event framework**.
+**Milestone 3 — Depth:** upgrades, expansion, décor, idle/offline income, save-system hardening (migrations), and the **LTE event framework**.
 
 **Milestone 4 — Beauty pass:** art cohesion, lighting, juice (§10), audio.
 

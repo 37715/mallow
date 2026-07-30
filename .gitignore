@@ -10,3 +10,4 @@ ios/
 # Editor
 .vscode/*
 !.vscode/extensions.json
+*.tsbuildinfo

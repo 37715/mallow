@@ -10,20 +10,20 @@ export const ECONOMY_CONFIG = {
   /** Starting money so the first purchase is reachable quickly (protects D1 pacing). */
   startingMoney: 20,
 
-  /** Slowest time between visitor spawn attempts, with only one cat in the café. */
+  /** Slowest time between visitor spawn attempts, with one common cat in the café. */
   baseVisitorIntervalMs: 4800,
 
-  /** Fastest possible time between visitor spawn attempts, no matter how many cats. */
+  /** Fastest possible time between visitor spawn attempts, no matter the café's appeal. */
   minVisitorIntervalMs: 1500,
 
-  /** How much each extra cat speeds up visitor arrivals — big enough that cat #2 feels busier. */
-  visitorIntervalPerCat: 1600,
+  /** How much each point of appeal beyond the first speeds up visitor arrivals. */
+  visitorIntervalPerAppeal: 1600,
 
   /** Base money paid by a visitor when they finish their visit. */
   baseVisitorPay: 5,
 
-  /** Extra fractional pay per cat beyond the first (cuter café → bigger tips). */
-  visitorPayBonusPerExtraCat: 0.25,
+  /** Extra fractional pay per point of appeal beyond the first (cuter café → bigger tips). */
+  visitorPayBonusPerAppeal: 0.25,
 
   /** How long a visitor takes to walk from the door to their seat. */
   walkInDurationMs: 1200,
@@ -49,20 +49,23 @@ export function costForNextCat(catsOwned: number): number {
   );
 }
 
-/** Interval between visitor spawn attempts, given how many cats are in the café. */
-export function visitorIntervalMs(catsOwned: number): number {
-  const reduction = Math.max(0, catsOwned - 1) * ECONOMY_CONFIG.visitorIntervalPerCat;
+/**
+ * Interval between visitor spawn attempts, given the café's total appeal
+ * (see totalAppeal in data/cats — rarer cats draw visitors faster, §8).
+ */
+export function visitorIntervalMs(appeal: number): number {
+  const reduction = Math.max(0, appeal - 1) * ECONOMY_CONFIG.visitorIntervalPerAppeal;
   return Math.max(
     ECONOMY_CONFIG.minVisitorIntervalMs,
     ECONOMY_CONFIG.baseVisitorIntervalMs - reduction,
   );
 }
 
-/** Money a visitor pays out when they finish their visit, given cats owned. */
-export function visitorPayAmount(catsOwned: number): number {
-  const extraCats = Math.max(0, catsOwned - 1);
+/** Money a visitor pays out when they finish their visit, given the café's total appeal. */
+export function visitorPayAmount(appeal: number): number {
+  const extraAppeal = Math.max(0, appeal - 1);
   return (
     ECONOMY_CONFIG.baseVisitorPay +
-    extraCats * ECONOMY_CONFIG.visitorPayBonusPerExtraCat * ECONOMY_CONFIG.baseVisitorPay
+    extraAppeal * ECONOMY_CONFIG.visitorPayBonusPerAppeal * ECONOMY_CONFIG.baseVisitorPay
   );
 }

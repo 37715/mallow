@@ -3,6 +3,7 @@
   --warm-brown: #8a6a52;
   --accent: #d97b4f;
   --ink: #4a3826;
+  --card: rgba(255, 250, 240, 0.95);
 }
 
 * {
@@ -80,30 +81,6 @@ body {
   color: var(--warm-brown);
 }
 
-.join-toast {
-  position: absolute;
-  left: 50%;
-  top: 28%;
-  transform: translate(-50%, -50%) scale(0.96);
-  background: rgba(255, 250, 240, 0.92);
-  backdrop-filter: blur(6px);
-  border-radius: 14px;
-  padding: 10px 18px;
-  font-size: 15px;
-  font-weight: 600;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.1);
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 180ms ease, transform 180ms ease;
-  z-index: 3;
-  white-space: nowrap;
-}
-
-.join-toast.visible {
-  opacity: 1;
-  transform: translate(-50%, -50%) scale(1);
-}
-
 .cat-label-layer {
   position: absolute;
   inset: 0;
@@ -130,29 +107,353 @@ body {
 .hud-bottom {
   display: flex;
   justify-content: center;
+  align-items: stretch;
+  gap: 10px;
   z-index: 2;
 }
 
-.buy-cat-button {
+.adopt-button,
+.roster-button {
   pointer-events: auto;
   border: none;
   border-radius: 18px;
-  padding: 14px 26px;
-  font-size: 16px;
   font-weight: 600;
-  background: var(--accent);
-  color: #fff8f0;
-  box-shadow: 0 6px 16px rgba(217, 123, 79, 0.35);
   cursor: pointer;
   transition: transform 100ms ease, opacity 150ms ease;
 }
 
-.buy-cat-button:active:not(:disabled) {
+.adopt-button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 12px 26px;
+  font-size: 16px;
+  background: var(--accent);
+  color: #fff8f0;
+  box-shadow: 0 6px 16px rgba(217, 123, 79, 0.35);
+}
+
+.adopt-button-hint {
+  font-size: 11px;
+  font-weight: 500;
+  opacity: 0.8;
+}
+
+.roster-button {
+  padding: 12px 20px;
+  font-size: 16px;
+  background: var(--card);
+  color: var(--warm-brown);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.1);
+}
+
+.adopt-button:active:not(:disabled),
+.roster-button:active {
   transform: scale(0.96);
 }
 
-.buy-cat-button:disabled {
+.adopt-button:disabled {
   opacity: 0.45;
   cursor: default;
   box-shadow: none;
+}
+
+/* --- Overlays (adoption reveal + roster panel) --------------------------- */
+
+.overlay-layer {
+  position: absolute;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(74, 56, 38, 0.35);
+  backdrop-filter: blur(3px);
+  z-index: 5;
+}
+
+.overlay-layer.open {
+  display: flex;
+  pointer-events: auto;
+}
+
+.reveal-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  width: min(320px, calc(100vw - 48px));
+  padding: 26px 22px 22px;
+  border-radius: 22px;
+  background: var(--card);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.22);
+  text-align: center;
+  animation: card-pop 260ms cubic-bezier(0.34, 1.4, 0.64, 1);
+}
+
+@keyframes card-pop {
+  from {
+    transform: scale(0.82);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.reveal-card.rarity-epic {
+  box-shadow: 0 12px 44px rgba(138, 95, 181, 0.45);
+}
+
+.reveal-card.rarity-legendary {
+  box-shadow: 0 12px 48px rgba(217, 151, 63, 0.55);
+}
+
+.reveal-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--warm-brown);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.reveal-breed {
+  font-size: 21px;
+  font-weight: 700;
+}
+
+.reveal-flavor {
+  font-size: 13px;
+  color: var(--warm-brown);
+  font-style: italic;
+  line-height: 1.4;
+}
+
+.reveal-name-label {
+  margin-top: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--warm-brown);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.reveal-name-input {
+  width: 100%;
+  padding: 11px 14px;
+  border: 2px solid rgba(138, 106, 82, 0.3);
+  border-radius: 14px;
+  font-size: 17px;
+  font-weight: 600;
+  text-align: center;
+  color: var(--ink);
+  background: #fffdf8;
+  outline: none;
+}
+
+.reveal-name-input:focus {
+  border-color: var(--accent);
+}
+
+.reveal-confirm {
+  width: 100%;
+  padding: 13px;
+  margin-top: 2px;
+  border: none;
+  border-radius: 14px;
+  font-size: 16px;
+  font-weight: 600;
+  background: var(--accent);
+  color: #fff8f0;
+  cursor: pointer;
+  transition: transform 100ms ease;
+}
+
+.reveal-confirm:active {
+  transform: scale(0.97);
+}
+
+/* --- Rarity badge + swatches --------------------------------------------- */
+
+.rarity-badge {
+  display: inline-block;
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #fff8f0;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.cat-swatch {
+  position: relative;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  box-shadow: inset 0 -3px 6px rgba(0, 0, 0, 0.12);
+}
+
+.cat-swatch-accent {
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+}
+
+.cat-swatch.unknown {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(138, 106, 82, 0.18);
+  color: var(--warm-brown);
+  font-size: 20px;
+  font-weight: 700;
+  box-shadow: none;
+}
+
+/* --- Roster panel + cat-dex ---------------------------------------------- */
+
+.roster-panel {
+  display: flex;
+  flex-direction: column;
+  width: min(400px, calc(100vw - 32px));
+  max-height: calc(100vh - 96px);
+  padding: 18px;
+  border-radius: 22px;
+  background: var(--card);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.22);
+  overflow-y: auto;
+  animation: card-pop 220ms ease-out;
+}
+
+.roster-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.roster-title {
+  font-size: 19px;
+  font-weight: 700;
+}
+
+.roster-close {
+  border: none;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: rgba(138, 106, 82, 0.14);
+  color: var(--warm-brown);
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.roster-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.roster-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 10px;
+  border-radius: 14px;
+  background: rgba(138, 106, 82, 0.08);
+}
+
+.roster-row-info {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.roster-cat-name {
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.roster-cat-name::after {
+  content: " ✎";
+  font-size: 12px;
+  color: var(--warm-brown);
+  opacity: 0.6;
+}
+
+.roster-rename-input {
+  padding: 6px 10px;
+  border: 2px solid var(--accent);
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ink);
+  background: #fffdf8;
+  outline: none;
+  width: 100%;
+}
+
+.roster-cat-breed {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--warm-brown);
+}
+
+.dex-title {
+  margin: 18px 0 10px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--warm-brown);
+}
+
+.dex-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.dex-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  padding: 10px 6px;
+  border-radius: 14px;
+  background: rgba(138, 106, 82, 0.08);
+  text-align: center;
+}
+
+.dex-cell.unknown {
+  opacity: 0.65;
+}
+
+.dex-cell .cat-swatch {
+  width: 40px;
+  height: 40px;
+}
+
+.dex-cell .cat-swatch-accent {
+  width: 12px;
+  height: 12px;
+  right: 3px;
+  bottom: 3px;
+}
+
+.dex-cell-breed {
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.25;
+  min-height: 2.5em;
+  display: flex;
+  align-items: center;
 }
