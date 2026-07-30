@@ -74,8 +74,9 @@ export function visitorIntervalMs(appeal: number): number {
 /** Money a visitor pays out when they finish their visit, given the café's total appeal. */
 export function visitorPayAmount(appeal: number): number {
   const extraAppeal = Math.max(0, appeal - 1);
-  return (
+  const pay =
     ECONOMY_CONFIG.baseVisitorPay +
-    extraAppeal * ECONOMY_CONFIG.visitorPayBonusPerAppeal * ECONOMY_CONFIG.baseVisitorPay
-  );
+    extraAppeal * ECONOMY_CONFIG.visitorPayBonusPerAppeal * ECONOMY_CONFIG.baseVisitorPay;
+  // Round to cents — keeps float dust out of saves and analytics.
+  return Math.round(pay * 100) / 100;
 }

@@ -181,6 +181,8 @@ Log lightweight events for at least: session start/end and length; the progressi
 
 Keep an event-logging abstraction in `/analytics` so the backend can change without touching game code. Privacy-respecting and minimal. **This is the honest version of "backed by data": measuring a live thing, not predicting a hypothetical one.** Every scope and spend decision should reference these numbers.
 
+**Decision (implemented):** backend is **TelemetryDeck** (privacy-first, no PII/cookies, iOS-friendly, free tier). Game code calls `logEvent()`; `analytics/transport.ts` batches signals to the ingest API. Enabled by setting `VITE_TELEMETRYDECK_APP_ID` (see `.env.example`) — unset, events log to the console. The only identifier is a random per-install UUID; retention (D1/D7/D30) falls out of `session_start` signals sharing that id, aggregated in TelemetryDeck's dashboard. Session length + economy checkpoints ride on `session_end`.
+
 ---
 
 ## 12. Go-to-market principles

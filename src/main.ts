@@ -6,7 +6,7 @@ import { CatManager } from "@/entities/cat-manager";
 import { VisitorManager } from "@/entities/visitor-manager";
 import { mountUI } from "@/ui/ui";
 import { CatLabelLayer } from "@/ui/cat-labels";
-import { logEvent } from "@/analytics/analytics";
+import { initAnalytics } from "@/analytics/analytics";
 
 function bootstrap(): void {
   const canvas = document.getElementById("scene") as HTMLCanvasElement;
@@ -19,7 +19,10 @@ function bootstrap(): void {
   const ui = mountUI(uiRoot);
   const catLabels = new CatLabelLayer(uiRoot);
   initAutosave(gameStore);
-  logEvent({ name: "session_start" });
+  initAnalytics(() => {
+    const { money, cats } = gameStore.getState();
+    return { money, catCount: cats.length };
+  });
 
   // Offline earnings on launch, and on resume from background — inside the
   // Capacitor shell the page isn't reloaded when the app comes back (§8).

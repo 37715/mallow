@@ -11,3 +11,5 @@ ios/
 .vscode/*
 !.vscode/extensions.json
 *.tsbuildinfo
+.env
+.env.local
