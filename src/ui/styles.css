@@ -1,0 +1,91 @@
+:root {
+  --cream: #f7ecd9;
+  --warm-brown: #8a6a52;
+  --accent: #d97b4f;
+  --ink: #4a3826;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  color: var(--ink);
+}
+
+#app {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+}
+
+#scene {
+  position: absolute;
+  inset: 0;
+  display: block;
+}
+
+#ui-root {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom));
+}
+
+.hud-top {
+  display: flex;
+  justify-content: center;
+}
+
+.money-pill {
+  pointer-events: auto;
+  background: rgba(255, 250, 240, 0.85);
+  backdrop-filter: blur(6px);
+  border-radius: 999px;
+  padding: 10px 22px;
+  font-size: 20px;
+  font-weight: 600;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+  transition: transform 120ms ease;
+}
+
+.money-pill.bump {
+  transform: scale(1.08);
+}
+
+.hud-bottom {
+  display: flex;
+  justify-content: center;
+}
+
+.buy-cat-button {
+  pointer-events: auto;
+  border: none;
+  border-radius: 18px;
+  padding: 14px 26px;
+  font-size: 16px;
+  font-weight: 600;
+  background: var(--accent);
+  color: #fff8f0;
+  box-shadow: 0 6px 16px rgba(217, 123, 79, 0.35);
+  cursor: pointer;
+  transition: transform 100ms ease, opacity 150ms ease;
+}
+
+.buy-cat-button:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
+.buy-cat-button:disabled {
+  opacity: 0.45;
+  cursor: default;
+  box-shadow: none;
+}

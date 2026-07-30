@@ -1,0 +1,12 @@
+node_modules
+dist
+dist-ssr
+*.local
+
+# Capacitor / iOS (added when we get to §5 packaging)
+ios/
+.DS_Store
+
+# Editor
+.vscode/*
+!.vscode/extensions.json
