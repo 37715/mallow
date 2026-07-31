@@ -6,7 +6,6 @@ import { drawCatDefinition } from "@/systems/cats";
 import { computeOfflineEarnings } from "@/systems/offline";
 import { tickVisitors, type Visitor } from "@/systems/visitors";
 import { cafeStats, catAppeal, type CafeStats } from "@/systems/cafe";
-import { moveToNextVenue } from "@/systems/venues";
 
 import {
   purchaseUpgrade,
@@ -38,8 +37,6 @@ export interface GameState {
   nextCatId: number;
   /** Levels bought per café upgrade (§8 — expansion + décor). Absent id = level 0. */
   upgrades: UpgradeLevels;
-  /** Which venue the café currently trades in — index into VENUES (§8). */
-  venueIndex: number;
   visitors: Visitor[];
   lastVisitorSpawnAt: number;
 
@@ -61,12 +58,6 @@ export interface GameState {
    */
   petCat: (id: string) => void;
   /**
-   * Move the café up to the next venue. Fixtures are left behind with the old
-   * building; **cats and their names come with you** — see data/venues.ts.
-   * Returns true if the move happened.
-   */
-  moveVenue: () => boolean;
-  /**
    * Grant idle earnings for time spent away (§8). Returns the amount earned
    * (0 below the minimum-away threshold) so the UI can show the welcome-back card.
    */
@@ -83,26 +74,21 @@ export function discoveredBreeds(cats: CatInstance[]): Set<string> {
  * calculation, and the UI readouts can never drift apart.
  */
 export function currentCafeStats(
-  state: Pick<GameState, "cats" | "upgrades" | "venueIndex">,
+  state: Pick<GameState, "cats" | "upgrades">,
   now = Date.now(),
 ): CafeStats {
-  return cafeStats(catAppeal(state.cats, now), state.upgrades, state.venueIndex);
+  return cafeStats(catAppeal(state.cats, now), state.upgrades);
 }
 
 /**
  * The café valued *without* contentment — what it earns when nobody's looking.
  * Offline income uses this, which is what makes presence pay better.
  */
-export function idleCafeStats(
-  state: Pick<GameState, "cats" | "upgrades" | "venueIndex">,
-): CafeStats {
-  return cafeStats(catAppeal(state.cats, Number.POSITIVE_INFINITY), state.upgrades, state.venueIndex);
+export function idleCafeStats(state: Pick<GameState, "cats" | "upgrades">): CafeStats {
+  return cafeStats(catAppeal(state.cats, Number.POSITIVE_INFINITY), state.upgrades);
 }
 
-type PersistedState = Pick<
-  GameState,
-  "money" | "cats" | "nextCatId" | "upgrades" | "venueIndex"
->;
+type PersistedState = Pick<GameState, "money" | "cats" | "nextCatId" | "upgrades">;
 
 function freshState(): PersistedState {
   return {
@@ -110,7 +96,6 @@ function freshState(): PersistedState {
     cats: [{ id: "cat-0", name: suggestName([]), definitionId: STARTER_CAT_ID }],
     nextCatId: 1,
     upgrades: {},
-    venueIndex: 0,
   };
 }
 
@@ -126,7 +111,6 @@ export const gameStore = createStore<GameState>((set, get) => ({
         cats: saved.cats,
         nextCatId: saved.nextCatId,
         upgrades: saved.upgrades,
-        venueIndex: saved.venueIndex,
       }
     : freshState()),
   visitors: [],
@@ -152,12 +136,14 @@ export const gameStore = createStore<GameState>((set, get) => ({
     set({
       visitors: result.visitors,
       lastVisitorSpawnAt: result.lastSpawnAt,
-      money: money + result.moneyEarned,
+      money: Math.min(ECONOMY_CONFIG.tillCapacity, money + result.moneyEarned),
     });
   },
 
   adoptCat: () => {
     const { money, cats, nextCatId } = get();
+    // A hard cap, not a soft one — see ECONOMY_CONFIG.maxCats.
+    if (cats.length >= ECONOMY_CONFIG.maxCats) return null;
     const result = purchaseNextCat(money, cats.length);
     if (!result.success) return null;
 
@@ -230,29 +216,6 @@ export const gameStore = createStore<GameState>((set, get) => ({
     }
   },
 
-  moveVenue: () => {
-    const { money, venueIndex, cats } = get();
-    const result = moveToNextVenue(money, venueIndex);
-    if (!result.success || !result.venue) return false;
-
-    set({
-      venueIndex: result.venueIndex,
-      // Fixtures belong to the old building; money goes into the new lease.
-      money: ECONOMY_CONFIG.startingMoney,
-      upgrades: {},
-      visitors: [],
-      lastVisitorSpawnAt: 0,
-      // cats deliberately untouched — the sacred rule (§8, data/venues.ts).
-    });
-    logEvent({
-      name: "venue_moved",
-      venue: result.venue.id,
-      venueIndex: result.venueIndex,
-      cost: result.cost,
-      catCount: cats.length,
-    });
-    return true;
-  },
 
   grantOfflineEarnings: (awayMs) => {
     const state = get();
@@ -274,8 +237,18 @@ export const gameStore = createStore<GameState>((set, get) => ({
     );
     if (earned <= 0) return 0;
 
-    set({ money: money + earned });
-    logEvent({ name: "offline_income", awayMs: Math.round(awayMs), earned, money: money + earned });
-    return earned;
+    // Clamp to the till, and report what actually landed in it so the
+    // welcome-back card never promises money the player didn't get.
+    const banked = Math.min(ECONOMY_CONFIG.tillCapacity, money + earned) - money;
+    if (banked <= 0) return 0;
+
+    set({ money: money + banked });
+    logEvent({
+      name: "offline_income",
+      awayMs: Math.round(awayMs),
+      earned: banked,
+      money: money + banked,
+    });
+    return banked;
   },
 }));

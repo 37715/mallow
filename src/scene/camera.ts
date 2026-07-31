@@ -22,15 +22,22 @@ import * as THREE from "three";
  * back that the cats turn into specks.
  */
 const FRAME_BOX = new THREE.Box3(
-  new THREE.Vector3(-2.2, 0, -3.3),
-  new THREE.Vector3(2.2, 1.3, 3.7),
+  new THREE.Vector3(-4.2, 0, -4.2),
+  new THREE.Vector3(4.2, 3.6, 4.2),
 );
 
 /** Vertical FOV. Kept modest so the café reads as a room, not a fisheye. */
 export const CAMERA_FOV = 45;
 
 /** How high the camera sits above the floor plane, in degrees. */
-const VIEW_ANGLE_DEG = 42;
+const VIEW_ANGLE_DEG = 34;
+
+/**
+ * Which way round the room the camera sits, in degrees. 45° puts it on the
+ * open corner of the cutaway diorama, looking into both walls — the composition
+ * the asset pack is built for.
+ */
+const VIEW_AZIMUTH_DEG = 45;
 
 /** A little breathing room so nothing sits flush against the screen edge. */
 const MARGIN = 1.06;
@@ -46,9 +53,14 @@ for (const x of [FRAME_BOX.min.x, FRAME_BOX.max.x]) {
   }
 }
 
-const angle = THREE.MathUtils.degToRad(VIEW_ANGLE_DEG);
+const elevation = THREE.MathUtils.degToRad(VIEW_ANGLE_DEG);
+const azimuth = THREE.MathUtils.degToRad(VIEW_AZIMUTH_DEG);
 /** Unit offset from the frame centre to the camera. */
-const VIEW_OFFSET = new THREE.Vector3(0, Math.sin(angle), Math.cos(angle));
+const VIEW_OFFSET = new THREE.Vector3(
+  Math.cos(elevation) * Math.sin(azimuth),
+  Math.sin(elevation),
+  Math.cos(elevation) * Math.cos(azimuth),
+);
 
 const scratch = new THREE.Vector3();
 

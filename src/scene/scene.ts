@@ -1,16 +1,12 @@
 import * as THREE from "three";
-import { buildRoom } from "@/scene/room";
 import { CAMERA_FOV, fitCameraToCafe } from "@/scene/camera";
-import { applyVenuePalette } from "@/scene/room";
-import { venueAt } from "@/data/venues";
+import { buildCafeRoom } from "@/scene/cafe-room";
 
 export interface SceneContext {
   scene: THREE.Scene;
   camera: THREE.PerspectiveCamera;
   renderer: THREE.WebGLRenderer;
   render: () => void;
-  /** Repaint the room and sky for a venue — call after a move (§8). */
-  setVenue: (venueIndex: number) => void;
 }
 
 /**
@@ -51,10 +47,10 @@ function addLighting(scene: THREE.Scene): void {
   scene.add(counterGlow);
 }
 
-export function createScene(canvas: HTMLCanvasElement, venueIndex = 0): SceneContext {
+export async function createScene(canvas: HTMLCanvasElement): Promise<SceneContext> {
   const scene = new THREE.Scene();
   // A touch deeper than the walls so the room edges read against it.
-  scene.background = new THREE.Color(venueAt(venueIndex).palette.sky);
+  scene.background = new THREE.Color(0xe9dcc6);
 
   // Position and distance are solved per aspect ratio in resize() below, so the
   // café is fully framed on a portrait phone as well as a desktop window (§6).
@@ -75,13 +71,9 @@ export function createScene(canvas: HTMLCanvasElement, venueIndex = 0): SceneCon
   renderer.toneMappingExposure = 1.12;
 
   addLighting(scene);
-  scene.add(buildRoom(venueIndex));
 
-  function setVenue(index: number): void {
-    const palette = venueAt(index).palette;
-    applyVenuePalette(palette);
-    (scene.background as THREE.Color).setHex(palette.sky);
-  }
+  const cafe = await buildCafeRoom();
+  scene.add(cafe.group);
 
   function resize() {
     const width = window.innerWidth;
@@ -96,5 +88,5 @@ export function createScene(canvas: HTMLCanvasElement, venueIndex = 0): SceneCon
     renderer.render(scene, camera);
   }
 
-  return { scene, camera, renderer, render, setVenue };
+  return { scene, camera, renderer, render };
 }

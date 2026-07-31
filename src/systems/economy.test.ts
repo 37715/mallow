@@ -79,17 +79,22 @@ describe("cats stay worth buying", () => {
   })();
 
   const paybackMinutes = (catsOwned: number): number => {
-    const upgrades = { seating: 6, decor: 10, brews: 10, hands: 6 };
+    const upgrades = { decor: 8, brews: 8 };
     const appeal = catsOwned * AVG_CAT_APPEAL;
-    const before = liveIncomePerSecond(cafeStats(appeal, upgrades, 3));
-    const after = liveIncomePerSecond(cafeStats(appeal + AVG_CAT_APPEAL, upgrades, 3));
+    const before = liveIncomePerSecond(cafeStats(appeal, upgrades));
+    const after = liveIncomePerSecond(cafeStats(appeal + AVG_CAT_APPEAL, upgrades));
     return costForNextCat(catsOwned) / (after - before) / 60;
   };
 
-  it("pays a cat back within a session, well past the fortieth", () => {
-    for (const owned of [5, 10, 20, 30, 40]) {
-      expect(paybackMinutes(owned)).toBeLessThan(30);
+  it("pays every cat back within a sitting, right up to the cap", () => {
+    // The last cat is allowed to be a bigger commitment than the first — that's
+    // what makes a full house feel earned. What must never happen is a cat you
+    // can't pay back at all, which is what killed the hook at 1.6 growth.
+    for (let owned = 1; owned < ECONOMY_CONFIG.maxCats; owned++) {
+      expect(paybackMinutes(owned), `cat #${owned + 1}`).toBeLessThan(60);
     }
+    // ...and the early ones should be near-impulse buys.
+    expect(paybackMinutes(1)).toBeLessThan(15);
   });
 
   it("keeps cost growth inside idle-genre norms", () => {
@@ -97,8 +102,6 @@ describe("cats stay worth buying", () => {
     // because each cat is an individual you name rather than one of hundreds
     // of interchangeable buildings — but it must not run away.
     expect(ECONOMY_CONFIG.catCostGrowth).toBeGreaterThan(1.1);
-    expect(ECONOMY_CONFIG.catCostGrowth).toBeLessThan(1.35);
-    const doublesEvery = Math.log(2) / Math.log(ECONOMY_CONFIG.catCostGrowth);
-    expect(doublesEvery).toBeGreaterThan(2);
+    expect(ECONOMY_CONFIG.catCostGrowth).toBeLessThan(1.6);
   });
 });

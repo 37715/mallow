@@ -4,14 +4,36 @@
  */
 
 export const ECONOMY_CONFIG = {
-  /** Seats a brand-new café opens with. The seating upgrade adds more (data/upgrades). */
-  baseSeatCount: 4,
+  /**
+   * Seats in the café. Fixed by the room layout (`data/cafe-layout.ts`) — the
+   * café is one small room now, so seating grows by *arranging furniture*, not
+   * by buying an abstract upgrade level.
+   */
+  baseSeatCount: 6,
+
+  /**
+   * The till only holds so much. Money stops accruing at this ceiling.
+   *
+   * This is what actually *guarantees* the readable-money rule (§0). Without
+   * it, any idle game accumulates forever once everything is bought — the
+   * balance sim reached £34 million in thirty days purely by hoarding, which
+   * is exactly the "figures such as £5 million" problem. Nothing is ever lost
+   * and nothing is taken away; the till simply fills up, which is a gentle nudge
+   * to go and spend it on something lovely.
+   *
+   * Four digits, deliberately: money should never need abbreviating.
+   */
+  tillCapacity: 9999,
 
   /** Starting money so the first purchase is reachable quickly (protects D1 pacing). */
-  startingMoney: 20,
+  startingMoney: 40,
 
-  /** Slowest time between visitor spawn attempts, with one common cat in the café. */
-  baseVisitorIntervalMs: 4800,
+  /**
+   * Slowest time between visitor spawn attempts, with one common cat in the
+   * café. Twenty seconds: the café should feel *gently* active, a guest
+   * drifting in now and then, not a queue. Frantic isn't cosy (§2).
+   */
+  baseVisitorIntervalMs: 20000,
 
   /**
    * Hard safety floor on the arrival interval. Kept well *below* the
@@ -31,25 +53,35 @@ export const ECONOMY_CONFIG = {
    * café bought nothing at all. This curve has diminishing returns but never
    * flattens, so more appeal is always worth something.
    */
-  visitorRatePerAppeal: 0.22,
+  visitorRatePerAppeal: 0.1,
 
   /** Base money paid by a visitor when they finish their visit. */
-  baseVisitorPay: 5,
+  baseVisitorPay: 3,
 
   /** Extra fractional pay per point of appeal beyond the first (cuter café → bigger tips). */
-  visitorPayBonusPerAppeal: 0.25,
+  visitorPayBonusPerAppeal: 0.06,
 
   /** How long a visitor takes to walk from the door to their seat. */
   walkInDurationMs: 1200,
 
-  /** How long a visitor sits before paying and leaving, before service upgrades. */
-  dwellDurationMs: 3200,
+  /** How long a guest lingers before paying and leaving. Long on purpose —
+   * watching someone settle in with a coffee is the point. */
+  dwellDurationMs: 6000,
 
   /** How long a visitor takes to walk from their seat back out the door. */
   walkOutDurationMs: 1200,
 
+  /**
+   * Maximum cats living in the café. A hard cap, not a soft one.
+   *
+   * The old game let you accumulate fifty, which is why the room turned into a
+   * pyramid of clipping cats and why each new one stopped meaning anything.
+   * Eight cats you know by name beats fifty you don't (§0 direction change).
+   */
+  maxCats: 8,
+
   /** Base cost of the Nth additional cat (index 1 = second cat). Cost curve below. */
-  baseCatCost: 25,
+  baseCatCost: 45,
 
   /**
    * Growth factor applied per additional cat already owned.
@@ -59,13 +91,14 @@ export const ECONOMY_CONFIG = {
    * — which made every cat past ~25 a trap purchase you could never pay off,
    * killing the "one more cat" hook that is the whole point of the game (§8).
    *
-   * 1.28 doubles every ~2.8 cats: cats stay worth buying to roughly the 40th,
-   * which suits a game where each one is an individual you name, rather than
-   * Cookie Clicker's hundreds of interchangeable grandmas.
+   * With a hard cap of eight cats the curve only has to stay sensible over a
+   * handful of purchases, so it can be steeper than Cookie Clicker's 1.15
+   * without ever becoming a trap: the last cat lands around £1,800, which is
+   * a real saving-up goal but still a readable number.
    *
    * Check this with `npm run balance` before changing it.
    */
-  catCostGrowth: 1.28,
+  catCostGrowth: 1.45,
 
   /**
    * Petting a cat makes it content for a while, and content cats draw more

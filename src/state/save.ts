@@ -1,7 +1,6 @@
 import type { StoreApi } from "zustand/vanilla";
 import type { CatInstance, GameState } from "@/state/store";
 import { UPGRADE_DEFINITIONS } from "@/data/upgrades";
-import { VENUES } from "@/data/venues";
 import { levelOf, type UpgradeLevels } from "@/systems/upgrades";
 
 /**
@@ -19,24 +18,28 @@ import { levelOf, type UpgradeLevels } from "@/systems/upgrades";
  *   v3 → v4: added `venueIndex` (venue progression). Cats gained an optional
  *            `contentUntil`; absent simply means "not content", so no cat data
  *            needed rewriting — which is the point of keeping it optional.
+ *   v4 → v5: **dropped `venueIndex`** — the venue ladder was scrapped in the
+ *            direction change (§0). Anyone mid-ladder keeps their cats and
+ *            names; they simply come home to the one café. Money is rescaled
+ *            in the same step, because old balances ran to the billions and
+ *            the new economy tops out in the tens of thousands.
  */
 
 const SAVE_KEY = "mallow-save";
-const SAVE_VERSION = 4;
+const SAVE_VERSION = 5;
 
-interface SaveDataV4 {
-  version: 4;
+interface SaveDataV5 {
+  version: 5;
   money: number;
   nextCatId: number;
   cats: CatInstance[];
   /** Wall-clock (Date.now) timestamp of the last save — basis for offline earnings. */
   savedAt: number;
   upgrades: UpgradeLevels;
-  venueIndex: number;
 }
 
 export interface LoadedSave
-  extends Pick<GameState, "money" | "cats" | "nextCatId" | "upgrades" | "venueIndex"> {
+  extends Pick<GameState, "money" | "cats" | "nextCatId" | "upgrades"> {
   savedAt: number;
 }
 
@@ -52,6 +55,14 @@ const MIGRATIONS: Record<number, (data: RawSave) => RawSave> = {
   2: (data) => ({ ...data, version: 3, upgrades: {} }),
   // Everyone starts in the first venue; existing cats need no rewriting.
   3: (data) => ({ ...data, version: 4, venueIndex: 0 }),
+  // The ladder is gone. Drop the venue, and bring absurd old balances back
+  // into the readable range rather than handing someone a billion pounds in a
+  // game whose prices now top out around 30,000.
+  4: (data) => {
+    const { venueIndex: _dropped, ...rest } = data;
+    const money = typeof data.money === "number" ? data.money : 0;
+    return { ...rest, version: 5, money: Math.min(money, 5_000) };
+  },
 };
 
 function isValidCat(value: unknown): value is CatInstance {
@@ -63,12 +74,6 @@ function isValidCat(value: unknown): value is CatInstance {
     cat.name.length > 0 &&
     typeof cat.definitionId === "string"
   );
-}
-
-/** Clamp into the venue ladder — a save from a newer build must never crash. */
-function sanitizeVenueIndex(value: unknown): number {
-  if (typeof value !== "number" || !Number.isFinite(value)) return 0;
-  return Math.min(VENUES.length - 1, Math.max(0, Math.floor(value)));
 }
 
 /**
@@ -126,7 +131,6 @@ export function loadSave(): LoadedSave | null {
       nextCatId,
       savedAt,
       upgrades: sanitizeUpgrades(data.upgrades),
-      venueIndex: sanitizeVenueIndex(data.venueIndex),
     };
   } catch {
     return null;
@@ -134,14 +138,13 @@ export function loadSave(): LoadedSave | null {
 }
 
 function persist(state: GameState): void {
-  const data: SaveDataV4 = {
+  const data: SaveDataV5 = {
     version: SAVE_VERSION,
     money: state.money,
     nextCatId: state.nextCatId,
     cats: state.cats,
     savedAt: Date.now(),
     upgrades: state.upgrades,
-    venueIndex: state.venueIndex,
   };
   try {
     localStorage.setItem(SAVE_KEY, JSON.stringify(data));

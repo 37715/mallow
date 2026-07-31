@@ -79,10 +79,10 @@ describe("tickVisitors", () => {
     }
   });
 
-  it("earns more per unit time in a bigger café once seats are the bottleneck", () => {
-    const small = simulate(120_000, 50, cafeStats(500, {})).earned;
-    const large = simulate(120_000, 50, cafeStats(500, { seating: 6 })).earned;
-    expect(large).toBeGreaterThan(small);
+  it("earns more from a better-appointed café over the same window", () => {
+    const plain = simulate(120_000, 50, cafeStats(500, {})).earned;
+    const nice = simulate(120_000, 50, cafeStats(500, { decor: 8, brews: 8 })).earned;
+    expect(nice).toBeGreaterThan(plain);
   });
 
   it("does not mutate the visitor array it was given", () => {

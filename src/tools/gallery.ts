@@ -110,7 +110,7 @@ async function main(): Promise<void> {
       renderer.render(scene, camera);
       const context = canvas.getContext("2d");
       context?.clearRect(0, 0, CARD, CARD);
-      context?.drawImage(renderer.domElement, 0, 0);
+      context?.drawImage(renderer.domElement, 0, 0, CARD, CARD);
 
       scene.remove(mesh);
     }

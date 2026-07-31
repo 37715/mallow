@@ -28,8 +28,12 @@ This file is the shared brain for the project. **Read it before starting work in
   floaters, dust motes); **audio ✅** (synthesised, no asset files).
 - **Café asset pack integrated ✅** — Minty.kit "Cozy Cat Café" (CC0), 343
   objects on one shared atlas. Loader + asset gallery built; see §9.
-- ~~Venue progression~~ — built, then **scrapped by the direction change above**.
-  Code still present; removal is pending work.
+- **The café is real art ✅** — hand-placed diorama in `data/cafe-layout.ts`,
+  built by `scene/cafe-room.ts`. All procedural greybox is deleted.
+- **Venue ladder removed ✅** — `data/venues.ts`, `systems/venues.ts` and the
+  move UI are gone. Save v5 drops `venueIndex` and clamps absurd old balances.
+- **Economy rescaled to readable money ✅** — see §8 "Progression pacing".
+- **Cats capped at 8 ✅** (`ECONOMY_CONFIG.maxCats`).
 - **Contentment ✅** — petting cats is the mechanic that rewards being present.
 - **`npm run balance`** ✅ — simulates weeks of play under four player habits.
 - **Portrait framing** ✅ — the camera solves its own distance per aspect (§9).
@@ -127,17 +131,17 @@ This file is the shared brain for the project. **Read it before starting work in
   this go?" hook without the tonal break. **Ellis's call — not yet made.**
 
 **Known gaps / debts:**
-- **The game does not look good, and that is the top risk.** Everything visible
-  is procedural greybox standing in for art. For a cosy game the look *is* the
-  product (§2), so no amount of systems work compensates. Ellis is sourcing real
-  assets; the next engineering job is the GLB pipeline that consumes them, not
-  more mechanics. Do not describe the current visuals as "art direction" — what
-  exists is a silhouette and a lighting rig.
-- **Venues need art, not just palettes.** Seven environments cannot be bought as
-  a matching set; that pack doesn't exist. The plan is one café furniture set
-  plus ~3 signature props per venue, with lighting and palette doing most of the
-  differentiation. Consider trimming the ladder to what can be art'd properly.
-- Cat/visitor/décor meshes are procedural placeholders; no GLB assets yet.
+- **The cats and customers are still greybox.** The room is real art now; the
+  cats sitting in it are procedural primitives, and they're the emotional star
+  of the game. Minty's character pack and a cat pack are the next art buys.
+- **The game runs out of things to do in about a day.** Eight cats and two
+  maxed upgrades is the whole of it. That is the honest cost of removing the
+  venue ladder before building what replaces it — decoration mode, recipes,
+  regulars, seasonal bits. Until that lands there is very little mid-game.
+- **Decoration mode does not exist yet**, and it is now the core progression
+  loop, not a nice-to-have. The layout is already data (`data/cafe-layout.ts`)
+  so the groundwork is there.
+- No customer variety: visitors are one capsule mesh in five colours.
 - Ambient audio is synthesised; a composed bed would be better.
 - No UI/icon art — upgrade icons are emoji.
 - Bundle ~534 kB (Three.js); fine for now, revisit before ship.
@@ -164,6 +168,15 @@ This file is the shared brain for the project. **Read it before starting work in
   Added tap-to-pet, coin floaters, dust motes, and a fully synthesised audio
   layer. Reordered §15 and wrote down why. Added jsdom HUD smoke tests, since
   no agent has been able to open a browser on this project yet.
+- *2026-07-31* — **The café became real, and the empire died.** Integrated the
+  Minty pack as an actual hand-placed room (diorama, cutaway, isometric),
+  deleted every procedural greybox module, removed the venue ladder entirely,
+  rescaled the economy from billions to a £9,999 till ceiling, and capped cats
+  at eight. `scene/cafe-room.test.ts` verifies the hand-placed layout has no
+  clashes and every seat is walkable — the same bounding-box trick as before,
+  now pointed at real art. What is *not* done: cats and customers are still
+  greybox, and decoration mode — the thing that now has to carry progression —
+  isn't built.
 - *2026-07-31* — **Playtest fixes from Ellis on device.** Four real faults, all
   found by playing rather than by any test: (1) cat cost growth was 1.6, nearly
   4x outside genre norms — Cookie Clicker is 1.15 — so every cat past ~25 was a
@@ -374,7 +387,39 @@ Build a **repeatable event system early** (seasonal themes, special/collab cats,
 ### Save / load
 Single source of truth = the Zustand store, serialised to storage. Autosave on every meaningful state change and on app background. Include a `version` field and a migration path so updates never corrupt saves. **Never lose a player's cats.** Sacred.
 
-**Currently at v4.** Migrations are a chain in `state/save.ts`: each entry bumps exactly one version, and `loadSave` walks a save forward from whatever version it's on. Adding a version means appending one migration and one test case to `state/save.test.ts` — which every version must have, because this is the one place a bug costs a player their cats. (v1→v2 added `savedAt`; v2→v3 added `upgrades`; v3→v4 added `venueIndex`, plus an optional `contentUntil` per cat that needed no rewriting.)
+**Currently at v5.** Migrations are a chain in `state/save.ts`: each entry bumps exactly one version, and `loadSave` walks a save forward from whatever version it's on. Adding a version means appending one migration and one test case to `state/save.test.ts` — which every version must have, because this is the one place a bug costs a player their cats. (v1→v2 added `savedAt`; v2→v3 added `upgrades`; v3→v4 added `venueIndex` plus an optional `contentUntil` per cat; v4→v5 **removed** `venueIndex` with the venue ladder and clamped old billion-pound balances into the new readable range — cats and names always survive.)
+
+### The small-café economy (rebalanced 2026-07-31)
+
+Every number was rescaled when the empire fantasy was scrapped (§0). The shape
+now, verified by `npm run balance`:
+
+| | |
+|---|---|
+| Starting money | £40 |
+| Second cat | £45 — reachable in the first minute, which protects D1 |
+| Eighth (last) cat | ~£1,800 |
+| Cheapest upgrade | £40 |
+| Dearest upgrade level | ~£3,200 |
+| Income at full build-out | ~£81/min |
+| **Till ceiling** | **£9,999** |
+
+**The till ceiling is the load-bearing part.** Money stops accruing there.
+Without it any idle game accumulates forever once everything is bought — the
+sim hit **£34 million in thirty days** purely by hoarding, which is precisely
+the "figures such as £5 million" problem. Nothing is lost and nothing is taken
+away; the till just fills, which is a gentle nudge to spend it on something
+lovely. Four digits, so money never needs abbreviating. `npm run balance`
+prints the peak till and will show the clamp broken if it ever exceeds it.
+
+Two other things changed shape rather than scale:
+
+- **Guests arrive every ~20s**, not every second, and linger 6s. The café
+  should feel *gently* active. Frantic isn't cosy.
+- **Only two upgrade levers remain** — décor (appeal) and brews (pay). Seating
+  went because the café is one fixed room; service speed went because with six
+  seats and gentle arrivals seats never bottleneck, so it bought nothing. The
+  variety that replaces them is decoration and recipes, not more sliders.
 
 ### Progression pacing — and why offline income is deliberately weak
 

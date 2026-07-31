@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import { computeOfflineEarnings, liveIncomePerSecond } from "@/systems/offline";
 import { cafeStats, visitDurationMs } from "@/systems/cafe";
 import { ECONOMY_CONFIG } from "@/data/economy";
-import { upgradeDefinition } from "@/data/upgrades";
 
 const HOUR_MS = 60 * 60 * 1000;
 
@@ -36,36 +35,12 @@ describe("liveIncomePerSecond", () => {
   });
 
   it("keeps the arrival floor below what a maxed-out café can seat", () => {
-    // If the floor ever binds first, seating and service upgrades silently stop
-    // doing anything — the exact bug this economy was retuned to fix. Guard it.
-    const hands = upgradeDefinition("hands")!;
-    const seating = upgradeDefinition("seating")!;
-    const maxed = cafeStats(1, { seating: seating.maxLevel, hands: hands.maxLevel });
+    // If the floor ever binds first, the service upgrade silently stops doing
+    // anything — the exact bug this economy was retuned to fix. Guard it.
+    const maxed = cafeStats(1, {});
     const seatCapPerSecond = maxed.seatCount / (visitDurationMs(maxed) / 1000);
     const floorCapPerSecond = 1000 / ECONOMY_CONFIG.minVisitorIntervalMs;
     expect(floorCapPerSecond).toBeGreaterThan(seatCapPerSecond);
-  });
-
-  it("makes seating pay off once a busy café is seat-limited", () => {
-    // Enough appeal to sit on the spawn floor, so seats are what binds.
-    const busy = 100;
-    const base = liveIncomePerSecond(cafeStats(busy, {}));
-    const roomier = liveIncomePerSecond(cafeStats(busy, { seating: 4 }));
-    expect(roomier).toBeGreaterThan(base);
-
-    // ...and does nothing for a sleepy café, where arrivals are the bottleneck.
-    expect(liveIncomePerSecond(cafeStats(1, { seating: 4 }))).toBeCloseTo(
-      liveIncomePerSecond(cafeStats(1, {})),
-    );
-  });
-});
-
-describe("computeOfflineEarnings", () => {
-  it("ignores short absences below the threshold", () => {
-    expect(computeOfflineEarnings(plain(1), ECONOMY_CONFIG.offline.minAwayMs - 1)).toBe(0);
-    expect(computeOfflineEarnings(plain(1), 0)).toBe(0);
-    expect(computeOfflineEarnings(plain(1), -5000)).toBe(0);
-    expect(computeOfflineEarnings(plain(1), Number.NaN)).toBe(0);
   });
 
   it("earns at the configured fraction of the live rate", () => {

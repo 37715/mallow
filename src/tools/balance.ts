@@ -14,11 +14,9 @@
 import { ECONOMY_CONFIG, costForNextCat } from "@/data/economy";
 import { RARITY_CONFIG } from "@/data/cats";
 import { UPGRADE_DEFINITIONS, type UpgradeId } from "@/data/upgrades";
-import { VENUES } from "@/data/venues";
 import { cafeStats, type CafeStats } from "@/systems/cafe";
 import { liveIncomePerSecond, computeOfflineEarnings } from "@/systems/offline";
-import { nextLevelCost, purchaseUpgrade, type UpgradeLevels } from "@/systems/upgrades";
-import { moveToNextVenue } from "@/systems/venues";
+import { levelOf, nextLevelCost, purchaseUpgrade, type UpgradeLevels } from "@/systems/upgrades";
 
 const HOUR = 3600;
 const DAY = 24 * HOUR;
@@ -51,7 +49,6 @@ interface Player {
   cats: number;
   catAppealBase: number;
   upgrades: UpgradeLevels;
-  venueIndex: number;
   /** Simulated seconds of contentment remaining on the roster. */
   contentFor: number;
 }
@@ -60,11 +57,11 @@ function statsFor(player: Player, content: boolean): CafeStats {
   const appeal = content
     ? player.catAppealBase * ECONOMY_CONFIG.contentment.appealMultiplier
     : player.catAppealBase;
-  return cafeStats(appeal, player.upgrades, player.venueIndex);
+  return cafeStats(appeal, player.upgrades);
 }
 
 /** Greedy: spend on whatever buys the most income per dollar. */
-function spend(player: Player): void {
+function spend(player: Player, onCatAdopted?: () => void): void {
   for (let guard = 0; guard < 200; guard++) {
     const now = liveIncomePerSecond(statsFor(player, false));
 
@@ -75,13 +72,14 @@ function spend(player: Player): void {
     }
     const options: Option[] = [];
 
-    const catCost = costForNextCat(player.cats);
-    const withCat = { ...player, catAppealBase: player.catAppealBase + AVG_CAT_APPEAL };
-    options.push({
-      kind: "cat",
-      cost: catCost,
-      gain: liveIncomePerSecond(statsFor(withCat, false)) - now,
-    });
+    if (player.cats < ECONOMY_CONFIG.maxCats) {
+      const withCat = { ...player, catAppealBase: player.catAppealBase + AVG_CAT_APPEAL };
+      options.push({
+        kind: "cat",
+        cost: costForNextCat(player.cats),
+        gain: liveIncomePerSecond(statsFor(withCat, false)) - now,
+      });
+    }
 
     for (const definition of UPGRADE_DEFINITIONS) {
       const cost = nextLevelCost(player.upgrades, definition.id);
@@ -103,16 +101,13 @@ function spend(player: Player): void {
     if (best.kind === "cat") {
       player.cats++;
       player.catAppealBase += AVG_CAT_APPEAL;
+      onCatAdopted?.();
     } else {
       player.upgrades = purchaseUpgrade(Infinity, player.upgrades, best.kind).levels;
     }
   }
 }
 
-interface Milestone {
-  venue: string;
-  atSeconds: number;
-}
 
 function simulate(habit: Habit, days: number) {
   const player: Player = {
@@ -120,15 +115,16 @@ function simulate(habit: Habit, days: number) {
     cats: 1,
     catAppealBase: RARITY_CONFIG.common.appeal,
     upgrades: {},
-    venueIndex: 0,
     contentFor: 0,
   };
 
-  const milestones: Milestone[] = [];
   const activeSeconds = habit.sessions * habit.minutesPerSession * 60;
   const gapSeconds = (DAY - activeSeconds) / habit.sessions;
   let activeTotal = 0;
   let offlineTotal = 0;
+  let peak = 0;
+  /** Elapsed seconds when each cat was adopted — the early-pacing numbers. */
+  const catAt: number[] = [];
 
   for (let day = 0; day < days; day++) {
     for (let session = 0; session < habit.sessions; session++) {
@@ -141,7 +137,7 @@ function simulate(habit: Habit, days: number) {
         statsFor(player, false),
         contentCarriedMs,
       );
-      player.money += earned;
+      player.money = Math.min(ECONOMY_CONFIG.tillCapacity, player.money + earned);
       offlineTotal += earned;
 
       if (habit.pets) player.contentFor = ECONOMY_CONFIG.contentment.durationMs / 1000;
@@ -150,59 +146,55 @@ function simulate(habit: Habit, days: number) {
       for (let t = 0; t < habit.minutesPerSession * 60; t += 10) {
         const content = player.contentFor > 0;
         const income = liveIncomePerSecond(statsFor(player, content)) * 10;
-        player.money += income;
+        player.money = Math.min(ECONOMY_CONFIG.tillCapacity, player.money + income);
         activeTotal += income;
         player.contentFor = Math.max(0, player.contentFor - 10);
-        spend(player);
+        peak = Math.max(peak, player.money);
+        const elapsed = day * DAY + session * gapSeconds + t;
+        spend(player, () => catAt.push(elapsed));
 
-        const move = moveToNextVenue(player.money, player.venueIndex);
-        if (move.success && move.venue) {
-          player.venueIndex = move.venueIndex;
-          player.money = ECONOMY_CONFIG.startingMoney;
-          player.upgrades = {};
-          milestones.push({
-            venue: move.venue.name,
-            atSeconds: day * DAY + session * (gapSeconds + activeSeconds / habit.sessions) + t,
-          });
-        }
       }
     }
   }
 
-  return { player, milestones, activeTotal, offlineTotal };
+  return { player, activeTotal, offlineTotal, peak, catAt };
 }
 
-function fmtDuration(seconds: number): string {
-  if (seconds < HOUR) return `${(seconds / 60).toFixed(0)}m`;
+function fmtTime(seconds: number): string {
+  if (seconds < HOUR) return `${Math.round(seconds / 60)}m`;
   if (seconds < DAY) return `${(seconds / HOUR).toFixed(1)}h`;
   return `${(seconds / DAY).toFixed(1)}d`;
 }
 
 function fmtMoney(n: number): string {
-  const units = ["", "K", "M", "B", "T", "Qa", "Qi"];
-  let u = 0;
-  while (n >= 1000 && u < units.length - 1) {
-    n /= 1000;
-    u++;
-  }
-  return `$${n.toFixed(n < 10 && u > 0 ? 1 : 0)}${units[u]}`;
+  // Deliberately NOT abbreviated: the whole point of the rebalance is that
+  // money stays small enough to read as a plain number (§0). If this output
+  // starts needing K or M, the economy has drifted.
+  return `£${Math.round(n).toLocaleString("en-GB")}`;
 }
 
 // --- Report ----------------------------------------------------------------
 
 const DAYS = 30;
-console.log(`\n=== PROGRESSION over ${DAYS} simulated days ===\n`);
-console.log("habit                        venues reached   final $/min   time to each venue");
+console.log(`
+=== PROGRESSION over ${DAYS} simulated days ===
+`);
+console.log("habit                        cats  upgrades  peak till  £/min   2nd cat   full house");
 
 for (const habit of HABITS) {
-  const { player, milestones } = simulate(habit, DAYS);
+  const { player, peak, catAt } = simulate(habit, DAYS);
   const rate = liveIncomePerSecond(statsFor(player, false)) * 60;
-  const path = milestones.map((m) => `${m.venue.split(" ")[0]}@${fmtDuration(m.atSeconds)}`).join(" → ");
+  const levels = UPGRADE_DEFINITIONS.map((d) => `${d.id[0]}${levelOf(player.upgrades, d.id)}`).join(" ");
+  const when = (i: number) => (catAt[i] === undefined ? "  never" : fmtTime(catAt[i]));
   console.log(
-    `${habit.name.padEnd(28)} ${String(player.venueIndex + 1).padStart(2)}/${VENUES.length}` +
-      `           ${fmtMoney(rate).padStart(9)}   ${path || "(none)"}`,
+    `${habit.name.padEnd(28)} ${String(player.cats).padStart(4)}  ${levels.padEnd(8)} ` +
+      `${fmtMoney(peak).padStart(9)}  ${fmtMoney(rate).padStart(5)}  ${when(0).padStart(8)}  ${when(ECONOMY_CONFIG.maxCats - 2).padStart(9)}`,
   );
 }
+
+console.log(
+  `\nTill ceiling is ${fmtMoney(ECONOMY_CONFIG.tillCapacity)} — if "peak till" ever exceeds it, the clamp is broken.`,
+);
 
 console.log(`\n=== IS PLAYING WORTH IT? ===\n`);
 for (const habit of HABITS) {
@@ -218,10 +210,9 @@ for (const habit of HABITS) {
 // The headline number: does an hour of playing beat an hour of being away?
 const probe: Player = {
   money: 0,
-  cats: 8,
-  catAppealBase: 8 * AVG_CAT_APPEAL,
-  upgrades: { seating: 2, decor: 4, brews: 3 },
-  venueIndex: 0,
+  cats: 6,
+  catAppealBase: 6 * AVG_CAT_APPEAL,
+  upgrades: { decor: 4, brews: 3 },
   contentFor: 0,
 };
 const activeRate = liveIncomePerSecond(statsFor(probe, true));

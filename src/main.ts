@@ -4,11 +4,9 @@ import { startLoop } from "@/core/loop";
 import { gameStore, bootAwayMs, currentCafeStats } from "@/state/store";
 import { initAutosave } from "@/state/save";
 import { CatManager } from "@/entities/cat-manager";
-import { CafeManager } from "@/entities/cafe-manager";
 import { VisitorManager } from "@/entities/visitor-manager";
 import { DustMotes } from "@/scene/dust";
 import { SEAT_POSITIONS } from "@/scene/room";
-import { levelOf } from "@/systems/upgrades";
 import { visitorPayAmount } from "@/data/economy";
 import { mountUI } from "@/ui/ui";
 import { CatLabelLayer } from "@/ui/cat-labels";
@@ -17,33 +15,14 @@ import { initAnalytics } from "@/analytics/analytics";
 import { onGameEvent } from "@/core/events";
 import { initAudio, playCoin, playPurr } from "@/audio/audio";
 
-function bootstrap(): void {
+async function bootstrap(): Promise<void> {
   const canvas = document.getElementById("scene") as HTMLCanvasElement;
   const uiRoot = document.getElementById("ui-root") as HTMLElement;
 
-  const { scene, camera, render, setVenue } = createScene(
-    canvas,
-    gameStore.getState().venueIndex,
-  );
+  const { scene, camera, render } = await createScene(canvas);
   const catManager = new CatManager(scene);
-  const cafeManager = new CafeManager(scene);
   const visitorManager = new VisitorManager(scene);
   const dust = new DustMotes(scene);
-
-  // Build whatever the café already owns before the first frame, so a returning
-  // player's room is simply there rather than popping in around them.
-  {
-    const state = gameStore.getState();
-    cafeManager.sync(
-      currentCafeStats(state).seatCount,
-      levelOf(state.upgrades, "decor"),
-      performance.now(),
-      true,
-    );
-  }
-
-  /** Venue currently drawn, so the loop can notice a move and repaint. */
-  let shownVenueIndex = gameStore.getState().venueIndex;
 
   const floaters = new FloaterLayer(uiRoot);
   const ui = mountUI(uiRoot);
@@ -113,18 +92,8 @@ function bootstrap(): void {
   startLoop((now) => {
     gameStore.getState().tick(now);
     const state = gameStore.getState();
-    const { cats, visitors, upgrades } = state;
+    const { cats, visitors } = state;
 
-    // A move repaints the room and drops every fixture — the café you walk
-    // into is a different room, which is the whole payoff of moving (§8).
-    if (state.venueIndex !== shownVenueIndex) {
-      shownVenueIndex = state.venueIndex;
-      setVenue(state.venueIndex);
-      cafeManager.reset();
-    }
-
-    cafeManager.sync(currentCafeStats(state).seatCount, levelOf(upgrades, "decor"), now);
-    cafeManager.animate(now);
     catManager.sync(cats, now);
     catManager.animate(now);
     visitorManager.sync(visitors, now);
@@ -135,4 +104,4 @@ function bootstrap(): void {
   });
 }
 
-bootstrap();
+void bootstrap();

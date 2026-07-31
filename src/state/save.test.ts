@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { loadSave } from "@/state/save";
 import { upgradeDefinition } from "@/data/upgrades";
-import { VENUES } from "@/data/venues";
 
 /**
  * Save migration is the one place a bug costs a player their cats (§8), so
@@ -46,62 +45,53 @@ describe("loadSave", () => {
     expect(loadSave()).toBeNull();
   });
 
-  it("reads a current v4 save unchanged", () => {
+  it("reads a current v5 save unchanged", () => {
     write({
-      version: 4,
+      version: 5,
       money: 120,
       nextCatId: 2,
       cats: CATS,
       savedAt: 1000,
-      upgrades: { seating: 2, decor: 1 },
-      venueIndex: 2,
+      upgrades: { decor: 2, brews: 1 },
     });
     const save = loadSave();
     expect(save).not.toBeNull();
     expect(save!.money).toBe(120);
     expect(save!.cats).toEqual(CATS);
-    expect(save!.upgrades).toEqual({ seating: 2, decor: 1 });
-    expect(save!.venueIndex).toBe(2);
+    expect(save!.upgrades).toEqual({ decor: 2, brews: 1 });
   });
 
-  it("migrates a v3 save into the first venue, keeping everything else", () => {
+  it("migrates a v3 save forward, keeping cats and timestamps", () => {
     write({
       version: 3,
       money: 500,
       nextCatId: 2,
       cats: CATS,
       savedAt: 777,
-      upgrades: { seating: 2 },
+      upgrades: {},
     });
     const save = loadSave();
-    expect(save!.venueIndex).toBe(0);
-    expect(save!.upgrades).toEqual({ seating: 2 });
+    expect(save!.upgrades).toEqual({});
     expect(save!.cats).toEqual(CATS);
     expect(save!.savedAt).toBe(777);
   });
 
-  it("clamps a venue index from a build with more venues than this one", () => {
+  it("brings an absurd old balance back into the readable range", () => {
+    // Someone mid-venue-ladder could be holding billions. The new economy tops
+    // out in the tens of thousands, so carrying that over would end the game
+    // on the spot. Cats and names survive; the silly number does not.
     write({
       version: 4,
-      money: 10,
-      nextCatId: 1,
+      money: 9_000_000_000,
+      nextCatId: 2,
       cats: CATS,
       savedAt: 1,
       upgrades: {},
-      venueIndex: 999,
+      venueIndex: 5,
     });
-    expect(loadSave()!.venueIndex).toBe(VENUES.length - 1);
-
-    write({
-      version: 4,
-      money: 10,
-      nextCatId: 1,
-      cats: CATS,
-      savedAt: 1,
-      upgrades: {},
-      venueIndex: "moon",
-    });
-    expect(loadSave()!.venueIndex).toBe(0);
+    const save = loadSave();
+    expect(save!.cats).toEqual(CATS);
+    expect(save!.money).toBeLessThanOrEqual(5_000);
   });
 
   it("keeps contentment on cats that have it, and tolerates cats without", () => {
@@ -110,13 +100,12 @@ describe("loadSave", () => {
       { id: "cat-1", name: "Mochi", definitionId: "tuxedo" },
     ];
     write({
-      version: 4,
+      version: 5,
       money: 10,
       nextCatId: 2,
       cats: petted,
       savedAt: 1,
       upgrades: {},
-      venueIndex: 0,
     });
     expect(loadSave()!.cats).toEqual(petted);
   });
@@ -136,26 +125,24 @@ describe("loadSave", () => {
     write({ version: 2, money: 40, nextCatId: 1, cats: CATS, savedAt: 555 });
     const save = loadSave();
     expect(save!.upgrades).toEqual({});
-    expect(save!.venueIndex).toBe(0);
     expect(save!.savedAt).toBe(555);
   });
 
   it("drops upgrade ids that no longer exist and clamps ones that shrank", () => {
-    const seatingMax = upgradeDefinition("seating")!.maxLevel;
+    const decorMax = upgradeDefinition("decor")!.maxLevel;
     write({
-      version: 4,
+      version: 5,
       money: 10,
       nextCatId: 1,
       cats: CATS,
       savedAt: 1,
-      upgrades: { seating: seatingMax + 50, "retired-upgrade": 4 },
-      venueIndex: 0,
+      upgrades: { decor: decorMax + 50, "retired-upgrade": 4 },
     });
-    expect(loadSave()!.upgrades).toEqual({ seating: seatingMax });
+    expect(loadSave()!.upgrades).toEqual({ decor: decorMax });
   });
 
   it("survives a corrupt upgrades field rather than discarding the save", () => {
-    write({ version: 4, money: 10, nextCatId: 1, cats: CATS, savedAt: 1, upgrades: "nope" });
+    write({ version: 5, money: 10, nextCatId: 1, cats: CATS, savedAt: 1, upgrades: "nope" });
     const save = loadSave();
     expect(save).not.toBeNull();
     expect(save!.cats).toEqual(CATS);
@@ -166,10 +153,10 @@ describe("loadSave", () => {
     localStorage.setItem(SAVE_KEY, "{not json");
     expect(loadSave()).toBeNull();
 
-    write({ version: 4, money: "lots", nextCatId: 1, cats: CATS, savedAt: 1, upgrades: {} });
+    write({ version: 5, money: "lots", nextCatId: 1, cats: CATS, savedAt: 1, upgrades: {} });
     expect(loadSave()).toBeNull();
 
-    write({ version: 4, money: 10, nextCatId: 1, cats: [], savedAt: 1, upgrades: {} });
+    write({ version: 5, money: 10, nextCatId: 1, cats: [], savedAt: 1, upgrades: {} });
     expect(loadSave()).toBeNull();
 
     write({ version: 99, money: 10, nextCatId: 1, cats: CATS, savedAt: 1, upgrades: {} });

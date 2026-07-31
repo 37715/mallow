@@ -1,12 +1,11 @@
 import { ECONOMY_CONFIG } from "@/data/economy";
 import { UPGRADE_DEFINITIONS } from "@/data/upgrades";
 import { RARITY_CONFIG, catDefinition } from "@/data/cats";
-import { venueAt } from "@/data/venues";
 import { levelOf, type UpgradeLevels } from "@/systems/upgrades";
 
 /**
- * The café's live performance numbers, composed from the cats it houses, the
- * upgrades bought so far, and the venue it trades in (§8). This is the single
+ * The café's live performance numbers, composed from the cats it houses and
+ * the upgrades bought so far (§8). This is the single
  * object every economy system reads — visitors, offline income, and the stat
  * readouts all agree because they all take a CafeStats.
  *
@@ -17,7 +16,7 @@ export interface CafeStats {
   appeal: number;
   /** How many guests can be seated at once — the throughput ceiling. */
   seatCount: number;
-  /** Multiplier applied to every visitor payout, including the venue's. */
+  /** Multiplier applied to every visitor payout. 1 = no upgrades. */
   payMultiplier: number;
   /** How long a guest sits before paying, after service upgrades. */
   dwellDurationMs: number;
@@ -59,39 +58,23 @@ export function contentCatCount(cats: CatForStats[], now: number): number {
  * Compose the café's stats. `catAppealTotal` is the summed appeal of owned cats
  * (see `catAppeal` above); upgrades and the venue layer on top.
  */
-export function cafeStats(
-  catAppealTotal: number,
-  levels: UpgradeLevels,
-  venueIndex = 0,
-): CafeStats {
-  const venue = venueAt(venueIndex);
-
-  let seats = venue.baseSeats;
+export function cafeStats(catAppealTotal: number, levels: UpgradeLevels): CafeStats {
   let appeal = catAppealTotal;
-  let payMultiplier = venue.incomeMultiplier;
-  let dwellReduction = 0;
+  let payMultiplier = 1;
 
   for (const definition of UPGRADE_DEFINITIONS) {
     const level = levelOf(levels, definition.id);
     if (level === 0) continue;
-    const { seats: s, appeal: a, pay: p, dwell: d } = definition.perLevel;
-    if (s) seats += s * level;
+    const { appeal: a, pay: p } = definition.perLevel;
     if (a) appeal += a * level;
-    // Upgrade pay bonuses are additive among themselves, then scaled by the
-    // venue — so a venue move multiplies everything you've built, which is
-    // what makes it read as a leap rather than an increment.
-    if (p) payMultiplier += p * level * venue.incomeMultiplier;
-    if (d) dwellReduction += d * level;
+    if (p) payMultiplier += p * level;
   }
 
   return {
     appeal,
-    seatCount: seats,
+    seatCount: ECONOMY_CONFIG.baseSeatCount,
     payMultiplier,
-    dwellDurationMs: Math.max(
-      MIN_DWELL_MS,
-      ECONOMY_CONFIG.dwellDurationMs * (1 - Math.min(0.9, dwellReduction)),
-    ),
+    dwellDurationMs: Math.max(MIN_DWELL_MS, ECONOMY_CONFIG.dwellDurationMs),
   };
 }
 
