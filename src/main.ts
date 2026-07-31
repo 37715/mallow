@@ -21,7 +21,10 @@ function bootstrap(): void {
   const canvas = document.getElementById("scene") as HTMLCanvasElement;
   const uiRoot = document.getElementById("ui-root") as HTMLElement;
 
-  const { scene, camera, render } = createScene(canvas);
+  const { scene, camera, render, setVenue } = createScene(
+    canvas,
+    gameStore.getState().venueIndex,
+  );
   const catManager = new CatManager(scene);
   const cafeManager = new CafeManager(scene);
   const visitorManager = new VisitorManager(scene);
@@ -38,6 +41,9 @@ function bootstrap(): void {
       true,
     );
   }
+
+  /** Venue currently drawn, so the loop can notice a move and repaint. */
+  let shownVenueIndex = gameStore.getState().venueIndex;
 
   const floaters = new FloaterLayer(uiRoot);
   const ui = mountUI(uiRoot);
@@ -77,6 +83,9 @@ function bootstrap(): void {
     const catId = catManager.pick(pointer, camera);
     if (!catId) return;
 
+    // Both halves matter: the store makes the cat *content* (the mechanic that
+    // rewards being present), the manager makes it *look* petted (§10).
+    gameStore.getState().petCat(catId);
     catManager.pet(catId, performance.now());
     const position = catManager.worldPositionOf(catId);
     if (position) floaters.burstHearts(position, camera);
@@ -105,6 +114,14 @@ function bootstrap(): void {
     gameStore.getState().tick(now);
     const state = gameStore.getState();
     const { cats, visitors, upgrades } = state;
+
+    // A move repaints the room and drops every fixture — the café you walk
+    // into is a different room, which is the whole payoff of moving (§8).
+    if (state.venueIndex !== shownVenueIndex) {
+      shownVenueIndex = state.venueIndex;
+      setVenue(state.venueIndex);
+      cafeManager.reset();
+    }
 
     cafeManager.sync(currentCafeStats(state).seatCount, levelOf(upgrades, "decor"), now);
     cafeManager.animate(now);

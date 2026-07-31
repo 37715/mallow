@@ -1,4 +1,7 @@
 import { gameStore, discoveredBreeds, currentCafeStats, type CatInstance } from "@/state/store";
+import { formatMoney, formatDuration } from "@/ui/format";
+import { contentCatCount } from "@/systems/cafe";
+import { moveProgress, nextVenue, venueAt } from "@/systems/venues";
 import { costForNextCat } from "@/data/economy";
 import {
   CAT_DEFINITIONS,
@@ -32,18 +35,6 @@ const REVEAL_INTENSITY: Record<string, number> = {
   epic: 0.8,
   legendary: 1,
 };
-
-function formatMoney(amount: number): string {
-  return `$${Math.floor(amount)}`;
-}
-
-function formatAwayDuration(ms: number): string {
-  const minutes = Math.floor(ms / 60000);
-  if (minutes < 60) return `${Math.max(1, minutes)}m`;
-  const hours = Math.floor(minutes / 60);
-  const rest = minutes % 60;
-  return rest > 0 ? `${hours}h ${rest}m` : `${hours}h`;
-}
 
 function cssColor(color: number): string {
   return `#${color.toString(16).padStart(6, "0")}`;
@@ -247,6 +238,18 @@ export function mountUI(root: HTMLElement): MountedUI {
       const breedLine = el("div", "roster-cat-breed", definition.breed);
       breedLine.appendChild(rarityBadge(definition));
       info.appendChild(breedLine);
+
+      // Contentment status, with the remaining time — so "pet your cats" is a
+      // legible ritual rather than a hidden buff.
+      const remaining = (cat.contentUntil ?? 0) - Date.now();
+      const status = el("div", "roster-cat-content");
+      if (remaining > 0) {
+        status.textContent = `♥ content for ${formatDuration(remaining)}`;
+        status.classList.add("content");
+      } else {
+        status.textContent = "tap them in the café for a fuss";
+      }
+      info.appendChild(status);
       row.appendChild(info);
       list.appendChild(row);
     }
@@ -277,6 +280,31 @@ export function mountUI(root: HTMLElement): MountedUI {
 
     const panel = el("div", "roster-panel");
     panel.appendChild(panelHeader("Your café"));
+
+    // --- Venue: where you are, and where you're headed (§8) ----------------
+    const venueBlock = el("div", "venue-block");
+    const venueName = el("div", "venue-name");
+    const venueTagline = el("div", "venue-tagline");
+    venueBlock.appendChild(venueName);
+    venueBlock.appendChild(venueTagline);
+
+    const venueNext = el("div", "venue-next");
+    const venueNextLabel = el("div", "venue-next-label");
+    const venueBar = el("div", "venue-bar");
+    const venueBarFill = el("div", "venue-bar-fill");
+    venueBar.appendChild(venueBarFill);
+    const moveButton = el("button", "venue-move") as HTMLButtonElement;
+    moveButton.addEventListener("click", () => {
+      initAudio();
+      const target = nextVenue(gameStore.getState().venueIndex);
+      if (!target) return;
+      showMoveConfirm(target.name, target.tagline);
+    });
+    venueNext.appendChild(venueNextLabel);
+    venueNext.appendChild(venueBar);
+    venueNext.appendChild(moveButton);
+    venueBlock.appendChild(venueNext);
+    panel.appendChild(venueBlock);
 
     // The numbers, on screen rather than guessed at (§17).
     const statStrip = el("div", "cafe-stats");
@@ -350,6 +378,26 @@ export function mountUI(root: HTMLElement): MountedUI {
       seatsValue.textContent = String(stats.seatCount);
       appealValue.textContent = stats.appeal.toFixed(1);
       incomeValue.textContent = formatMoney(liveIncomePerSecond(stats) * 60);
+
+      const venue = venueAt(state.venueIndex);
+      const target = nextVenue(state.venueIndex);
+      venueName.textContent = venue.name;
+      venueTagline.textContent = venue.tagline;
+
+      if (!target) {
+        venueNextLabel.textContent = "The top of the ladder. Enjoy the view.";
+        venueBarFill.style.width = "100%";
+        moveButton.style.display = "none";
+      } else {
+        const progress = moveProgress(state.money, state.venueIndex);
+        venueNextLabel.textContent = `Next: ${target.name} — ${formatMoney(target.moveCost)}`;
+        venueBarFill.style.width = `${(progress * 100).toFixed(1)}%`;
+        moveButton.style.display = "";
+        moveButton.textContent =
+          progress >= 1 ? `Move to ${target.name}` : `${(progress * 100).toFixed(0)}% saved`;
+        moveButton.disabled = progress < 1;
+      }
+
       for (const refresh of refreshers) refresh();
     }
 
@@ -358,6 +406,53 @@ export function mountUI(root: HTMLElement): MountedUI {
 
     panelLayer.appendChild(panel);
     panelLayer.classList.add("open");
+  }
+
+  // --- Moving venue (§8) ---------------------------------------------------
+  /**
+   * Moving leaves the fixtures behind, so it needs a confirmation. The copy
+   * leads with what's *kept* — a cosy game must never make a player fear
+   * they're about to lose their cats, and "never lose a player's cats" is
+   * sacred. The reassurance is the point of this card, not the warning.
+   */
+  function showMoveConfirm(name: string, tagline: string): void {
+    modalLayer.innerHTML = "";
+    const { cats } = gameStore.getState();
+
+    const card = el("div", "reveal-card");
+    card.appendChild(el("div", "reveal-title", "Time to move?"));
+    card.appendChild(el("div", "reveal-breed", name));
+    card.appendChild(el("div", "reveal-flavor", tagline));
+
+    const keeps = el("div", "move-keeps");
+    const catWord = cats.length === 1 ? "cat comes" : "cats come";
+    keeps.appendChild(el("div", "move-keep", `♥ All ${cats.length} of your ${catWord} with you`));
+    keeps.appendChild(el("div", "move-keep", "♥ Their names and your cat-dex stay"));
+    keeps.appendChild(
+      el("div", "move-leave", "Seating, décor and fixtures stay with the old place"),
+    );
+    card.appendChild(keeps);
+
+    const confirm = el("button", "reveal-confirm", `Move to ${name}`) as HTMLButtonElement;
+    confirm.addEventListener("click", () => {
+      if (gameStore.getState().moveVenue()) {
+        playReveal(1);
+        closePanel();
+      }
+      modalLayer.classList.remove("open");
+      modalLayer.innerHTML = "";
+    });
+    card.appendChild(confirm);
+
+    const cancel = el("button", "reveal-cancel", "Not yet") as HTMLButtonElement;
+    cancel.addEventListener("click", () => {
+      modalLayer.classList.remove("open");
+      modalLayer.innerHTML = "";
+    });
+    card.appendChild(cancel);
+
+    modalLayer.appendChild(card);
+    modalLayer.classList.add("open");
   }
 
   // --- Welcome back / offline earnings (§8) --------------------------------
@@ -371,7 +466,7 @@ export function mountUI(root: HTMLElement): MountedUI {
       el(
         "div",
         "reveal-flavor",
-        `Your cats kept the café cosy while you were away (${formatAwayDuration(awayMs)}).`,
+        `Your cats kept the café cosy while you were away (${formatDuration(awayMs)}).`,
       ),
     );
     const confirm = el("button", "reveal-confirm", "Thanks, everyone") as HTMLButtonElement;
@@ -424,7 +519,13 @@ export function mountUI(root: HTMLElement): MountedUI {
     const state = gameStore.getState();
     const { money, cats, upgrades } = state;
     moneyPill.textContent = formatMoney(money);
-    catCount.textContent = cats.length === 1 ? "1 cat" : `${cats.length} cats`;
+
+    // Show how many cats are content, so the effect of petting is visible —
+    // an unexplained multiplier may as well not exist.
+    const content = contentCatCount(cats, Date.now());
+    const catWord = cats.length === 1 ? "1 cat" : `${cats.length} cats`;
+    catCount.textContent = content > 0 ? `${catWord} · ♥ ${content}` : catWord;
+    catCount.classList.toggle("has-content", content > 0);
 
     if (money !== lastMoney) {
       moneyPill.classList.remove("bump");

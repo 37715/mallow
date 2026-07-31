@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { loadSave } from "@/state/save";
 import { upgradeDefinition } from "@/data/upgrades";
+import { VENUES } from "@/data/venues";
 
 /**
  * Save migration is the one place a bug costs a player their cats (§8), so
@@ -45,20 +46,79 @@ describe("loadSave", () => {
     expect(loadSave()).toBeNull();
   });
 
-  it("reads a current v3 save unchanged", () => {
+  it("reads a current v4 save unchanged", () => {
     write({
-      version: 3,
+      version: 4,
       money: 120,
       nextCatId: 2,
       cats: CATS,
       savedAt: 1000,
       upgrades: { seating: 2, decor: 1 },
+      venueIndex: 2,
     });
     const save = loadSave();
     expect(save).not.toBeNull();
     expect(save!.money).toBe(120);
     expect(save!.cats).toEqual(CATS);
     expect(save!.upgrades).toEqual({ seating: 2, decor: 1 });
+    expect(save!.venueIndex).toBe(2);
+  });
+
+  it("migrates a v3 save into the first venue, keeping everything else", () => {
+    write({
+      version: 3,
+      money: 500,
+      nextCatId: 2,
+      cats: CATS,
+      savedAt: 777,
+      upgrades: { seating: 2 },
+    });
+    const save = loadSave();
+    expect(save!.venueIndex).toBe(0);
+    expect(save!.upgrades).toEqual({ seating: 2 });
+    expect(save!.cats).toEqual(CATS);
+    expect(save!.savedAt).toBe(777);
+  });
+
+  it("clamps a venue index from a build with more venues than this one", () => {
+    write({
+      version: 4,
+      money: 10,
+      nextCatId: 1,
+      cats: CATS,
+      savedAt: 1,
+      upgrades: {},
+      venueIndex: 999,
+    });
+    expect(loadSave()!.venueIndex).toBe(VENUES.length - 1);
+
+    write({
+      version: 4,
+      money: 10,
+      nextCatId: 1,
+      cats: CATS,
+      savedAt: 1,
+      upgrades: {},
+      venueIndex: "moon",
+    });
+    expect(loadSave()!.venueIndex).toBe(0);
+  });
+
+  it("keeps contentment on cats that have it, and tolerates cats without", () => {
+    const petted = [
+      { id: "cat-0", name: "Biscuit", definitionId: "marmalade", contentUntil: 9_000 },
+      { id: "cat-1", name: "Mochi", definitionId: "tuxedo" },
+    ];
+    write({
+      version: 4,
+      money: 10,
+      nextCatId: 2,
+      cats: petted,
+      savedAt: 1,
+      upgrades: {},
+      venueIndex: 0,
+    });
+    expect(loadSave()!.cats).toEqual(petted);
   });
 
   it("migrates a v1 save (no savedAt, no upgrades) without losing cats", () => {
@@ -76,24 +136,26 @@ describe("loadSave", () => {
     write({ version: 2, money: 40, nextCatId: 1, cats: CATS, savedAt: 555 });
     const save = loadSave();
     expect(save!.upgrades).toEqual({});
+    expect(save!.venueIndex).toBe(0);
     expect(save!.savedAt).toBe(555);
   });
 
   it("drops upgrade ids that no longer exist and clamps ones that shrank", () => {
     const seatingMax = upgradeDefinition("seating")!.maxLevel;
     write({
-      version: 3,
+      version: 4,
       money: 10,
       nextCatId: 1,
       cats: CATS,
       savedAt: 1,
       upgrades: { seating: seatingMax + 50, "retired-upgrade": 4 },
+      venueIndex: 0,
     });
     expect(loadSave()!.upgrades).toEqual({ seating: seatingMax });
   });
 
   it("survives a corrupt upgrades field rather than discarding the save", () => {
-    write({ version: 3, money: 10, nextCatId: 1, cats: CATS, savedAt: 1, upgrades: "nope" });
+    write({ version: 4, money: 10, nextCatId: 1, cats: CATS, savedAt: 1, upgrades: "nope" });
     const save = loadSave();
     expect(save).not.toBeNull();
     expect(save!.cats).toEqual(CATS);
@@ -104,10 +166,10 @@ describe("loadSave", () => {
     localStorage.setItem(SAVE_KEY, "{not json");
     expect(loadSave()).toBeNull();
 
-    write({ version: 3, money: "lots", nextCatId: 1, cats: CATS, savedAt: 1, upgrades: {} });
+    write({ version: 4, money: "lots", nextCatId: 1, cats: CATS, savedAt: 1, upgrades: {} });
     expect(loadSave()).toBeNull();
 
-    write({ version: 3, money: 10, nextCatId: 1, cats: [], savedAt: 1, upgrades: {} });
+    write({ version: 4, money: 10, nextCatId: 1, cats: [], savedAt: 1, upgrades: {} });
     expect(loadSave()).toBeNull();
 
     write({ version: 99, money: 10, nextCatId: 1, cats: CATS, savedAt: 1, upgrades: {} });

@@ -29,7 +29,10 @@ export type AnalyticsEvent =
   // Café expansion funnel (§11 — "first expansion" and what players actually buy).
   | { name: "first_expansion"; upgrade: string }
   | { name: "upgrade_purchased"; upgrade: string; level: number; cost: number; money: number }
-  | { name: "cafe_opened"; seats: number; upgradeLevels: number };
+  | { name: "cafe_opened"; seats: number; upgradeLevels: number }
+  // Presence + long-game progression.
+  | { name: "cat_petted"; breed: string }
+  | { name: "venue_moved"; venue: string; venueIndex: number; cost: number; catCount: number };
 
 /** The one numeric per event TelemetryDeck can average/sum (floatValue). */
 function primaryValue(event: AnalyticsEvent): number | undefined {
@@ -40,6 +43,8 @@ function primaryValue(event: AnalyticsEvent): number | undefined {
       return event.cost;
     case "upgrade_purchased":
       return event.cost;
+    case "venue_moved":
+      return event.venueIndex;
     case "offline_income":
       return event.earned;
     case "visitor_paid":

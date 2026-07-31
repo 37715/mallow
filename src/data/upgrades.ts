@@ -43,7 +43,8 @@ export const UPGRADE_DEFINITIONS: UpgradeDefinition[] = [
     name: "Another table",
     description: "One more seat by the window. More guests can settle in at once.",
     icon: "🪑",
-    maxLevel: 8,
+    // Room fits 12 chairs; the roomiest venue starts with 6 (scene/room.ts).
+    maxLevel: 6,
     baseCost: 140,
     costGrowth: 2.2,
     perLevel: { seats: 1 },

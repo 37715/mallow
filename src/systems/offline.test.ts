@@ -88,3 +88,42 @@ describe("computeOfflineEarnings", () => {
     expect(upgraded).toBeGreaterThan(bare);
   });
 });
+
+describe("offline earnings with contentment", () => {
+  const content = cafeStats(10 * ECONOMY_CONFIG.contentment.appealMultiplier, {});
+  const base = cafeStats(10, {});
+
+  it("pays the base rate when no contentment was left running", () => {
+    expect(computeOfflineEarnings(content, HOUR_MS, base, 0)).toBe(
+      computeOfflineEarnings(base, HOUR_MS, base, 0),
+    );
+  });
+
+  it("pays more when the player petted their cats before closing the app", () => {
+    const petted = computeOfflineEarnings(content, HOUR_MS, base, HOUR_MS);
+    const not = computeOfflineEarnings(content, HOUR_MS, base, 0);
+    expect(petted).toBeGreaterThan(not);
+  });
+
+  it("blends the two rates when contentment lapses partway through", () => {
+    const half = computeOfflineEarnings(content, HOUR_MS, base, HOUR_MS / 2);
+    const none = computeOfflineEarnings(content, HOUR_MS, base, 0);
+    const all = computeOfflineEarnings(content, HOUR_MS, base, HOUR_MS);
+    expect(half).toBeGreaterThan(none);
+    expect(half).toBeLessThan(all);
+  });
+
+  it("does not pay for contentment beyond the away window", () => {
+    const exact = computeOfflineEarnings(content, HOUR_MS, base, HOUR_MS);
+    const overrun = computeOfflineEarnings(content, HOUR_MS, base, HOUR_MS * 10);
+    expect(overrun).toBe(exact);
+  });
+
+  it("keeps playing strictly better than being away, hour for hour", () => {
+    // The whole point of the rebalance: an hour present must beat an hour away.
+    // If this ever inverts, the optimal strategy becomes "don't play".
+    const playing = liveIncomePerSecond(content) * 3600;
+    const away = computeOfflineEarnings(content, HOUR_MS, base, HOUR_MS);
+    expect(playing).toBeGreaterThan(away * 2);
+  });
+});

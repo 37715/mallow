@@ -21,10 +21,39 @@ export function liveIncomePerSecond(stats: CafeStats): number {
   );
 }
 
-/** Whole-dollar earnings for `awayMs` away from the café. 0 below the minimum-away threshold. */
-export function computeOfflineEarnings(stats: CafeStats, awayMs: number): number {
+/**
+ * Whole-dollar earnings for `awayMs` spent away from the café.
+ *
+ * Contented cats keep drawing custom after you close the app, for as long as
+ * their contentment lasts — so the away window is split into two stretches:
+ * `contentRemainingMs` at the contented rate, the remainder at the base rate.
+ *
+ * That split is doing real design work. Without it, a player who never opens
+ * the app earns almost exactly what a player who checks in daily earns, which
+ * is the "why bother playing" problem. With it, a thirty-second ritual — open
+ * the app, pet your cats, close it — measurably outperforms not showing up,
+ * while a player who forgets still collects their full base rate and loses
+ * nothing. An invitation, not a punishment (§2, pillar 1).
+ *
+ * `stats` values the café with contentment applied; `baseStats` values it
+ * without. Pass the same object twice for a café with no contented cats.
+ */
+export function computeOfflineEarnings(
+  stats: CafeStats,
+  awayMs: number,
+  baseStats: CafeStats = stats,
+  contentRemainingMs = 0,
+): number {
   const { minAwayMs, maxAccrualMs, rateMultiplier } = ECONOMY_CONFIG.offline;
   if (!Number.isFinite(awayMs) || awayMs < minAwayMs) return 0;
+
   const effectiveMs = Math.min(awayMs, maxAccrualMs);
-  return Math.floor(liveIncomePerSecond(stats) * (effectiveMs / 1000) * rateMultiplier);
+  const contentMs = Math.min(effectiveMs, Math.max(0, contentRemainingMs));
+  const baseMs = effectiveMs - contentMs;
+
+  const earned =
+    liveIncomePerSecond(stats) * (contentMs / 1000) +
+    liveIncomePerSecond(baseStats) * (baseMs / 1000);
+
+  return Math.floor(earned * rateMultiplier);
 }

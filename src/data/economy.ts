@@ -54,10 +54,34 @@ export const ECONOMY_CONFIG = {
   /** Growth factor applied per additional cat already owned. */
   catCostGrowth: 1.6,
 
+  /**
+   * Petting a cat makes it content for a while, and content cats draw more
+   * custom (§10 — the tap-to-pet interaction now *means* something).
+   *
+   * This is the only mechanic that rewards being present, and it exists
+   * because without it active play earned exactly the same rate as leaving
+   * the app closed — so the optimal strategy was not to play. It stays cosy
+   * by being an invitation, never a punishment: an unpetted cat still earns
+   * its full base rate, it simply doesn't get the bonus. Nothing is lost, no
+   * timer runs out on you, and the duration is long enough that one unhurried
+   * round of pets covers a whole evening.
+   */
+  contentment: {
+    /** How long a pet keeps a cat content. Generous on purpose. */
+    durationMs: 4 * 60 * 60 * 1000,
+    /** A content cat's appeal is multiplied by this. */
+    appealMultiplier: 1.75,
+  },
+
   /** Offline/idle earnings while the app is closed (§8 — idle income). */
   offline: {
-    /** Fraction of the live income rate earned while away — away time is calmer, not dead. */
-    rateMultiplier: 0.5,
+    /**
+     * Fraction of the live income rate earned while away. Deliberately well
+     * below 1: away time should be a kind catch-up, not a better strategy
+     * than playing. Contentment does not apply offline, so the real gap
+     * between "playing" and "closed" is wider than this number alone.
+     */
+    rateMultiplier: 0.3,
     /** Longest away period that still accrues earnings. */
     maxAccrualMs: 8 * 60 * 60 * 1000,
     /** Away periods shorter than this are ignored (quick app switches, reloads). */

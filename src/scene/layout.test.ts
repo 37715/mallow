@@ -55,7 +55,10 @@ function buildAll(): Item[] {
 const ITEMS = buildAll();
 
 describe("café layout", () => {
-  it("has a seat position for every seat the upgrades can unlock", () => {
+  it("has a seat position for every seat the game can ever unlock", () => {
+    // MAX_SEATS is derived from the roomiest venue plus every seating upgrade.
+    // If a venue or upgrade grows past what the portrait layout can hold, this
+    // fails here rather than seating guests in thin air at runtime.
     expect(SEAT_POSITIONS.length).toBe(MAX_SEATS);
   });
 

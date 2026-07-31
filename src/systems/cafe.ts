@@ -1,21 +1,23 @@
 import { ECONOMY_CONFIG } from "@/data/economy";
 import { UPGRADE_DEFINITIONS } from "@/data/upgrades";
+import { RARITY_CONFIG, catDefinition } from "@/data/cats";
+import { venueAt } from "@/data/venues";
 import { levelOf, type UpgradeLevels } from "@/systems/upgrades";
 
 /**
- * The café's live performance numbers, composed from the cats it houses and the
- * upgrades bought so far (§8). This is the single object every economy system
- * reads — visitors, offline income, and the debug/stat readouts all agree
- * because they all take a CafeStats.
+ * The café's live performance numbers, composed from the cats it houses, the
+ * upgrades bought so far, and the venue it trades in (§8). This is the single
+ * object every economy system reads — visitors, offline income, and the stat
+ * readouts all agree because they all take a CafeStats.
  *
  * Pure: no clocks, no storage, no Three.js.
  */
 export interface CafeStats {
-  /** Combined draw of cats + décor. Drives arrival rate and tip size. */
+  /** Combined draw of cats + décor, after contentment. Drives arrivals and tips. */
   appeal: number;
   /** How many guests can be seated at once — the throughput ceiling. */
   seatCount: number;
-  /** Multiplier applied to every visitor payout. 1 = no upgrades. */
+  /** Multiplier applied to every visitor payout, including the venue's. */
   payMultiplier: number;
   /** How long a guest sits before paying, after service upgrades. */
   dwellDurationMs: number;
@@ -24,14 +26,49 @@ export interface CafeStats {
 /** Shortest a visit can ever get, so "quicker service" can't collapse to zero. */
 const MIN_DWELL_MS = 600;
 
+/** A cat, as far as the economy is concerned. */
+export interface CatForStats {
+  definitionId: string;
+  /** Wall-clock ms until this cat stops being content. Absent = never petted. */
+  contentUntil?: number;
+}
+
 /**
- * Compose the café's stats. `catAppeal` is the summed appeal of owned cats
- * (see totalAppeal in data/cats); upgrades layer on top of it.
+ * Appeal contributed by a set of cats at time `now` (wall-clock ms).
+ *
+ * Pass `now = 0` to value them *without* contentment — that's what offline
+ * income uses, which is precisely why being present pays better than not.
  */
-export function cafeStats(catAppeal: number, levels: UpgradeLevels): CafeStats {
-  let seats = ECONOMY_CONFIG.baseSeatCount;
-  let appeal = catAppeal;
-  let payMultiplier = 1;
+export function catAppeal(cats: CatForStats[], now: number): number {
+  const { appealMultiplier } = ECONOMY_CONFIG.contentment;
+  let total = 0;
+  for (const cat of cats) {
+    const base = RARITY_CONFIG[catDefinition(cat.definitionId).rarity].appeal;
+    const content = cat.contentUntil !== undefined && cat.contentUntil > now;
+    total += content ? base * appealMultiplier : base;
+  }
+  return total;
+}
+
+/** How many of these cats are currently content — drives the UI nudge. */
+export function contentCatCount(cats: CatForStats[], now: number): number {
+  return cats.filter((c) => c.contentUntil !== undefined && c.contentUntil > now).length;
+}
+
+/**
+ * Compose the café's stats. `catAppealTotal` is the summed appeal of owned cats
+ * (see `catAppeal` above); upgrades and the venue layer on top.
+ */
+export function cafeStats(
+  catAppealTotal: number,
+  levels: UpgradeLevels,
+  venueIndex = 0,
+): CafeStats {
+  const venue = venueAt(venueIndex);
+
+  let seats = venue.baseSeats;
+  let appeal = catAppealTotal;
+  let payMultiplier = venue.incomeMultiplier;
   let dwellReduction = 0;
 
   for (const definition of UPGRADE_DEFINITIONS) {
@@ -40,7 +77,10 @@ export function cafeStats(catAppeal: number, levels: UpgradeLevels): CafeStats {
     const { seats: s, appeal: a, pay: p, dwell: d } = definition.perLevel;
     if (s) seats += s * level;
     if (a) appeal += a * level;
-    if (p) payMultiplier += p * level;
+    // Upgrade pay bonuses are additive among themselves, then scaled by the
+    // venue — so a venue move multiplies everything you've built, which is
+    // what makes it read as a leap rather than an increment.
+    if (p) payMultiplier += p * level * venue.incomeMultiplier;
     if (d) dwellReduction += d * level;
   }
 

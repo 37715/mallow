@@ -737,3 +737,130 @@ body {
     animation: none;
   }
 }
+
+/* --- Venue progression ---------------------------------------------------- */
+
+.venue-block {
+  padding: 14px;
+  margin-bottom: 14px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, rgba(217, 123, 79, 0.14), rgba(138, 106, 82, 0.09));
+}
+
+.venue-name {
+  font-size: 17px;
+  font-weight: 800;
+}
+
+.venue-tagline {
+  margin-top: 2px;
+  font-size: 12px;
+  font-style: italic;
+  line-height: 1.4;
+  color: var(--warm-brown);
+}
+
+.venue-next {
+  margin-top: 12px;
+}
+
+.venue-next-label {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--warm-brown);
+}
+
+.venue-bar {
+  margin: 6px 0 9px;
+  height: 7px;
+  border-radius: 999px;
+  background: rgba(138, 106, 82, 0.18);
+  overflow: hidden;
+}
+
+.venue-bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--accent);
+  transition: width 400ms cubic-bezier(0.22, 0.8, 0.3, 1);
+}
+
+.venue-move {
+  width: 100%;
+  padding: 11px;
+  border: none;
+  border-radius: 13px;
+  font-size: 14px;
+  font-weight: 700;
+  background: var(--accent);
+  color: #fff8f0;
+  cursor: pointer;
+  transition: transform 100ms ease, opacity 180ms ease;
+}
+
+.venue-move:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.venue-move:disabled {
+  background: rgba(138, 106, 82, 0.2);
+  color: var(--warm-brown);
+  cursor: default;
+}
+
+/* --- Move confirmation ---------------------------------------------------- */
+
+.move-keeps {
+  width: 100%;
+  margin: 4px 0 2px;
+  padding: 11px 13px;
+  border-radius: 13px;
+  background: rgba(138, 106, 82, 0.09);
+  text-align: left;
+}
+
+.move-keep {
+  font-size: 12.5px;
+  font-weight: 700;
+  line-height: 1.6;
+  color: #c25f78;
+}
+
+.move-leave {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(138, 106, 82, 0.18);
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--warm-brown);
+}
+
+.reveal-cancel {
+  width: 100%;
+  padding: 9px;
+  border: none;
+  border-radius: 13px;
+  font-size: 14px;
+  font-weight: 600;
+  background: transparent;
+  color: var(--warm-brown);
+  cursor: pointer;
+}
+
+/* --- Contentment ---------------------------------------------------------- */
+
+.cat-count-pill.has-content {
+  color: #c25f78;
+}
+
+.roster-cat-content {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--warm-brown);
+  opacity: 0.65;
+}
+
+.roster-cat-content.content {
+  color: #c25f78;
+  opacity: 1;
+}

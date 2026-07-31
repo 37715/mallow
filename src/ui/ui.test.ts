@@ -4,6 +4,7 @@ import { mountUI } from "@/ui/ui";
 import { gameStore } from "@/state/store";
 import { UPGRADE_DEFINITIONS } from "@/data/upgrades";
 import { costForNextCat } from "@/data/economy";
+import { VENUES } from "@/data/venues";
 
 /**
  * Smoke tests for the HUD. These don't assert how anything *looks* — they
@@ -30,7 +31,7 @@ const q = <T extends HTMLElement>(root: HTMLElement, selector: string): T => {
 
 beforeEach(() => {
   document.body.innerHTML = "";
-  gameStore.setState({ money: 0, upgrades: {} });
+  gameStore.setState({ money: 0, upgrades: {}, venueIndex: 0 });
 });
 
 describe("HUD", () => {
@@ -132,5 +133,77 @@ describe("HUD", () => {
     ui.showWelcomeBack(42, 3 * 60 * 60 * 1000);
     expect(q(root, ".welcome-earned").textContent).toBe("+$42");
     expect(root.textContent).toContain("3h");
+  });
+});
+
+describe("venue progression", () => {
+  const openCafe = (root: HTMLElement) =>
+    root.querySelectorAll<HTMLButtonElement>(".roster-button")[1].click();
+
+  it("shows the current venue and what it costs to move on", () => {
+    const { root } = mount();
+    openCafe(root);
+
+    expect(q(root, ".venue-name").textContent).toBe(VENUES[0].name);
+    expect(q(root, ".venue-next-label").textContent).toContain(VENUES[1].name);
+    expect(q<HTMLButtonElement>(root, ".venue-move").disabled).toBe(true);
+  });
+
+  it("enables the move only once the lease is affordable", () => {
+    const { root } = mount();
+    openCafe(root);
+    const move = q<HTMLButtonElement>(root, ".venue-move");
+    expect(move.disabled).toBe(true);
+
+    gameStore.setState({ money: VENUES[1].moveCost });
+    expect(move.disabled).toBe(false);
+  });
+
+  it("promises the cats are coming before it asks to confirm", () => {
+    // A cosy game must never let a player fear they're about to lose their
+    // cats. If this copy disappears, the reassurance goes with it.
+    const { root } = mount();
+    gameStore.setState({ money: VENUES[1].moveCost });
+    openCafe(root);
+    q<HTMLButtonElement>(root, ".venue-move").click();
+
+    const card = q(root, ".reveal-card");
+    expect(card.textContent).toContain("come with you");
+    expect(root.querySelectorAll(".move-keep").length).toBeGreaterThan(0);
+  });
+
+  it("moves venue, keeps every cat, and clears the fixtures", () => {
+    const { root } = mount();
+    gameStore.setState({ money: VENUES[1].moveCost, upgrades: { seating: 3 } });
+    const catsBefore = gameStore.getState().cats.map((c) => ({ id: c.id, name: c.name }));
+    openCafe(root);
+    q<HTMLButtonElement>(root, ".venue-move").click();
+    q<HTMLButtonElement>(root, ".reveal-confirm").click();
+
+    const after = gameStore.getState();
+    expect(after.venueIndex).toBe(1);
+    expect(after.upgrades).toEqual({});
+    expect(after.cats.map((c) => ({ id: c.id, name: c.name }))).toEqual(catsBefore);
+  });
+
+  it("lets the player back out without moving", () => {
+    const { root } = mount();
+    gameStore.setState({ money: VENUES[1].moveCost });
+    openCafe(root);
+    q<HTMLButtonElement>(root, ".venue-move").click();
+    q<HTMLButtonElement>(root, ".reveal-cancel").click();
+
+    expect(gameStore.getState().venueIndex).toBe(0);
+  });
+});
+
+describe("contentment display", () => {
+  it("shows a heart count once cats have been petted", () => {
+    const { root } = mount();
+    const pill = q(root, ".cat-count-pill");
+    expect(pill.textContent).not.toContain("♥");
+
+    gameStore.getState().petCat(gameStore.getState().cats[0].id);
+    expect(pill.textContent).toContain("♥ 1");
   });
 });

@@ -58,6 +58,20 @@ export class CafeManager {
     if (!instant) this.placed.push({ object, addedAt: now, targetScale });
   }
 
+  /**
+   * Tear down every table and prop. Used when the café moves venue: fixtures
+   * belong to the old building, so the new room starts bare and fills up again
+   * as the player re-buys (§8).
+   */
+  reset(): void {
+    for (const child of [...this.group.children]) {
+      this.group.remove(child);
+    }
+    this.placed.length = 0;
+    this.seatsBuilt = 0;
+    this.decorBuilt = 0;
+  }
+
   /** Runs the pop-in easing for anything added recently. Cheap once settled. */
   animate(now: number): void {
     for (let i = this.placed.length - 1; i >= 0; i--) {

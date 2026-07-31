@@ -26,11 +26,14 @@ This file is the shared brain for the project. **Read it before starting work in
 - **M4 (partial)** — **art direction locked ✅** (hero cat, flat-shaded style,
   warm lighting + tone mapping); **juice ✅** (living cats, tap-to-pet, coin
   floaters, dust motes); **audio ✅** (synthesised, no asset files).
+- **Venue progression ✅** — seven-venue ladder, cats always come with you.
+- **Contentment ✅** — petting cats is the mechanic that rewards being present.
+- **`npm run balance`** ✅ — simulates weeks of play under four player habits.
 - **Portrait framing** ✅ — the camera solves its own distance per aspect (§9).
 - **Analytics** ✅ (pulled forward from M5) — TelemetryDeck transport, batching,
   session + funnel + economy events.
-- `npm test` — 70 tests over the pure systems, save migrations, café geometry,
-  the visitor loop, and a jsdom smoke suite for the HUD.
+- `npm test` — 104 tests over the pure systems, save migrations, café geometry,
+  the visitor loop, venue/contentment maths, and a jsdom smoke suite for the HUD.
 
 **Next up — build depth first, then test (revised 2026-07-31):**
 
@@ -39,16 +42,17 @@ This file is the shared brain for the project. **Read it before starting work in
 > - **D1** — "was the first session good enough to come back tomorrow?" That's
 >   the first 5–10 minutes, which *is* built. Answerable now, and cheap to read
 >   qualitatively with 5–8 people watching a first run.
-> - **D7** — "is there a reason to return on day 3?" **Not answerable yet.**
->   Content runs out in roughly an hour, so D7 would come back bad regardless
->   of loop quality, and you'd learn only what you already know.
+> - **D7** — "is there a reason to return on day 3?" **Now plausibly answerable
+>   as of the venue ladder** (`npm run balance` shows weeks of progression for
+>   every player habit). This was blocked when content ran out in an hour; that
+>   specific objection is now addressed, though variety is still thin.
 >
 > So: **no large public cohort until a week of play exists.** First impressions
 > are a one-shot resource and cosy communities are small. Small qualitative
 > reads along the way are fine and encouraged. Keep instrumentation live the
 > whole time so the data is there when the cohort is worth running.
 
-1. **Venue progression.** The direct fix for the content drought — see §8.
+1. ~~Venue progression~~ ✅ built 2026-07-31 — see §8.
 2. **The LTE (limited-time event) framework.** Per §8 the highest-ROI retention
    feature in the genre. Note the framework alone adds no playable content;
    its value arrives with authored events, which is why it sits after venues.
@@ -93,9 +97,11 @@ This file is the shared brain for the project. **Read it before starting work in
   Materials are shared per breed/palette already. Deliberately *not* optimised
   further — a GLB hero cat is 1–2 meshes and fixes it for free, so merging
   geometry on a placeholder would be throwaway work.
-- Balance beyond ~48h of play is unexplored; `decor` and `brews` max out in
-  roughly an hour of active play, and the long tail leans on seating/service
-  and the cat cost curve. LTEs and/or prestige are the intended answer.
+- Content depth is now ~weeks rather than ~an hour (see the curve in §8), but
+  the *variety* is still thin — it's the same café loop at bigger multipliers.
+  LTEs are the intended answer to variety, as opposed to length.
+- Venue palettes recolour the room, but every venue is the same room shape with
+  the same props. A seaside terrace should not be a repainted corner café.
 - Not yet run on a real device or in a real browser by an agent — §13 says test
   on device early, and that still hasn't happened.
 
@@ -109,6 +115,14 @@ This file is the shared brain for the project. **Read it before starting work in
   Added tap-to-pet, coin floaters, dust motes, and a fully synthesised audio
   layer. Reordered §15 and wrote down why. Added jsdom HUD smoke tests, since
   no agent has been able to open a browser on this project yet.
+- *2026-07-31* — **Venue progression + the pacing rebalance.** Ellis flagged
+  that you could buy a couple of cats, leave for days, and come back rich —
+  the game encouraged *not* playing. Measured it: active play earned exactly
+  the idle rate, so it did. Fixed by giving petting a mechanical payoff that
+  also carries into offline income, and cutting offline to 30%/8h. Built the
+  seven-venue ladder for the long curve, and `npm run balance` to tune it
+  against numbers rather than vibes — it immediately caught a cost curve that
+  walled off the top three venues. See §8 for both.
 - *2026-07-31* — **Reframed the whole scene for portrait.** The room had been
   laid out and framed for a desktop window; on an iPhone the camera saw only
   3.5 of its 8 world units, cropping chairs, cats and décor off the sides.
@@ -256,7 +270,31 @@ The heartbeat. Visitors arrive over time → occupy seats → generate income wh
 ### Café / expansion
 Upgrades and décor: more seating, new rooms, themed decorations, aesthetic customization. Décor should have both a stat purpose and a purely cosmetic tier (cosmetics matter enormously to this audience).
 
-**Implemented** as a data-driven upgrade catalog (`data/upgrades.ts`) with four deliberately non-overlapping levers, so every purchase reads clearly:
+**Venue progression** is the long curve — a seven-venue ladder from a corner
+café to a moon café, each roughly ×8 income and ~×18 lease cost, so each move
+takes about twice as long as the last. Cats, names and the cat-dex carry across
+every move; fixtures do not.
+
+Measured with `npm run balance` (30 simulated days):
+
+| habit | reaches | first move | full ladder |
+|---|---|---|---|
+| devoted (4×25min/day) | 7/7 | 6h | ~17 days |
+| regular (2×15min/day) | 6/7 | 12h | — |
+| casual (1×10min/day) | 6/7 | 1 day | — |
+| pure AFK (never pets) | 5/7 | 2 days | — |
+
+The shape to preserve when retuning: **a first move within a few hours** (early
+reward protects D1), **each subsequent move ~2× the last** (a ramp, not a
+cliff), and **a visible gap between habits** (playing has to matter). An early
+draft had move costs growing ~60× per tier against ~8× multipliers, which
+walled the top of the ladder off completely — devoted players stalled at venue
+5 and never moved again. `npm run balance` catches that in seconds.
+
+`systems/venues.test.ts` asserts a bare new venue out-earns a fully maxed old
+one, so moving is never a trap.
+
+**Upgrades** are a data-driven catalog (`data/upgrades.ts`) with four deliberately non-overlapping levers, so every purchase reads clearly:
 
 | id | what it buys | effect |
 |---|---|---|
@@ -276,7 +314,35 @@ Build a **repeatable event system early** (seasonal themes, special/collab cats,
 ### Save / load
 Single source of truth = the Zustand store, serialised to storage. Autosave on every meaningful state change and on app background. Include a `version` field and a migration path so updates never corrupt saves. **Never lose a player's cats.** Sacred.
 
-**Currently at v3.** Migrations are a chain in `state/save.ts`: each entry bumps exactly one version, and `loadSave` walks a save forward from whatever version it's on. Adding a version means appending one migration and one test case to `state/save.test.ts` — which every version must have, because this is the one place a bug costs a player their cats. (v1→v2 added `savedAt`; v2→v3 added `upgrades`.)
+**Currently at v4.** Migrations are a chain in `state/save.ts`: each entry bumps exactly one version, and `loadSave` walks a save forward from whatever version it's on. Adding a version means appending one migration and one test case to `state/save.test.ts` — which every version must have, because this is the one place a bug costs a player their cats. (v1→v2 added `savedAt`; v2→v3 added `upgrades`; v3→v4 added `venueIndex`, plus an optional `contentUntil` per cat that needed no rewriting.)
+
+### Progression pacing — and why offline income is deliberately weak
+
+**The problem this solved.** Active play used to earn *exactly* the same rate as
+having the app closed. Nothing in the game rewarded being present, so the
+optimal strategy was genuinely to leave it alone and come back later. An idle
+game still has to be a game.
+
+Three changes, in order of importance:
+
+1. **Petting cats does something.** A petted cat is *content* for 4 hours and
+   its appeal is multiplied (`ECONOMY_CONFIG.contentment`). This is the only
+   mechanic that rewards presence. It stays cosy by being an invitation, not a
+   punishment — an unpetted cat still earns its full base rate, nothing decays,
+   nothing is lost. A player who ignores it entirely is never worse off than
+   before this existed.
+2. **Contentment carries into offline income.** Whatever contentment is still
+   running when you close the app keeps paying while you're away
+   (`computeOfflineEarnings` splits the away window into contented and base
+   stretches). This is what makes a thirty-second ritual — open, pet, close —
+   meaningfully beat not showing up, without demanding long sessions.
+3. **Offline pays 30% of the live rate, capped at 8h.** Away time is a kind
+   catch-up, not a superior strategy. Eight hours is "a night's sleep", which
+   is a cosy framing and also means checking in twice a day beats once.
+
+Net effect, measured: **an hour playing with petted cats earns ~6.6× an hour
+with the app closed.** If that ratio ever inverts, the game is broken;
+`systems/offline.test.ts` guards it.
 
 ### Progression pacing
 Early game (first 5–10 min) must reward fast — first extra cat quickly, visible growth (this directly protects D1). Mid/late game slows into satisfying idle accumulation. Keep pacing values in config so they can be tuned from data.
@@ -384,6 +450,7 @@ Discoverability is the #1 risk, so treat marketing as a first-class workstream, 
 - `vitest` added (`npm test`) for the pure systems/economy math.
 
 **Milestone 3 — Depth:** 🟡 in progress.
+- ✅ **Venue progression** — the long game (§8), balanced with `npm run balance`.
 - ✅ **Idle/offline income** — earnings accrue while away, welcome-back card.
 - ✅ **Save-system hardening** — versioned migration chain (now v3), tested.
 - ✅ **Upgrades / expansion / décor** — four-lever upgrade catalog, café panel with live stat readouts, and a room that visibly grows as you buy (see §8 "Café / expansion").

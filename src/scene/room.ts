@@ -1,6 +1,6 @@
 import * as THREE from "three";
-import { ECONOMY_CONFIG } from "@/data/economy";
 import { MAX_SEAT_UPGRADES } from "@/data/upgrades";
+import { VENUES, venueAt, type VenuePalette } from "@/data/venues";
 
 /**
  * Spatial layout for the café room. The shell (floor, walls, counter, door) is
@@ -18,8 +18,13 @@ export const ROOM_SIZE = { width: 5.0, depth: 8, wallHeight: 3.2 };
 
 export const DOOR_POSITION = new THREE.Vector3(0, 0.4, ROOM_SIZE.depth / 2 - 0.35);
 
-/** Every seat the café could ever have — base seats plus every seating upgrade. */
-export const MAX_SEATS = ECONOMY_CONFIG.baseSeatCount + MAX_SEAT_UPGRADES;
+/**
+ * Every seat the café could ever have: the roomiest venue's base seating plus
+ * every seating upgrade. Seat *positions* are shared across venues so a seat
+ * index always means the same chair, whichever building you're in.
+ */
+export const MAX_SEATS =
+  Math.max(...VENUES.map((v) => v.baseSeats)) + MAX_SEAT_UPGRADES;
 
 const SEAT_HEIGHT = 0.42;
 /** Four seats across is the most that fits the portrait frame comfortably. */
@@ -70,6 +75,25 @@ const WOOD_MATERIAL = new THREE.MeshStandardMaterial({
   roughness: 0.7,
   flatShading: true,
 });
+
+/**
+ * Materials the venue repaints on a move. Shared instances, so recolouring
+ * one object recolours every table, wall and rug at once — a move should read
+ * as a whole new room, not a slow fade of individual props.
+ */
+const FLOOR_MATERIAL = new THREE.MeshStandardMaterial({ color: 0xe6d2b5, roughness: 0.9 });
+const WALL_MATERIAL = new THREE.MeshStandardMaterial({ color: 0xf3e4cf, roughness: 1 });
+const RUG_MATERIAL = new THREE.MeshStandardMaterial({ color: 0xd9b48a, roughness: 1 });
+const COUNTER_MATERIAL = new THREE.MeshStandardMaterial({ color: 0xb5876a, roughness: 0.6 });
+
+/** Repaint the room for a venue. Call on load and after every move. */
+export function applyVenuePalette(palette: VenuePalette): void {
+  FLOOR_MATERIAL.color.setHex(palette.floor);
+  WALL_MATERIAL.color.setHex(palette.wall);
+  RUG_MATERIAL.color.setHex(palette.rug);
+  COUNTER_MATERIAL.color.setHex(palette.counter);
+  WOOD_MATERIAL.color.setHex(palette.counter);
+}
 const CUSHION_MATERIAL = new THREE.MeshStandardMaterial({
   color: 0xd4a574,
   roughness: 0.85,
@@ -110,14 +134,15 @@ function buildDoorFrame(): THREE.Group {
 }
 
 /** The permanent shell of the café. Seating and décor are added by CafeManager. */
-export function buildRoom(): THREE.Group {
+export function buildRoom(venueIndex = 0): THREE.Group {
+  applyVenuePalette(venueAt(venueIndex).palette);
+
   const room = new THREE.Group();
   room.name = "room";
 
-  const floorMaterial = new THREE.MeshStandardMaterial({ color: 0xe6d2b5, roughness: 0.9 });
   const floor = new THREE.Mesh(
     new THREE.PlaneGeometry(ROOM_SIZE.width, ROOM_SIZE.depth),
-    floorMaterial,
+    FLOOR_MATERIAL,
   );
   floor.rotation.x = -Math.PI / 2;
   floor.receiveShadow = true;
@@ -126,14 +151,14 @@ export function buildRoom(): THREE.Group {
   // Soft rug under all three seating rows so the café “zone” reads clearly.
   const rug = new THREE.Mesh(
     new THREE.PlaneGeometry(4.1, 4.4),
-    new THREE.MeshStandardMaterial({ color: 0xd9b48a, roughness: 1 }),
+    RUG_MATERIAL,
   );
   rug.rotation.x = -Math.PI / 2;
   rug.position.set(0, 0.01, -0.7);
   rug.receiveShadow = true;
   room.add(rug);
 
-  const wallMaterial = new THREE.MeshStandardMaterial({ color: 0xf3e4cf, roughness: 1 });
+  const wallMaterial = WALL_MATERIAL;
 
   const backWall = new THREE.Mesh(
     new THREE.PlaneGeometry(ROOM_SIZE.width, ROOM_SIZE.wallHeight),
@@ -155,8 +180,7 @@ export function buildRoom(): THREE.Group {
   rightWall.position.set(ROOM_SIZE.width / 2, ROOM_SIZE.wallHeight / 2, 0);
   room.add(rightWall);
 
-  const counterMaterial = new THREE.MeshStandardMaterial({ color: 0xb5876a, roughness: 0.6 });
-  const counter = mesh(new THREE.BoxGeometry(2.6, 0.95, 0.65), counterMaterial, 0, 0.48, -ROOM_SIZE.depth / 2 + 0.55);
+  const counter = mesh(new THREE.BoxGeometry(2.6, 0.95, 0.65), COUNTER_MATERIAL, 0, 0.48, -ROOM_SIZE.depth / 2 + 0.55);
   room.add(counter);
 
   // Counter top shelf lip for a tiny bit of café detail.

@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { cafeStats, visitDurationMs } from "@/systems/cafe";
+import { cafeStats, catAppeal, contentCatCount, visitDurationMs } from "@/systems/cafe";
 import { ECONOMY_CONFIG } from "@/data/economy";
 import { UPGRADE_DEFINITIONS, upgradeDefinition } from "@/data/upgrades";
+import { RARITY_CONFIG } from "@/data/cats";
 
 describe("cafeStats", () => {
   it("matches the pre-upgrade café when nothing has been bought", () => {
@@ -41,5 +42,44 @@ describe("cafeStats", () => {
       expect(high.payMultiplier).toBeGreaterThanOrEqual(low.payMultiplier);
       expect(high.dwellDurationMs).toBeLessThanOrEqual(low.dwellDurationMs);
     }
+  });
+});
+
+describe("contentment", () => {
+  const NOW = 1_000_000;
+  const cats = [
+    { definitionId: "marmalade" },
+    { definitionId: "marmalade", contentUntil: NOW + 60_000 },
+    { definitionId: "marmalade", contentUntil: NOW - 60_000 }, // lapsed
+  ];
+
+  it("counts only cats whose contentment is still running", () => {
+    expect(contentCatCount(cats, NOW)).toBe(1);
+  });
+
+  it("multiplies appeal for content cats and leaves the rest at base", () => {
+    const base = RARITY_CONFIG.common.appeal;
+    const { appealMultiplier } = ECONOMY_CONFIG.contentment;
+    // Two cats at base (never petted + lapsed), one contented.
+    expect(catAppeal(cats, NOW)).toBeCloseTo(base * 2 + base * appealMultiplier);
+  });
+
+  it("values the café without contentment when asked (the offline case)", () => {
+    // Passing +Infinity means "no contentment is still running" — this is
+    // exactly how offline income is valued, and why playing beats being away.
+    expect(catAppeal(cats, Number.POSITIVE_INFINITY)).toBeCloseTo(RARITY_CONFIG.common.appeal * 3);
+  });
+
+  it("makes a petted café strictly more profitable than an unpetted one", () => {
+    const petted = cafeStats(catAppeal(cats, NOW), {});
+    const not = cafeStats(catAppeal(cats, Number.POSITIVE_INFINITY), {});
+    expect(petted.appeal).toBeGreaterThan(not.appeal);
+  });
+
+  it("treats a cat that was never petted as simply not content — never worse", () => {
+    // Pillar 1: contentment is an invitation, not a decay mechanic. A player
+    // who ignores it must still earn the full base rate.
+    const untouched = [{ definitionId: "marmalade" }];
+    expect(catAppeal(untouched, NOW)).toBe(RARITY_CONFIG.common.appeal);
   });
 });

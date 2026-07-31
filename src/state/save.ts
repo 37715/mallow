@@ -1,6 +1,7 @@
 import type { StoreApi } from "zustand/vanilla";
 import type { CatInstance, GameState } from "@/state/store";
 import { UPGRADE_DEFINITIONS } from "@/data/upgrades";
+import { VENUES } from "@/data/venues";
 import { levelOf, type UpgradeLevels } from "@/systems/upgrades";
 
 /**
@@ -15,23 +16,27 @@ import { levelOf, type UpgradeLevels } from "@/systems/upgrades";
  *   v1 → v2: added `savedAt` (wall-clock ms) so offline earnings can be
  *            computed from time away on next launch.
  *   v2 → v3: added `upgrades` (café expansion + décor levels).
+ *   v3 → v4: added `venueIndex` (venue progression). Cats gained an optional
+ *            `contentUntil`; absent simply means "not content", so no cat data
+ *            needed rewriting — which is the point of keeping it optional.
  */
 
 const SAVE_KEY = "mallow-save";
-const SAVE_VERSION = 3;
+const SAVE_VERSION = 4;
 
-interface SaveDataV3 {
-  version: 3;
+interface SaveDataV4 {
+  version: 4;
   money: number;
   nextCatId: number;
   cats: CatInstance[];
   /** Wall-clock (Date.now) timestamp of the last save — basis for offline earnings. */
   savedAt: number;
   upgrades: UpgradeLevels;
+  venueIndex: number;
 }
 
 export interface LoadedSave
-  extends Pick<GameState, "money" | "cats" | "nextCatId" | "upgrades"> {
+  extends Pick<GameState, "money" | "cats" | "nextCatId" | "upgrades" | "venueIndex"> {
   savedAt: number;
 }
 
@@ -45,6 +50,8 @@ const MIGRATIONS: Record<number, (data: RawSave) => RawSave> = {
   // No retroactive offline windfall for saves that predate savedAt; nothing lost.
   1: (data) => ({ ...data, version: 2, savedAt: Date.now() }),
   2: (data) => ({ ...data, version: 3, upgrades: {} }),
+  // Everyone starts in the first venue; existing cats need no rewriting.
+  3: (data) => ({ ...data, version: 4, venueIndex: 0 }),
 };
 
 function isValidCat(value: unknown): value is CatInstance {
@@ -56,6 +63,12 @@ function isValidCat(value: unknown): value is CatInstance {
     cat.name.length > 0 &&
     typeof cat.definitionId === "string"
   );
+}
+
+/** Clamp into the venue ladder — a save from a newer build must never crash. */
+function sanitizeVenueIndex(value: unknown): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) return 0;
+  return Math.min(VENUES.length - 1, Math.max(0, Math.floor(value)));
 }
 
 /**
@@ -113,6 +126,7 @@ export function loadSave(): LoadedSave | null {
       nextCatId,
       savedAt,
       upgrades: sanitizeUpgrades(data.upgrades),
+      venueIndex: sanitizeVenueIndex(data.venueIndex),
     };
   } catch {
     return null;
@@ -120,13 +134,14 @@ export function loadSave(): LoadedSave | null {
 }
 
 function persist(state: GameState): void {
-  const data: SaveDataV3 = {
+  const data: SaveDataV4 = {
     version: SAVE_VERSION,
     money: state.money,
     nextCatId: state.nextCatId,
     cats: state.cats,
     savedAt: Date.now(),
     upgrades: state.upgrades,
+    venueIndex: state.venueIndex,
   };
   try {
     localStorage.setItem(SAVE_KEY, JSON.stringify(data));
