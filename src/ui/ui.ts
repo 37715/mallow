@@ -15,6 +15,23 @@ import {
 } from "@/systems/upgrades";
 import { liveIncomePerSecond } from "@/systems/offline";
 import { logEvent } from "@/analytics/analytics";
+import {
+  initAudio,
+  isMuted,
+  playPurchase,
+  playReveal,
+  playTap,
+  setMuted,
+} from "@/audio/audio";
+
+/** How celebratory a reveal sounds, by rarity. */
+const REVEAL_INTENSITY: Record<string, number> = {
+  common: 0.2,
+  uncommon: 0.4,
+  rare: 0.6,
+  epic: 0.8,
+  legendary: 1,
+};
 
 function formatMoney(amount: number): string {
   return `$${Math.floor(amount)}`;
@@ -78,6 +95,23 @@ export function mountUI(root: HTMLElement): MountedUI {
   stack.appendChild(moneyPill);
   stack.appendChild(catCount);
   top.appendChild(stack);
+
+  // Sound toggle — audio is a big part of the feel (§10), so it gets a visible
+  // control rather than being buried in a settings screen we don't have yet.
+  const soundButton = el("button", "sound-button") as HTMLButtonElement;
+  soundButton.setAttribute("aria-label", "Toggle sound");
+  const paintSound = () => {
+    soundButton.textContent = isMuted() ? "🔇" : "🔊";
+    soundButton.classList.toggle("muted", isMuted());
+  };
+  paintSound();
+  soundButton.addEventListener("click", () => {
+    initAudio();
+    setMuted(!isMuted());
+    paintSound();
+    if (!isMuted()) playTap();
+  });
+  top.appendChild(soundButton);
 
   // --- Bottom bar ----------------------------------------------------------
   const bottom = el("div", "hud-bottom");
@@ -279,7 +313,9 @@ export function mountUI(root: HTMLElement): MountedUI {
 
       const buy = el("button", "upgrade-buy") as HTMLButtonElement;
       buy.addEventListener("click", () => {
+        initAudio();
         if (!gameStore.getState().buyUpgrade(definition.id)) return;
+        playPurchase();
         for (const refresh of refreshers) refresh();
       });
       row.appendChild(buy);
@@ -350,11 +386,16 @@ export function mountUI(root: HTMLElement): MountedUI {
   }
 
   adoptButton.addEventListener("click", () => {
+    initAudio();
     const cat = gameStore.getState().adoptCat();
-    if (cat) showAdoptionModal(cat);
+    if (!cat) return;
+    playReveal(REVEAL_INTENSITY[catDefinition(cat.definitionId).rarity] ?? 0.3);
+    showAdoptionModal(cat);
   });
 
   rosterButton.addEventListener("click", () => {
+    initAudio();
+    playTap();
     const { cats } = gameStore.getState();
     logEvent({
       name: "roster_opened",
@@ -365,6 +406,8 @@ export function mountUI(root: HTMLElement): MountedUI {
   });
 
   cafeButton.addEventListener("click", () => {
+    initAudio();
+    playTap();
     const state = gameStore.getState();
     logEvent({
       name: "cafe_opened",

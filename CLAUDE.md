@@ -23,32 +23,68 @@ This file is the shared brain for the project. **Read it before starting work in
 - **M2 — the hook** ✅ rarity, gacha-lite adoption, naming, roster + cat-dex.
 - **M3 (partial)** — idle/offline income ✅; save system with a real migration
   chain ✅; **café upgrades: expansion, décor, tips, service ✅**.
+- **M4 (partial)** — **art direction locked ✅** (hero cat, flat-shaded style,
+  warm lighting + tone mapping); **juice ✅** (living cats, tap-to-pet, coin
+  floaters, dust motes); **audio ✅** (synthesised, no asset files).
+- **Portrait framing** ✅ — the camera solves its own distance per aspect (§9).
 - **Analytics** ✅ (pulled forward from M5) — TelemetryDeck transport, batching,
   session + funnel + economy events.
-- `npm test` covers the pure systems, save migrations, and café geometry.
+- `npm test` — 70 tests over the pure systems, save migrations, café geometry,
+  the visitor loop, and a jsdom smoke suite for the HUD.
 
-**Next up — finish Milestone 3:**
-1. **The LTE (limited-time event) framework.** The last M3 piece and, per §8,
+**Next up:**
+1. **Ship the gate (§15).** TestFlight → small cosy Discord → measure D1/D7.
+   This is now worth doing: the build represents the real game well enough that
+   retention data means something. **Everything below is gated on this.**
+2. **The LTE (limited-time event) framework.** The last M3 piece and, per §8,
    the single highest-ROI retention feature in the genre. Data-driven event
    definitions in `/data` so new events are content, not code.
-2. **Cosmetic-only décor tier.** §8 wants décor to have a purely cosmetic tier
+3. **Cosmetic-only décor tier.** §8 wants décor to have a purely cosmetic tier
    alongside the stat one; currently every décor level is also a stat buy.
-3. Then **M4 (beauty pass)** — and the real gate is §15's: get to TestFlight and
-   measure D1/D7 before investing further.
+
+**Open design questions (raised 2026-07-31, not yet decided):**
+- **Two views** — an exterior/street view alongside the café interior, showing
+  visitors walking in and a storefront that visibly upgrades. Strong idea: §12
+  makes short-form video the top growth lever, and an exterior queue shot is
+  far more shareable than an interior. Cheaper than it looks (façade + street
+  strip + existing visitor meshes), but it does double the art surface.
+- **Venue progression / prestige** — escalating locations, each a fresh start
+  with a bigger multiplier. This is the standard idle-game answer to content
+  drought and directly addresses the balance debt below. Needs designing into
+  the economy and save format early; retrofitting a prestige layer is painful.
+- **How far does the escalation go?** Ellis floated ending at a cat spaceship
+  in space. It's shareable, but it's a *different brand* from the cosy, warm
+  positioning §1 commits to — that's gag-idle territory (Adventure Capitalist,
+  Egg Inc.). A cosy escalation ladder (rooftop → seaside → forest → snowy cabin
+  → cloud café → a moon café looking down at Earth) keeps the "how far does
+  this go?" hook without the tonal break. **Ellis's call — not yet made.**
 
 **Known gaps / debts:**
-- Cat meshes are greybox primitives; no GLB assets yet (M4).
-- No audio at all yet (M4, §10 — "audio is half the cosiness").
-- Décor props are procedural low-poly placeholders, not final art.
-- Bundle is ~518 kB (Three.js); fine for now, revisit before ship.
+- Cat/visitor/décor meshes are procedural placeholders; no GLB assets yet.
+- Ambient audio is synthesised; a composed bed would be better.
+- No UI/icon art — upgrade icons are emoji.
+- Bundle ~534 kB (Three.js); fine for now, revisit before ship.
+- **Draw calls**: a full late-game café is ~535 meshes / 39k triangles. Triangles
+  are fine; the mesh count is the thing to watch on a mid-range phone (§13).
+  Materials are shared per breed/palette already. Deliberately *not* optimised
+  further — a GLB hero cat is 1–2 meshes and fixes it for free, so merging
+  geometry on a placeholder would be throwaway work.
 - Balance beyond ~48h of play is unexplored; `decor` and `brews` max out in
   roughly an hour of active play, and the long tail leans on seating/service
-  and the cat cost curve. LTEs are the intended answer to running dry.
+  and the cat cost curve. LTEs and/or prestige are the intended answer.
+- Not yet run on a real device or in a real browser by an agent — §13 says test
+  on device early, and that still hasn't happened.
 
 **Session log:**
 - *2026-07-31* — Built the café upgrade system end-to-end (data → pure systems →
   store → save v3 → UI → 3D scene → analytics → tests). Retuned the arrival-rate
   curve; see §8 "Economy loop" for why. Added this §0.
+- *2026-07-31* — **Art direction + juice + audio (M4 pulled forward).** Rebuilt
+  the cat as a proper sitting hero mesh with animation hooks, flat-shaded
+  low-poly style applied to visitors too, warm lighting with ACES tone mapping.
+  Added tap-to-pet, coin floaters, dust motes, and a fully synthesised audio
+  layer. Reordered §15 and wrote down why. Added jsdom HUD smoke tests, since
+  no agent has been able to open a browser on this project yet.
 - *2026-07-31* — **Reframed the whole scene for portrait.** The room had been
   laid out and framed for a desktop window; on an iPhone the camera saw only
   3.5 of its 8 world units, cropping chairs, cats and décor off the sides.
@@ -256,6 +292,17 @@ Prioritise these — for a cosy game they matter more than model detail:
 
 Use a tween library for easing. Nothing in this game moves linearly or instantly.
 
+**Implemented (2026-07-31).** No tween library was needed — CSS handles UI easing and the scene animates from timestamps:
+- **Cats are alive**: breathing, tail sway, independent-phase ear twitches, slow head tilt. Every cat runs on its own phase offset so the room never moves in lockstep — that's what stops idle animation reading as a loop.
+- **Tap a cat to pet it** — squash-and-wiggle, a burst of hearts, and a purr. `CatManager.pick()` raycasts; `entities/cat.ts` exposes named parts (`head`, `tail`, `earL`, `earR`, `torso`) as animation hooks. **Rename those and the cats go still.**
+- **Coins pop and arc** out of the seat that paid, as DOM floaters projected from world space (`ui/floaters.ts`) — crisp at any DPI, zero draw calls.
+- **Dust motes** drift in the light: one `THREE.Points`, one draw call (`scene/dust.ts`).
+- **Audio is synthesised at runtime** (`audio/audio.ts`) — WebAudio only, no files, no licensing questions, nothing to load. Ambient bed of detuned sines on independent LFOs (so it never loops audibly), plus coin/purr/tap/purchase/reveal sfx. Reveal intensity scales with rarity. Starts on first tap (browser autoplay policy) and no-ops entirely when there's no `AudioContext`.
+- **Rate-limited on purpose**: a maxed café pays ~2.5×/second, so coin *sounds* are throttled to ~4/s while every payment still shows a floater. A chime that often stops being a reward and becomes a nag — pillar 1 beats feedback density.
+- `prefers-reduced-motion` is respected.
+
+A real composer's ambient bed would beat the synthesised one and should replace `startAmbient()` when art volume lands; the sfx are good enough to keep.
+
 ---
 
 ## 11. Data & analytics (validate continuously)
@@ -319,7 +366,16 @@ Discoverability is the #1 risk, so treat marketing as a first-class workstream, 
 - ⬜ **LTE event framework** — the remaining piece, and the highest-ROI one.
 - ⬜ **Cosmetic-only décor tier** (§8 wants one; today all décor is a stat buy).
 
-**Milestone 4 — Beauty pass:** art cohesion, lighting, juice (§10), audio.
+**Milestone 4 — Beauty pass:** 🟡 in progress — art cohesion, lighting, juice (§10), audio.
+
+**Reordered 2026-07-31, deliberately.** The original plan put the entire beauty pass after M3. That is a trap for *this* game: the §15 gate is "ship to TestFlight, measure D1/D7, stop if D1 < 30%" — and for a cosy game the feeling **is** the product. Running that gate on a grey-box build measures "does an ugly game retain" (no) rather than "is this loop sticky", producing a false negative that could kill a good game.
+
+The resolution is **art *direction* early, art *volume* late**:
+- ✅ **Direction locked** — hero cat silhouette, flat-shaded low-poly style, warm lighting with ACES tone mapping, cohesive palette. One cat, not fifty.
+- ✅ **Juice + audio** — these are cheap, don't depend on final assets, and transform how a placeholder build feels. §10 already called them "the product, not decoration"; they no longer sit behind depth work.
+- ⬜ **Volume** — real GLB assets, café/prop art, UI/icon art. Still gated on validation, still the expensive irreversible bet §4 warns about.
+
+Keeping `/systems` pure and meshes confined to `/entities` is what makes the swap cheap later — don't erode that.
 
 **Milestone 5 — Ship path:** monetization per §5, analytics per §11, Capacitor iOS build, TestFlight beta → launch with ASO + creator seeding (§12), then iterate on real data.
 

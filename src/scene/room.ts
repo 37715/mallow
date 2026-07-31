@@ -63,11 +63,24 @@ export function mesh(
   return m;
 }
 
+// Shared across every table set — twelve seats would otherwise mean twenty-four
+// near-identical materials and the draw calls that come with them (§13).
+const WOOD_MATERIAL = new THREE.MeshStandardMaterial({
+  color: 0xb5876a,
+  roughness: 0.7,
+  flatShading: true,
+});
+const CUSHION_MATERIAL = new THREE.MeshStandardMaterial({
+  color: 0xd4a574,
+  roughness: 0.85,
+  flatShading: true,
+});
+
 /** A table-and-chair set for one seat. Built on demand as seating is unlocked. */
 export function buildTableSet(seatPos: THREE.Vector3): THREE.Group {
   const set = new THREE.Group();
-  const wood = new THREE.MeshStandardMaterial({ color: 0xb5876a, roughness: 0.7 });
-  const cushion = new THREE.MeshStandardMaterial({ color: 0xd4a574, roughness: 0.85 });
+  const wood = WOOD_MATERIAL;
+  const cushion = CUSHION_MATERIAL;
 
   // Table toward the counter (−z) from the seat.
   const tableX = seatPos.x;

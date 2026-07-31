@@ -623,3 +623,117 @@ body {
   color: var(--warm-brown);
   opacity: 1;
 }
+
+/* --- Floaters: coins + hearts (§10) --------------------------------------- */
+
+.floater-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 3;
+  overflow: hidden;
+}
+
+.floater {
+  position: absolute;
+  left: 0;
+  top: 0;
+  font-weight: 800;
+  white-space: nowrap;
+  will-change: transform, opacity;
+  animation: floater-rise 1150ms cubic-bezier(0.22, 0.8, 0.3, 1) forwards;
+}
+
+.floater-coin {
+  font-size: 17px;
+  color: #e08a3c;
+  text-shadow: 0 2px 5px rgba(120, 70, 20, 0.28), 0 0 1px rgba(255, 255, 255, 0.9);
+}
+
+.floater-heart {
+  font-size: 20px;
+  color: #e8748c;
+  text-shadow: 0 2px 6px rgba(160, 60, 90, 0.3);
+}
+
+@keyframes floater-rise {
+  0% {
+    transform: translate(-50%, -50%) scale(0.5) rotate(0deg);
+    opacity: 0;
+  }
+  18% {
+    transform: translate(calc(-50% + var(--drift) * 0.25), calc(-50% + var(--rise) * 0.22))
+      scale(1.16) rotate(calc(var(--tilt) * 0.4));
+    opacity: 1;
+  }
+  70% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(calc(-50% + var(--drift)), calc(-50% + var(--rise))) scale(0.92)
+      rotate(var(--tilt));
+    opacity: 0;
+  }
+}
+
+/* --- Sound toggle --------------------------------------------------------- */
+
+.sound-button {
+  position: absolute;
+  top: max(16px, env(safe-area-inset-top));
+  right: 16px;
+  pointer-events: auto;
+  width: 38px;
+  height: 38px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 250, 240, 0.85);
+  backdrop-filter: blur(6px);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  transition: transform 140ms cubic-bezier(0.34, 1.4, 0.64, 1), opacity 200ms ease;
+}
+
+.sound-button:active {
+  transform: scale(0.9);
+}
+
+.sound-button.muted {
+  opacity: 0.55;
+}
+
+/* --- Motion polish: nothing snaps (§10) ----------------------------------- */
+
+.overlay-layer {
+  transition: opacity 200ms ease;
+}
+
+.reveal-card,
+.roster-panel {
+  will-change: transform, opacity;
+}
+
+.upgrade-buy,
+.roster-button,
+.adopt-button {
+  transition: transform 120ms cubic-bezier(0.34, 1.4, 0.64, 1), opacity 180ms ease,
+    background-color 180ms ease;
+}
+
+.money-pill {
+  transition: transform 160ms cubic-bezier(0.34, 1.5, 0.64, 1);
+}
+
+/* Respect the OS setting — cosy should never mean nauseating. */
+@media (prefers-reduced-motion: reduce) {
+  .floater {
+    animation-duration: 700ms;
+  }
+
+  .reveal-card,
+  .roster-panel {
+    animation: none;
+  }
+}

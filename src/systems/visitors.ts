@@ -24,6 +24,8 @@ export interface VisitorTickResult {
   lastSpawnAt: number;
   /** True if a visitor was seated/paid this tick — useful for juice/analytics hooks. */
   spawnedThisTick: boolean;
+  /** Seat of each visitor who paid this tick — drives the coin-pop juice (§10). */
+  paidSeatIndexes: number[];
 }
 
 let nextVisitorId = 0;
@@ -68,11 +70,13 @@ export function tickVisitors(
   stats: CafeStats,
 ): VisitorTickResult {
   let moneyEarned = 0;
+  const paidSeatIndexes: number[] = [];
 
   const next = visitors
     .map((visitor) => {
       if (!visitor.hasPaid && now >= visitor.leavingAt) {
         moneyEarned += visitorPayAmount(stats.appeal, stats.payMultiplier);
+        paidSeatIndexes.push(visitor.seatIndex);
         return { ...visitor, hasPaid: true };
       }
       return visitor;
@@ -93,5 +97,11 @@ export function tickVisitors(
     updatedLastSpawnAt = now;
   }
 
-  return { visitors: next, moneyEarned, lastSpawnAt: updatedLastSpawnAt, spawnedThisTick };
+  return {
+    visitors: next,
+    moneyEarned,
+    lastSpawnAt: updatedLastSpawnAt,
+    spawnedThisTick,
+    paidSeatIndexes,
+  };
 }

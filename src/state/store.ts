@@ -19,6 +19,7 @@ import {
 import type { UpgradeId } from "@/data/upgrades";
 import { loadSave } from "@/state/save";
 import { logEvent } from "@/analytics/analytics";
+import { emitGameEvent } from "@/core/events";
 
 export interface CatInstance {
   id: string;
@@ -110,6 +111,9 @@ export const gameStore = createStore<GameState>((set, get) => ({
 
     if (result.moneyEarned > 0) {
       logEvent({ name: "visitor_paid", amount: result.moneyEarned, money: money + result.moneyEarned });
+    }
+    for (const seatIndex of result.paidSeatIndexes) {
+      emitGameEvent("visitorPaid", { seatIndex });
     }
 
     set({

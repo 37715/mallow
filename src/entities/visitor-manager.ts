@@ -49,9 +49,13 @@ export class VisitorManager {
         1,
       );
       mesh.position.lerpVectors(DOOR_POSITION, seatPos, easeInOut(t));
+      // A light walking bob — footsteps, not levitation (§10).
+      mesh.position.y += Math.abs(Math.sin(now * 0.012)) * 0.035;
       mesh.lookAt(seatPos.x, mesh.position.y, seatPos.z);
     } else if (now < visitor.leavingAt) {
       mesh.position.copy(seatPos);
+      // Seated sway, gentler and slower than the cats' so it doesn't sync up.
+      mesh.rotation.z = Math.sin(now * 0.0011 + visitor.seatIndex * 2.1) * 0.02;
     } else {
       const t = THREE.MathUtils.clamp(
         (now - visitor.leavingAt) / Math.max(1, visitor.doneAt - visitor.leavingAt),
@@ -59,6 +63,7 @@ export class VisitorManager {
         1,
       );
       mesh.position.lerpVectors(seatPos, DOOR_POSITION, easeInOut(t));
+      mesh.position.y += Math.abs(Math.sin(now * 0.012)) * 0.035;
       mesh.lookAt(DOOR_POSITION.x, mesh.position.y, DOOR_POSITION.z);
     }
   }

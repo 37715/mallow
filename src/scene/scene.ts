@@ -9,27 +9,48 @@ export interface SceneContext {
   render: () => void;
 }
 
-/** Warm key light + soft ambient — lighting is the star (§9). */
+/**
+ * Warm key light + soft ambient — lighting is the star (§9). Tuned with ACES
+ * tone mapping in mind (set on the renderer below): intensities here look
+ * washed out without it and hot with plain linear output.
+ */
 function addLighting(scene: THREE.Scene): void {
-  const ambient = new THREE.AmbientLight(0xfff2df, 0.55);
-  scene.add(ambient);
+  // Hemisphere instead of flat ambient: cream light from above, a bounce of
+  // warm floor tone from below. Gives every unlit face a little gradient.
+  const hemi = new THREE.HemisphereLight(0xfff3e0, 0xd9b48a, 0.85);
+  scene.add(hemi);
 
-  const key = new THREE.DirectionalLight(0xffe4b8, 1.4);
-  key.position.set(4, 6, 4);
+  // Late-afternoon sun through the café window.
+  const key = new THREE.DirectionalLight(0xffdca8, 2.2);
+  key.position.set(3.5, 6, 3);
   key.castShadow = true;
   key.shadow.mapSize.set(1024, 1024);
   key.shadow.camera.near = 0.5;
   key.shadow.camera.far = 20;
+  key.shadow.camera.left = -6;
+  key.shadow.camera.right = 6;
+  key.shadow.camera.top = 6;
+  key.shadow.camera.bottom = -6;
+  // Soften shadow edges — hard shadows read harsh, and harsh isn't cosy.
+  key.shadow.radius = 5;
+  key.shadow.bias = -0.0004;
   scene.add(key);
 
-  const fill = new THREE.DirectionalLight(0xcfe0ff, 0.25);
+  // Cool sky fill from the opposite side keeps shadowed faces from going muddy.
+  const fill = new THREE.DirectionalLight(0xcfe0ff, 0.3);
   fill.position.set(-4, 3, -2);
   scene.add(fill);
+
+  // A warm pool of lamplight over the counter — the cosy glow anchor.
+  const counterGlow = new THREE.PointLight(0xffc98a, 10, 7, 2);
+  counterGlow.position.set(0, 2.4, -3.2);
+  scene.add(counterGlow);
 }
 
 export function createScene(canvas: HTMLCanvasElement): SceneContext {
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0xf7ecd9);
+  // A touch deeper than the walls so the room edges read against it.
+  scene.background = new THREE.Color(0xf0dfc4);
 
   // Position and distance are solved per aspect ratio in resize() below, so the
   // café is fully framed on a portrait phone as well as a desktop window (§6).
@@ -44,6 +65,10 @@ export function createScene(canvas: HTMLCanvasElement): SceneContext {
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  // Filmic tone mapping is most of the "warm and soft" look (§9): it rolls
+  // highlights off gently where linear output clips them to white.
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.12;
 
   addLighting(scene);
   scene.add(buildRoom());
