@@ -32,7 +32,7 @@ export type AnalyticsEvent =
   | { name: "cafe_opened"; seats: number; upgradeLevels: number }
   // Presence + long-game progression.
   | { name: "cat_petted"; breed: string }
-  | { name: "venue_moved"; venue: string; venueIndex: number; cost: number; catCount: number };
+  | { name: "customisation_bought"; category: string; option: string; cost: number };
 
 /** The one numeric per event TelemetryDeck can average/sum (floatValue). */
 function primaryValue(event: AnalyticsEvent): number | undefined {
@@ -43,8 +43,8 @@ function primaryValue(event: AnalyticsEvent): number | undefined {
       return event.cost;
     case "upgrade_purchased":
       return event.cost;
-    case "venue_moved":
-      return event.venueIndex;
+    case "customisation_bought":
+      return event.cost;
     case "offline_income":
       return event.earned;
     case "visitor_paid":

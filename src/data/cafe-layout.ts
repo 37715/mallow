@@ -41,8 +41,17 @@ export const ROOM = {
 } as const;
 
 export interface Placement {
-  /** Object name from the pack — see /gallery.html. */
+  /**
+   * Object name from the pack — see /gallery.html. Leave empty and set `slot`
+   * for anything the player can recolour.
+   */
   asset: string;
+  /**
+   * A customisable slot (see data/customisation.ts). The asset name is looked
+   * up from the player's current choice at build time, so changing the sofa
+   * colour is a save change rather than a layout edit.
+   */
+  slot?: "floor" | "wallPlain" | "wallWindow" | "sofa" | "carpet" | "catBed";
   x: number;
   z: number;
   /** Height off the floor. Omit for floor-standing objects. */
@@ -77,9 +86,9 @@ export const CAFE_LAYOUT: Placement[] = [
   // carries the blackboard, the shelf and the counter — hanging those over a
   // window put a shelf straight across the glass, which looked like a bug
   // because it was one.
-  { asset: "Flooring_A_Tiling", x: 0, z: 0, y: -FLOOR_THICKNESS },
-  { asset: "Wall_A_Light_Mid", x: 0, z: 0, rotY: -HALF_PI },
-  { asset: "Wall_A_Window_Light_Mid", x: 0, z: 0 },
+  { asset: "Flooring_A_Tiling", slot: "floor", x: 0, z: 0, y: -FLOOR_THICKNESS },
+  { asset: "Wall_A_Light_Mid", slot: "wallPlain", x: 0, z: 0, rotY: -HALF_PI },
+  { asset: "Wall_A_Window_Light_Mid", slot: "wallWindow", x: 0, z: 0 },
 
   // --- Counter along the back wall ----------------------------------------
   { asset: "Bar_End_Round", x: -1.55, z: -1.45 },
@@ -102,16 +111,16 @@ export const CAFE_LAYOUT: Placement[] = [
   { asset: "Chair_Bar_A", x: -0.85, z: -0.62, seat: true, seatY: 0.68 },
   { asset: "Chair_Bar_A", x: -0.15, z: -0.62, seat: true, seatY: 0.68 },
 
-  { asset: "Sofa_Single_Cream", x: -1.5, z: 0.9, rotY: HALF_PI, seat: true, seatY: 0.42 },
+  { asset: "Sofa_Single_Cream", slot: "sofa", x: -1.5, z: 0.9, rotY: HALF_PI, seat: true, seatY: 0.42 },
   { asset: "Table_Short", x: -0.5, z: 0.95 },
   { asset: "Cup_Upright_Orange", x: -0.5, z: 0.95, y: 0.38 },
 
-  { asset: "Carpet_Large_Purple", x: 1.0, z: 1.15 },
+  { asset: "Carpet_Small_Cream", slot: "carpet", x: 1.0, z: 1.15 },
   { asset: "Cushion_Folded_Blue", x: 1.0, z: 0.5, seat: true, seatY: 0.22 },
 
   // --- Cat furniture. `catY` lifts the cat onto the cushion, not into it. ---
   { asset: "Cat_Climber_A_Cream", x: 1.5, z: -0.7, catSpot: true, catY: 1.02 },
-  { asset: "Cat_Bed_A_Pink", x: -1.45, z: -0.2, catSpot: true, catY: 0.1 },
+  { asset: "Cat_Bed_A_Cream", slot: "catBed", x: -1.45, z: -0.2, catSpot: true, catY: 0.1 },
 ];
 
 /**

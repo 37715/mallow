@@ -1,9 +1,36 @@
 :root {
-  --cream: #f7ecd9;
-  --warm-brown: #8a6a52;
-  --accent: #d97b4f;
-  --ink: #4a3826;
-  --card: rgba(255, 250, 240, 0.95);
+  /* Palette drawn from the café itself: paper, honey wood, a blush for the
+     cats, cocoa for ink, sage as the cool counterpoint used only for things
+     that aren't available yet. */
+  --paper: #fbf3e6;
+  --paper-warm: #f4e6d0;
+  --honey: #e0913c;
+  --honey-deep: #c4762a;
+  --blush: #e0808f;
+  --cocoa: #46331f;
+  --cocoa-soft: #8a7256;
+  --sage: #93a184;
+
+  --card: rgba(252, 245, 234, 0.97);
+  --ink: var(--cocoa);
+  --warm-brown: var(--cocoa-soft);
+  --accent: var(--honey);
+  --cream: var(--paper);
+
+  /* Warm shadows. A neutral grey shadow on a cream UI reads as dirt. */
+  --lift-sm: 0 1px 2px rgba(90, 60, 30, 0.1), 0 2px 6px rgba(90, 60, 30, 0.08);
+  --lift-md: 0 2px 4px rgba(90, 60, 30, 0.12), 0 6px 16px rgba(90, 60, 30, 0.12);
+  --lift-lg: 0 4px 10px rgba(90, 60, 30, 0.14), 0 18px 40px rgba(90, 60, 30, 0.18);
+
+  /* One family, native and rounded. Contrast comes from weight and tracking
+     rather than a second face — and it costs no download inside the app. */
+  --font: ui-rounded, "SF Pro Rounded", -apple-system, BlinkMacSystemFont,
+    "Segoe UI Variable Display", system-ui, sans-serif;
+
+  --r-pill: 999px;
+  --r-lg: 22px;
+  --r-md: 16px;
+  --r-sm: 11px;
 }
 
 * {
@@ -15,8 +42,10 @@ body {
   margin: 0;
   height: 100%;
   overflow: hidden;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-family: var(--font);
   color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
 }
 
 #app {
@@ -874,3 +903,275 @@ body {
   line-height: 1.45;
   color: var(--warm-brown);
 }
+
+
+/* ==========================================================================
+   Design pass. The 3D café is the hero; everything here is signage floating
+   over it, so it stays light, warm and out of the way. Two type registers
+   only: heavy tight numerals for values, wide-tracked small caps for labels.
+   ========================================================================== */
+
+/* --- The till badge — the signature element -------------------------------
+   Money is capped (§8), so the badge shows how full the till is. The bar is
+   information, not decoration: it's the only way to see the ceiling coming. */
+
+.money-pill {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 124px;
+  padding: 11px 24px;
+  border-radius: var(--r-pill);
+  background: var(--card);
+  box-shadow: var(--lift-md), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  transition: transform 200ms cubic-bezier(0.34, 1.4, 0.64, 1);
+}
+
+.money-value {
+  position: relative;
+  z-index: 1;
+}
+
+.till-fill {
+  position: absolute;
+  inset: 0;
+  transform-origin: left center;
+  background: linear-gradient(90deg, rgba(224, 145, 60, 0.16), rgba(224, 145, 60, 0.3));
+  transition: transform 500ms cubic-bezier(0.22, 0.8, 0.3, 1);
+}
+
+.money-pill.till-full .till-fill {
+  background: linear-gradient(90deg, rgba(224, 128, 143, 0.22), rgba(224, 128, 143, 0.38));
+}
+
+.cat-count-pill {
+  padding: 5px 15px;
+  border-radius: var(--r-pill);
+  background: rgba(252, 245, 234, 0.9);
+  box-shadow: var(--lift-sm);
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--cocoa-soft);
+}
+
+.cat-count-pill.has-content { color: var(--blush); }
+
+/* --- Buttons: pressed enamel, not glass ----------------------------------- */
+
+.adopt-button,
+.roster-button,
+.upgrade-buy,
+.reveal-confirm,
+.style-tile {
+  font-family: var(--font);
+  border: none;
+  cursor: pointer;
+}
+
+.adopt-button {
+  min-width: 260px;
+  padding: 15px 30px 16px;
+  border-radius: var(--r-pill);
+  background: linear-gradient(180deg, #eda busy 0%, var(--honey) 40%, var(--honey-deep) 100%);
+  background: linear-gradient(180deg, #eea45a 0%, var(--honey) 45%, var(--honey-deep) 100%);
+  color: #fffaf2;
+  box-shadow: var(--lift-md), inset 0 1px 0 rgba(255, 255, 255, 0.45),
+    inset 0 -2px 0 rgba(120, 65, 10, 0.28);
+  transition: transform 120ms cubic-bezier(0.34, 1.4, 0.64, 1), filter 180ms ease,
+    opacity 180ms ease;
+}
+
+.adopt-button-label {
+  font-size: 16.5px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.adopt-button-hint {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  opacity: 0.78;
+}
+
+.adopt-button:active:not(:disabled) {
+  transform: translateY(2px) scale(0.985);
+  box-shadow: var(--lift-sm), inset 0 -1px 0 rgba(120, 65, 10, 0.3);
+}
+
+.adopt-button:disabled {
+  filter: saturate(0.45);
+  opacity: 0.5;
+  box-shadow: var(--lift-sm);
+}
+
+.roster-button {
+  position: relative;
+  padding: 11px 22px;
+  border-radius: var(--r-pill);
+  background: var(--card);
+  color: var(--cocoa-soft);
+  font-size: 12.5px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  box-shadow: var(--lift-sm), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  transition: transform 120ms cubic-bezier(0.34, 1.4, 0.64, 1), color 180ms ease;
+}
+
+.roster-button:active { transform: translateY(1px) scale(0.97); }
+
+.sound-button {
+  background: var(--card);
+  box-shadow: var(--lift-sm), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+.nudge-dot { background: var(--blush); }
+
+/* --- Panels: a paper menu card ------------------------------------------- */
+
+.panel,
+.roster-panel {
+  display: flex;
+  flex-direction: column;
+  width: min(400px, calc(100vw - 28px));
+  max-height: calc(100vh - 88px);
+  padding: 20px;
+  border-radius: var(--r-lg);
+  background: var(--card);
+  box-shadow: var(--lift-lg);
+  overflow-y: auto;
+  animation: card-pop 240ms cubic-bezier(0.34, 1.3, 0.64, 1);
+}
+
+.roster-title {
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.roster-close {
+  background: rgba(138, 114, 86, 0.12);
+  color: var(--cocoa-soft);
+  font-weight: 700;
+}
+
+/* --- Style panel: locked doors you know how to open ----------------------- */
+
+.style-section { margin-bottom: 20px; }
+
+.style-section-name {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--cocoa-soft);
+}
+
+.style-section-hint {
+  margin: 3px 0 11px;
+  font-size: 12.5px;
+  line-height: 1.4;
+  color: var(--cocoa-soft);
+  opacity: 0.85;
+}
+
+.style-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(88px, 1fr));
+  gap: 9px;
+}
+
+.style-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 11px 7px 9px;
+  border-radius: var(--r-md);
+  background: rgba(138, 114, 86, 0.07);
+  box-shadow: inset 0 0 0 2px transparent;
+  transition: background 180ms ease, box-shadow 180ms ease, transform 120ms ease;
+}
+
+.style-tile:active:not(:disabled) { transform: scale(0.96); }
+
+.style-swatch {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  box-shadow: inset 0 -3px 6px rgba(0, 0, 0, 0.16), 0 1px 3px rgba(90, 60, 30, 0.18);
+}
+
+.style-name {
+  font-size: 11.5px;
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--cocoa);
+}
+
+.style-note {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1.3;
+  color: var(--honey-deep);
+  font-variant-numeric: tabular-nums;
+}
+
+.style-tile.chosen {
+  background: rgba(224, 145, 60, 0.14);
+  box-shadow: inset 0 0 0 2px var(--honey);
+}
+
+.style-tile.chosen .style-note { color: var(--honey-deep); }
+
+/* Locked reads as "not yet", never as "denied": the swatch is drained to sage
+   rather than greyed out, and the note says what to go and do. */
+.style-tile.locked { background: rgba(147, 161, 132, 0.12); cursor: default; }
+.style-tile.locked .style-swatch { filter: grayscale(0.85) brightness(1.06); opacity: 0.5; }
+.style-tile.locked .style-name { color: var(--cocoa-soft); opacity: 0.75; }
+.style-tile.locked .style-note { color: var(--sage); }
+
+.style-tile:disabled:not(.locked) { opacity: 0.55; cursor: default; }
+
+/* --- Upgrade rows --------------------------------------------------------- */
+
+.upgrade-buy {
+  border-radius: var(--r-sm);
+  background: linear-gradient(180deg, #eea45a 0%, var(--honey) 45%, var(--honey-deep) 100%);
+  box-shadow: var(--lift-sm), inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.upgrade-buy:disabled { filter: saturate(0.4); opacity: 0.5; box-shadow: none; }
+.upgrade-buy.maxed { background: rgba(138, 114, 86, 0.16); color: var(--cocoa-soft); filter: none; }
+
+.upgrade-name { letter-spacing: -0.01em; }
+.upgrade-level { letter-spacing: 0.06em; text-transform: uppercase; }
+.upgrade-effect { color: var(--honey-deep); }
+
+.cafe-stat-value { font-weight: 800; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.cafe-stat-label { letter-spacing: 0.1em; }
+
+.reveal-confirm {
+  border-radius: var(--r-md);
+  background: linear-gradient(180deg, #eea45a 0%, var(--honey) 45%, var(--honey-deep) 100%);
+  box-shadow: var(--lift-sm), inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  font-weight: 800;
+}
+
+.reveal-breed { letter-spacing: -0.02em; font-weight: 800; }
+.reveal-title { letter-spacing: 0.12em; }
+.welcome-earned { color: var(--honey-deep); letter-spacing: -0.03em; }
+
+.hud-bottom-row { gap: 8px; }

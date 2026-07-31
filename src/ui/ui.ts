@@ -1,4 +1,10 @@
-import { gameStore, discoveredBreeds, currentCafeStats, type CatInstance } from "@/state/store";
+import {
+  gameStore,
+  discoveredBreeds,
+  currentCafeStats,
+  currentProgress,
+  type CatInstance,
+} from "@/state/store";
 import { formatMoney, formatDuration } from "@/ui/format";
 import { contentCatCount } from "@/systems/cafe";
 import { MAX_VISIBLE_CATS } from "@/entities/cat-manager";
@@ -10,6 +16,8 @@ import {
   type CatDefinition,
 } from "@/data/cats";
 import { UPGRADE_DEFINITIONS } from "@/data/upgrades";
+import { CUSTOMISATION, isUnlocked } from "@/data/customisation";
+import { ECONOMY_CONFIG } from "@/data/economy";
 import {
   hasAffordableUpgrade,
   levelOf,
@@ -82,6 +90,12 @@ export function mountUI(root: HTMLElement): MountedUI {
   const top = el("div", "hud-top");
   const stack = el("div", "hud-top-stack");
   const moneyPill = el("div", "money-pill");
+  // The till has a ceiling (§8), so show how full it is. The bar is the one
+  // place the HUD says something the number alone can't.
+  const tillFill = el("div", "till-fill");
+  const moneyValue = el("span", "money-value");
+  moneyPill.appendChild(tillFill);
+  moneyPill.appendChild(moneyValue);
   const catCount = el("div", "cat-count-pill");
   stack.appendChild(moneyPill);
   stack.appendChild(catCount);
@@ -115,11 +129,13 @@ export function mountUI(root: HTMLElement): MountedUI {
   const secondaryRow = el("div", "hud-bottom-row");
   const rosterButton = el("button", "roster-button", "Cats") as HTMLButtonElement;
   const cafeButton = el("button", "roster-button", "Café") as HTMLButtonElement;
+  const styleButton = el("button", "roster-button", "Style") as HTMLButtonElement;
   // Gentle "something's affordable" dot — an invitation, never a nag (§2).
   const cafeDot = el("span", "nudge-dot");
   cafeButton.appendChild(cafeDot);
   secondaryRow.appendChild(rosterButton);
   secondaryRow.appendChild(cafeButton);
+  secondaryRow.appendChild(styleButton);
 
   bottom.appendChild(adoptButton);
   bottom.appendChild(secondaryRow);
@@ -203,7 +219,7 @@ export function mountUI(root: HTMLElement): MountedUI {
     const { cats } = gameStore.getState();
     const discovered = discoveredBreeds(cats);
 
-    const panel = el("div", "roster-panel");
+    const panel = el("div", "panel");
     panel.appendChild(panelHeader("Your cats"));
 
     // Be honest about the room's capacity rather than silently dropping cats.
@@ -289,7 +305,7 @@ export function mountUI(root: HTMLElement): MountedUI {
     panelLayer.innerHTML = "";
     panelUpdate = null;
 
-    const panel = el("div", "roster-panel");
+    const panel = el("div", "panel");
     panel.appendChild(panelHeader("Your café"));
 
 
@@ -376,6 +392,84 @@ export function mountUI(root: HTMLElement): MountedUI {
     panelLayer.classList.add("open");
   }
 
+  // --- Style: the customisation menu (§0 — this is the progression) --------
+  function renderStylePanel(): void {
+    panelLayer.innerHTML = "";
+    panelUpdate = null;
+
+    const panel = el("div", "panel");
+    panel.appendChild(panelHeader("Make it yours"));
+
+    const refreshers: (() => void)[] = [];
+
+    for (const category of CUSTOMISATION) {
+      const section = el("div", "style-section");
+      section.appendChild(el("div", "style-section-name", category.name));
+      section.appendChild(el("div", "style-section-hint", category.hint));
+
+      const row = el("div", "style-row");
+      for (const option of category.options) {
+        const tile = el("button", "style-tile") as HTMLButtonElement;
+
+        const swatch = el("div", "style-swatch");
+        swatch.style.background = option.swatch;
+        tile.appendChild(swatch);
+        tile.appendChild(el("div", "style-name", option.name));
+        const note = el("div", "style-note");
+        tile.appendChild(note);
+
+        tile.addEventListener("click", () => {
+          initAudio();
+          if (gameStore.getState().chooseCustomisation(category.id, option.id)) {
+            playPurchase();
+          } else {
+            playTap();
+          }
+          for (const refresh of refreshers) refresh();
+        });
+
+        row.appendChild(tile);
+
+        refreshers.push(() => {
+          const state = gameStore.getState();
+          const unlocked = isUnlocked(option, currentProgress(state));
+          const owned = option.price === 0 || state.owned.includes(`${category.id}:${option.id}`);
+          const chosen = state.customisation[category.id] === option.id;
+          const affordable = state.money >= option.price;
+
+          tile.classList.toggle("locked", !unlocked);
+          tile.classList.toggle("chosen", chosen);
+          tile.disabled = !unlocked || (!owned && !affordable);
+
+          if (!unlocked) {
+            // The locked row states the next step rather than just "locked" —
+            // a closed door you know how to open is progression, one you don't
+            // is just a wall.
+            note.textContent = option.unlock?.label ?? "Locked";
+          } else if (chosen) {
+            note.textContent = "In your café";
+          } else if (owned) {
+            note.textContent = "Tap to use";
+          } else {
+            note.textContent = formatMoney(option.price);
+          }
+        });
+      }
+
+      section.appendChild(row);
+      panel.appendChild(section);
+    }
+
+    function update(): void {
+      for (const refresh of refreshers) refresh();
+    }
+    update();
+    panelUpdate = update;
+
+    panelLayer.appendChild(panel);
+    panelLayer.classList.add("open");
+  }
+
   // --- Welcome back / offline earnings (§8) --------------------------------
   function showWelcomeBack(earned: number, awayMs: number): void {
     modalLayer.innerHTML = "";
@@ -433,13 +527,22 @@ export function mountUI(root: HTMLElement): MountedUI {
     renderCafePanel();
   });
 
+  styleButton.addEventListener("click", () => {
+    initAudio();
+    playTap();
+    renderStylePanel();
+  });
+
   // --- HUD render loop -----------------------------------------------------
   let lastMoney = gameStore.getState().money;
 
   function render() {
     const state = gameStore.getState();
     const { money, cats, upgrades } = state;
-    moneyPill.textContent = formatMoney(money);
+    moneyValue.textContent = formatMoney(money);
+    const fullness = Math.min(1, money / ECONOMY_CONFIG.tillCapacity);
+    tillFill.style.transform = `scaleX(${fullness.toFixed(3)})`;
+    moneyPill.classList.toggle("till-full", fullness >= 0.999);
 
     // Show how many cats are content, so the effect of petting is visible —
     // an unexplained multiplier may as well not exist.

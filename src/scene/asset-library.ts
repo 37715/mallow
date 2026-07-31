@@ -115,12 +115,14 @@ async function loadOnce(): Promise<CafeAssets> {
   const glassMap = await textureLoader.loadAsync(`${ASSET_BASE}/T_CatCafe_Glass.png`);
   glassMap.colorSpace = THREE.SRGBColorSpace;
   glassMap.flipY = false;
-  const glassMaterial = new THREE.MeshStandardMaterial({
+  // Unlit and untone-mapped on purpose: the window should read as bright
+  // daylight, near-white, not as a lit surface sitting in a dim room. Lighting
+  // it made the one window in the café the darkest thing on screen.
+  const glassMaterial = new THREE.MeshBasicMaterial({
     map: glassMap,
-    roughness: 0.25,
-    metalness: 0,
+    toneMapped: false,
     transparent: true,
-    opacity: 0.55,
+    opacity: 0.85,
     depthWrite: false,
   });
 

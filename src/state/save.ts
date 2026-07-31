@@ -1,6 +1,7 @@
 import type { StoreApi } from "zustand/vanilla";
 import type { CatInstance, GameState } from "@/state/store";
 import { UPGRADE_DEFINITIONS } from "@/data/upgrades";
+import { CUSTOMISATION, DEFAULT_CUSTOMISATION, type Customisation } from "@/data/customisation";
 import { levelOf, type UpgradeLevels } from "@/systems/upgrades";
 
 /**
@@ -23,23 +24,33 @@ import { levelOf, type UpgradeLevels } from "@/systems/upgrades";
  *            names; they simply come home to the one café. Money is rescaled
  *            in the same step, because old balances ran to the billions and
  *            the new economy tops out in the tens of thousands.
+ *   v4 → v5 → v6: **no migration, by design.** The economy was rescaled from
+ *            billions to a £9,999 ceiling and cats were capped at five, so a
+ *            v5 save produces a nonsense state — dozens of cats the room can't
+ *            hold, and a balance that skips the entire game. Those saves are
+ *            discarded and the player starts fresh. This is a deliberate,
+ *            one-time break made while the game has no players; once it ships,
+ *            "never lose a player's cats" applies without exception and every
+ *            version gets a real migration.
  */
 
 const SAVE_KEY = "mallow-save";
-const SAVE_VERSION = 5;
+const SAVE_VERSION = 6;
 
-interface SaveDataV5 {
-  version: 5;
+interface SaveDataV6 {
+  version: 6;
   money: number;
   nextCatId: number;
   cats: CatInstance[];
   /** Wall-clock (Date.now) timestamp of the last save — basis for offline earnings. */
   savedAt: number;
   upgrades: UpgradeLevels;
+  customisation: Customisation;
+  owned: string[];
 }
 
 export interface LoadedSave
-  extends Pick<GameState, "money" | "cats" | "nextCatId" | "upgrades"> {
+  extends Pick<GameState, "money" | "cats" | "nextCatId" | "upgrades" | "customisation" | "owned"> {
   savedAt: number;
 }
 
@@ -74,6 +85,19 @@ function isValidCat(value: unknown): value is CatInstance {
     cat.name.length > 0 &&
     typeof cat.definitionId === "string"
   );
+}
+
+/** Drop choices for categories or options that no longer exist in the catalog. */
+function sanitizeCustomisation(value: unknown): Customisation {
+  const raw = (typeof value === "object" && value !== null ? value : {}) as Record<string, unknown>;
+  const out: Customisation = { ...DEFAULT_CUSTOMISATION };
+  for (const category of CUSTOMISATION) {
+    const chosen = raw[category.id];
+    if (typeof chosen === "string" && category.options.some((o) => o.id === chosen)) {
+      out[category.id] = chosen;
+    }
+  }
+  return out;
 }
 
 /**
@@ -131,6 +155,8 @@ export function loadSave(): LoadedSave | null {
       nextCatId,
       savedAt,
       upgrades: sanitizeUpgrades(data.upgrades),
+      customisation: sanitizeCustomisation(data.customisation),
+      owned: Array.isArray(data.owned) ? data.owned.filter((v) => typeof v === "string") : [],
     };
   } catch {
     return null;
@@ -138,13 +164,15 @@ export function loadSave(): LoadedSave | null {
 }
 
 function persist(state: GameState): void {
-  const data: SaveDataV5 = {
+  const data: SaveDataV6 = {
     version: SAVE_VERSION,
     money: state.money,
     nextCatId: state.nextCatId,
     cats: state.cats,
     savedAt: Date.now(),
     upgrades: state.upgrades,
+    customisation: state.customisation,
+    owned: state.owned,
   };
   try {
     localStorage.setItem(SAVE_KEY, JSON.stringify(data));

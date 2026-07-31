@@ -45,53 +45,45 @@ describe("loadSave", () => {
     expect(loadSave()).toBeNull();
   });
 
-  it("reads a current v5 save unchanged", () => {
+  it("reads a current v6 save unchanged", () => {
     write({
-      version: 5,
+      version: 6,
       money: 120,
       nextCatId: 2,
       cats: CATS,
       savedAt: 1000,
       upgrades: { decor: 2, brews: 1 },
+      customisation: { walls: "B", sofa: "Olive" },
+      owned: ["walls:B", "sofa:Olive"],
     });
     const save = loadSave();
     expect(save).not.toBeNull();
     expect(save!.money).toBe(120);
     expect(save!.cats).toEqual(CATS);
     expect(save!.upgrades).toEqual({ decor: 2, brews: 1 });
+    expect(save!.customisation.walls).toBe("B");
+    expect(save!.owned).toContain("sofa:Olive");
   });
 
-  it("migrates a v3 save forward, keeping cats and timestamps", () => {
-    write({
-      version: 3,
-      money: 500,
-      nextCatId: 2,
-      cats: CATS,
-      savedAt: 777,
-      upgrades: {},
-    });
-    const save = loadSave();
-    expect(save!.upgrades).toEqual({});
-    expect(save!.cats).toEqual(CATS);
-    expect(save!.savedAt).toBe(777);
-  });
-
-  it("brings an absurd old balance back into the readable range", () => {
-    // Someone mid-venue-ladder could be holding billions. The new economy tops
-    // out in the tens of thousands, so carrying that over would end the game
-    // on the spot. Cats and names survive; the silly number does not.
-    write({
-      version: 4,
-      money: 9_000_000_000,
-      nextCatId: 2,
-      cats: CATS,
-      savedAt: 1,
-      upgrades: {},
-      venueIndex: 5,
-    });
-    const save = loadSave();
-    expect(save!.cats).toEqual(CATS);
-    expect(save!.money).toBeLessThanOrEqual(5_000);
+  it("discards every pre-v6 save, on purpose", () => {
+    // The economy went from billions to a £9,999 ceiling and cats from fifty to
+    // five, so an old save produces a nonsense state: more cats than the room
+    // holds, and a balance that skips the whole game. This break was taken
+    // deliberately while the game has no players. Once it ships, "never lose a
+    // player's cats" applies without exception and every version gets a real
+    // migration — so if you are reading this because you broke a live save,
+    // that is the rule you just broke.
+    for (const version of [1, 2, 3, 4, 5]) {
+      write({
+        version,
+        money: 9_000_000_000,
+        nextCatId: 30,
+        cats: CATS,
+        savedAt: 1,
+        upgrades: {},
+      });
+      expect(loadSave(), `v${version}`).toBeNull();
+    }
   });
 
   it("keeps contentment on cats that have it, and tolerates cats without", () => {
@@ -100,7 +92,7 @@ describe("loadSave", () => {
       { id: "cat-1", name: "Mochi", definitionId: "tuxedo" },
     ];
     write({
-      version: 5,
+      version: 6,
       money: 10,
       nextCatId: 2,
       cats: petted,
@@ -110,28 +102,27 @@ describe("loadSave", () => {
     expect(loadSave()!.cats).toEqual(petted);
   });
 
-  it("migrates a v1 save (no savedAt, no upgrades) without losing cats", () => {
-    write({ version: 1, money: 40, nextCatId: 1, cats: CATS });
-    const save = loadSave();
-    expect(save).not.toBeNull();
-    expect(save!.cats).toEqual(CATS);
-    expect(save!.money).toBe(40);
-    expect(save!.upgrades).toEqual({});
-    // No retroactive offline windfall: "last seen" becomes now.
-    expect(save!.savedAt).toBeGreaterThan(0);
-  });
-
-  it("migrates a v2 save by starting it with no upgrades", () => {
-    write({ version: 2, money: 40, nextCatId: 1, cats: CATS, savedAt: 555 });
-    const save = loadSave();
-    expect(save!.upgrades).toEqual({});
-    expect(save!.savedAt).toBe(555);
+  it("falls back to defaults for customisation it doesn't recognise", () => {
+    write({
+      version: 6,
+      money: 10,
+      nextCatId: 1,
+      cats: CATS,
+      savedAt: 1,
+      upgrades: {},
+      customisation: { walls: "not-a-style", removedCategory: "x" },
+      owned: ["walls:B", 42],
+    });
+    const save = loadSave()!;
+    expect(save.customisation.walls).toBe("A");
+    expect(save.customisation).not.toHaveProperty("removedCategory");
+    expect(save.owned).toEqual(["walls:B"]);
   });
 
   it("drops upgrade ids that no longer exist and clamps ones that shrank", () => {
     const decorMax = upgradeDefinition("decor")!.maxLevel;
     write({
-      version: 5,
+      version: 6,
       money: 10,
       nextCatId: 1,
       cats: CATS,
@@ -142,7 +133,7 @@ describe("loadSave", () => {
   });
 
   it("survives a corrupt upgrades field rather than discarding the save", () => {
-    write({ version: 5, money: 10, nextCatId: 1, cats: CATS, savedAt: 1, upgrades: "nope" });
+    write({ version: 6, money: 10, nextCatId: 1, cats: CATS, savedAt: 1, upgrades: "nope" });
     const save = loadSave();
     expect(save).not.toBeNull();
     expect(save!.cats).toEqual(CATS);
@@ -153,10 +144,10 @@ describe("loadSave", () => {
     localStorage.setItem(SAVE_KEY, "{not json");
     expect(loadSave()).toBeNull();
 
-    write({ version: 5, money: "lots", nextCatId: 1, cats: CATS, savedAt: 1, upgrades: {} });
+    write({ version: 6, money: "lots", nextCatId: 1, cats: CATS, savedAt: 1, upgrades: {} });
     expect(loadSave()).toBeNull();
 
-    write({ version: 5, money: 10, nextCatId: 1, cats: [], savedAt: 1, upgrades: {} });
+    write({ version: 6, money: 10, nextCatId: 1, cats: [], savedAt: 1, upgrades: {} });
     expect(loadSave()).toBeNull();
 
     write({ version: 99, money: 10, nextCatId: 1, cats: CATS, savedAt: 1, upgrades: {} });

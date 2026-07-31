@@ -16,6 +16,13 @@ import type { UpgradeId } from "@/data/upgrades";
 import { loadSave } from "@/state/save";
 import { logEvent } from "@/analytics/analytics";
 import { emitGameEvent } from "@/core/events";
+import {
+  DEFAULT_CUSTOMISATION,
+  isUnlocked,
+  optionById,
+  type Customisation,
+  type Progress,
+} from "@/data/customisation";
 
 export interface CatInstance {
   id: string;
@@ -37,6 +44,10 @@ export interface GameState {
   nextCatId: number;
   /** Levels bought per café upgrade (§8 — expansion + décor). Absent id = level 0. */
   upgrades: UpgradeLevels;
+  /** Chosen colourway/style per customisation category (§0 — the progression). */
+  customisation: Customisation;
+  /** Category+option ids the player has paid for. Choices are free to re-apply. */
+  owned: string[];
   visitors: Visitor[];
   lastVisitorSpawnAt: number;
 
@@ -57,6 +68,12 @@ export interface GameState {
    * the mechanic that makes being present worth more than leaving the app.
    */
   petCat: (id: string) => void;
+  /**
+   * Buy a customisation option if it's unlocked and affordable, and apply it.
+   * Re-applying something already owned is free — the player should be able to
+   * change their mind without paying twice.
+   */
+  chooseCustomisation: (categoryId: string, optionId: string) => boolean;
   /**
    * Grant idle earnings for time spent away (§8). Returns the amount earned
    * (0 below the minimum-away threshold) so the UI can show the welcome-back card.
@@ -88,7 +105,19 @@ export function idleCafeStats(state: Pick<GameState, "cats" | "upgrades">): Cafe
   return cafeStats(catAppeal(state.cats, Number.POSITIVE_INFINITY), state.upgrades);
 }
 
-type PersistedState = Pick<GameState, "money" | "cats" | "nextCatId" | "upgrades">;
+type PersistedState = Pick<
+  GameState,
+  "money" | "cats" | "nextCatId" | "upgrades" | "customisation" | "owned"
+>;
+
+/** What the customisation menu measures unlock conditions against. */
+export function currentProgress(state: Pick<GameState, "cats" | "upgrades">): Progress {
+  return {
+    cats: state.cats,
+    upgrades: state.upgrades,
+    breedsDiscovered: discoveredBreeds(state.cats).size,
+  };
+}
 
 function freshState(): PersistedState {
   return {
@@ -96,6 +125,8 @@ function freshState(): PersistedState {
     cats: [{ id: "cat-0", name: suggestName([]), definitionId: STARTER_CAT_ID }],
     nextCatId: 1,
     upgrades: {},
+    customisation: { ...DEFAULT_CUSTOMISATION },
+    owned: [],
   };
 }
 
@@ -111,6 +142,8 @@ export const gameStore = createStore<GameState>((set, get) => ({
         cats: saved.cats,
         nextCatId: saved.nextCatId,
         upgrades: saved.upgrades,
+        customisation: saved.customisation,
+        owned: saved.owned,
       }
     : freshState()),
   visitors: [],
@@ -216,6 +249,27 @@ export const gameStore = createStore<GameState>((set, get) => ({
     }
   },
 
+
+  chooseCustomisation: (categoryId, optionId) => {
+    const state = get();
+    const option = optionById(categoryId, optionId);
+    if (!option) return false;
+    if (!isUnlocked(option, currentProgress(state))) return false;
+
+    const key = `${categoryId}:${optionId}`;
+    const alreadyOwned = option.price === 0 || state.owned.includes(key);
+    if (!alreadyOwned && state.money < option.price) return false;
+
+    set({
+      money: alreadyOwned ? state.money : state.money - option.price,
+      owned: alreadyOwned ? state.owned : [...state.owned, key],
+      customisation: { ...state.customisation, [categoryId]: optionId },
+    });
+    if (!alreadyOwned) {
+      logEvent({ name: "customisation_bought", category: categoryId, option: optionId, cost: option.price });
+    }
+    return true;
+  },
 
   grantOfflineEarnings: (awayMs) => {
     const state = get();

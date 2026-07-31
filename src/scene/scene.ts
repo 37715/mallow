@@ -1,12 +1,15 @@
 import * as THREE from "three";
 import { CAMERA_FOV, fitCameraToCafe } from "@/scene/camera";
 import { buildCafeRoom } from "@/scene/cafe-room";
+import type { Customisation } from "@/data/customisation";
 
 export interface SceneContext {
   scene: THREE.Scene;
   camera: THREE.PerspectiveCamera;
   renderer: THREE.WebGLRenderer;
   render: () => void;
+  /** Rebuild the room after the player changes a colourway or wall style. */
+  setCustomisation: (choice: Customisation) => Promise<void>;
 }
 
 /**
@@ -72,52 +75,96 @@ function addLighting(scene: THREE.Scene): void {
 }
 
 /**
- * Visible shafts of sun through the window (§10).
- *
- * Not real volumetrics — just a few long, very faint additive slabs angled
- * from the window down to the floor, which is the trick the pack's own promo
- * art uses. They're unlit, write no depth, and never cast or receive, so they
- * cost essentially nothing and can't interact with anything.
+ * A soft, round falloff used for the light bloom. Generated rather than loaded
+ * so there's no texture to ship.
  */
-function addSunShafts(scene: THREE.Scene): void {
+function softGlowTexture(): THREE.Texture {
+  const size = 128;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const context = canvas.getContext("2d")!;
+  const gradient = context.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+  gradient.addColorStop(0, "rgba(255,246,224,1)");
+  gradient.addColorStop(0.45, "rgba(255,240,205,0.42)");
+  gradient.addColorStop(1, "rgba(255,236,195,0)");
+  context.fillStyle = gradient;
+  context.fillRect(0, 0, size, size);
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  return texture;
+}
+
+/**
+ * Daylight at the window (§10).
+ *
+ * Two parts, because they're doing different jobs:
+ *
+ * 1. A plain bright panel sitting *outside* the glass, so looking through the
+ *    window you see blown-out daylight rather than the olive backdrop. This is
+ *    what makes the window read as a light source at all.
+ * 2. Soft warm bloom *inside*, spilling across the floor and up the wall.
+ *
+ * An earlier version used hard-edged slabs angled into the room. Sharp shafts
+ * belong in the glass, where the frame gives them an edge; loose in the room
+ * they read as white rectangles lying on the floor. Indoors the light should
+ * arrive as a soft warm haze that fills the space, so this is round falloff
+ * with no edges anywhere.
+ */
+function addWindowDaylight(scene: THREE.Scene): void {
   const group = new THREE.Group();
-  group.name = "sun-shafts";
+  group.name = "daylight";
 
-  // From the window (left wall, around chest height) down into the room.
-  const from = new THREE.Vector3(-1.95, 2.1, 0.1);
-  const to = new THREE.Vector3(1.1, 0, 0.9);
-  const axis = to.clone().sub(from);
-  const length = axis.length();
-  const midpoint = from.clone().addScaledVector(axis, 0.5);
+  // Bright sky just beyond the window wall (which sits at x = −2).
+  const sky = new THREE.Mesh(
+    new THREE.PlaneGeometry(9, 7),
+    new THREE.MeshBasicMaterial({ color: 0xfffaf0, toneMapped: false }),
+  );
+  sky.position.set(-2.35, 1.8, 0);
+  sky.rotation.y = Math.PI / 2;
+  group.add(sky);
 
-  for (const [offset, width, opacity] of [
-    [-0.62, 0.42, 0.055],
-    [-0.1, 0.6, 0.075],
-    [0.5, 0.34, 0.05],
-  ] as const) {
-    const material = new THREE.MeshBasicMaterial({
-      color: 0xfff3d8,
-      transparent: true,
-      opacity,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false,
-      side: THREE.DoubleSide,
-      toneMapped: false,
-    });
-    const shaft = new THREE.Mesh(new THREE.PlaneGeometry(width, length * 1.05), material);
+  const glow = softGlowTexture();
+  const bloom = (
+    size: number,
+    opacity: number,
+    x: number,
+    y: number,
+    z: number,
+    rotX = 0,
+    rotY = 0,
+  ) => {
+    const mesh = new THREE.Mesh(
+      new THREE.PlaneGeometry(size, size),
+      new THREE.MeshBasicMaterial({
+        map: glow,
+        transparent: true,
+        opacity,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        toneMapped: false,
+      }),
+    );
+    mesh.position.set(x, y, z);
+    mesh.rotation.set(rotX, rotY, 0);
+    mesh.renderOrder = 10;
+    group.add(mesh);
+  };
 
-    // Point the plane's local +y down the beam, then roll it to face the camera.
-    shaft.position.copy(midpoint).add(new THREE.Vector3(0, 0, offset));
-    shaft.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), axis.clone().normalize());
-    shaft.rotateY(Math.PI / 4);
-    shaft.renderOrder = 10;
-    group.add(shaft);
-  }
+  // A warm pool spilling across the floor from under the window...
+  bloom(4.6, 0.5, -0.15, 0.02, 0.35, -Math.PI / 2);
+  // ...a haze hanging in the air just inside the glass...
+  bloom(3.6, 0.34, -1.5, 1.35, 0.2, 0, Math.PI / 2);
+  // ...and a faint wash carrying across to the far wall.
+  bloom(3.2, 0.16, 0.9, 1.5, -1.75, 0, 0);
 
   scene.add(group);
 }
 
-export async function createScene(canvas: HTMLCanvasElement): Promise<SceneContext> {
+export async function createScene(
+  canvas: HTMLCanvasElement,
+  customisation: Customisation,
+): Promise<SceneContext> {
   const scene = new THREE.Scene();
   // A muted warm backdrop, like the pack's own promo renders. A pale one makes
   // the cream walls disappear into it and the whole thing read as washed out.
@@ -142,10 +189,17 @@ export async function createScene(canvas: HTMLCanvasElement): Promise<SceneConte
   renderer.toneMappingExposure = 0.86;
 
   addLighting(scene);
-  addSunShafts(scene);
+  addWindowDaylight(scene);
 
-  const cafe = await buildCafeRoom();
+  let cafe = await buildCafeRoom(customisation);
   scene.add(cafe.group);
+
+  async function setCustomisation(choice: Customisation): Promise<void> {
+    const next = await buildCafeRoom(choice);
+    scene.remove(cafe.group);
+    cafe = next;
+    scene.add(cafe.group);
+  }
 
   function resize() {
     const width = window.innerWidth;
@@ -160,5 +214,5 @@ export async function createScene(canvas: HTMLCanvasElement): Promise<SceneConte
     renderer.render(scene, camera);
   }
 
-  return { scene, camera, renderer, render };
+  return { scene, camera, renderer, render, setCustomisation };
 }

@@ -19,7 +19,19 @@ async function bootstrap(): Promise<void> {
   const canvas = document.getElementById("scene") as HTMLCanvasElement;
   const uiRoot = document.getElementById("ui-root") as HTMLElement;
 
-  const { scene, camera, render } = await createScene(canvas);
+  const { scene, camera, render, setCustomisation } = await createScene(
+    canvas,
+    gameStore.getState().customisation,
+  );
+
+  // Rebuild the room whenever the player changes a colourway or wall style.
+  let shownCustomisation = gameStore.getState().customisation;
+  gameStore.subscribe(() => {
+    const next = gameStore.getState().customisation;
+    if (next === shownCustomisation) return;
+    shownCustomisation = next;
+    void setCustomisation(next);
+  });
   const catManager = new CatManager(scene);
   const visitorManager = new VisitorManager(scene);
   const dust = new DustMotes(scene);
