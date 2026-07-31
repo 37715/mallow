@@ -26,7 +26,10 @@ This file is the shared brain for the project. **Read it before starting work in
 - **M4 (partial)** — **art direction locked ✅** (hero cat, flat-shaded style,
   warm lighting + tone mapping); **juice ✅** (living cats, tap-to-pet, coin
   floaters, dust motes); **audio ✅** (synthesised, no asset files).
-- **Venue progression ✅** — seven-venue ladder, cats always come with you.
+- **Café asset pack integrated ✅** — Minty.kit "Cozy Cat Café" (CC0), 343
+  objects on one shared atlas. Loader + asset gallery built; see §9.
+- ~~Venue progression~~ — built, then **scrapped by the direction change above**.
+  Code still present; removal is pending work.
 - **Contentment ✅** — petting cats is the mechanic that rewards being present.
 - **`npm run balance`** ✅ — simulates weeks of play under four player habits.
 - **Portrait framing** ✅ — the camera solves its own distance per aspect (§9).
@@ -60,6 +63,35 @@ This file is the shared brain for the project. **Read it before starting work in
    alongside the stat one; currently every décor level is also a stat buy.
 4. **Then** the real D1/D7 cohort, and iOS packaging (no Capacitor yet — no
    `ios/`, nothing in `package.json`; it's unbuilt work, not a `cap sync`).
+
+> ## ⚠️ DIRECTION CHANGE — 2026-07-31. Read before touching game design.
+>
+> **The empire fantasy is dead. This is one small café, made lovelier.**
+>
+> The venue ladder (seven cafés, ×262,144 income, money in the billions) was
+> built and then scrapped by Ellis on sight of it: *"fuck the huge crazy
+> expansion stuff, lets keep it more cosy and relaxing with more customisable
+> options instead."* He is right, and it matches §1–2 far better than the ladder
+> ever did. Numbers in the billions are not cosy.
+>
+> **The new fantasy:** the player grows attached to *one* café, its cats and its
+> regulars. Progress is decoration, customisation, recipes, comfort and
+> personality — not revenue per second. The reward is "I want to spend time in
+> this little café", not "I need to afford the next building".
+>
+> Concretely this means, and these are hard limits:
+> - **Money stays readable.** Target ceilings roughly: early 0–500, mid 500–5k,
+>   late 5k–30k. No abbreviations, no millions, no exponential stacking.
+> - **Cats are few and memorable.** Around 6–10 resident, not 50. Eight cats
+>   with names, preferences and favourite spots beats fifty interchangeable ones.
+> - **No venue replacement.** At most one small extension later — a patio or a
+>   nook. Never a chain.
+> - **Progression unlocks *things to look at and arrange*:** décor, colourways,
+>   wallpaper, flooring, recipes, cat furniture, barista clothes, regulars,
+>   evening ambience, seasonal bits.
+>
+> Sections below still describe the venue ladder and the old economy in places.
+> Where they conflict with this box, **this box wins**; fix them as you go.
 
 > **This is a mobile game. There is no web release.** (Decided 2026-07-31.)
 > The web build is a *development tool* — fast iteration, and `npm run dev:lan`
@@ -384,6 +416,42 @@ Early game (first 5–10 min) must reward fast — first extra cat quickly, visi
 - **Cohesion rule:** pick ONE base art style and match everything to it. Mixing packs from different styles is the #1 tell of an amateur build.
 - **Asset sources:** base café/furniture/props from a single cohesive pack (Synty POLYGON, or free: Kenney, Quaternius, Poly Pizza); custom hero assets (the cats) via AI 3D generators (Meshy / Tripo / Rodin) — but **quad-remesh and clean up** raw AI meshes and **confirm commercial licensing before shipping**; UI/icons/promo art via AI 2D generators.
 - **Format:** GLB for models (loads cleanly into Three.js). Poly budget by role: background props very low, interactive props mid, hero cats slightly higher.
+
+### The café asset pack (the real art, as of 2026-07-31)
+
+**Minty.kit "Cozy Cat Café" v2.2**, vendored at `public/assets/cafe/`.
+**Licence: CC0** — free for commercial use, no attribution required (credit
+Minty.kit in the app credits anyway; it's decent and it costs nothing).
+
+This is now *the* visual foundation. Do not mix in Kenney, KayKit, Synty or
+anything else unless the pack genuinely lacks an essential object **and** the
+substitute matches — mixing packs is the clearest amateur tell (§9).
+
+**343 objects across five glTF files, sharing one texture atlas.** Three facts
+drive `scene/asset-library.ts`, and all three are pinned by
+`scene/asset-library.test.ts` so a pack update can't break them silently:
+
+1. **The glTFs define no materials, textures or images** — meshes carry UVs
+   only. We apply `T_CatCafe_Atlas.png` ourselves as a single shared material,
+   so the entire café is a handful of draw calls rather than one per prop. This
+   is a gift, not a problem; don't "fix" it by importing per-object materials.
+2. **Geometry is authored Z-up**; the node rotation corrects it. The loader
+   bakes it in so callers never think about axes.
+3. **Node translations are the artist's sample-scene layout.** The loader
+   discards them and re-centres each object on its own footprint with its base
+   at y=0, so `create(name)` gives something you can place directly.
+
+The modular grid is **4 units per floor tile**, walls 4 wide × 4 tall.
+
+**The gallery is the way to find things.** `npm run dev` → `/gallery.html`
+renders all 343 objects as a searchable contact sheet with names and
+dimensions; click a card to copy its name. Picking furniture out of a filename
+list is guesswork — use the gallery. It is a workshop tool and is excluded from
+the production build.
+
+The pack's own promo renders (`CatCafe_A/B/C.png` in the original download) show
+the intended presentation: a **cutaway diorama** — two walls, open front, warm
+isometric view — not the enclosed four-wall room the greybox used.
 
 ### Framing: portrait-first, non-negotiable
 
