@@ -15,15 +15,17 @@ import * as THREE from "three";
  */
 
 /**
- * The world-space box the camera guarantees to keep in frame: the full seating
- * footprint, the cat lounge, and the counter. Deliberately *not* the whole room
- * — walls and the tops of tall props may crop on the narrowest phones, which
- * costs nothing, whereas framing the whole room would push the camera so far
- * back that the cats turn into specks.
+ * The world-space box the camera guarantees to keep in frame: the floor plan
+ * corner to corner, and most of the wall height.
+ *
+ * The vertical extent stops short of the 4-unit wall tops on purpose. Framing
+ * the full walls pushes the camera back far enough that the café stops feeling
+ * like somewhere you're sitting in and starts looking like a model on a shelf —
+ * and the top of a blank wall is the least interesting thing on screen.
  */
 const FRAME_BOX = new THREE.Box3(
-  new THREE.Vector3(-4.2, 0, -4.2),
-  new THREE.Vector3(4.2, 3.6, 4.2),
+  new THREE.Vector3(-4.3, 0, -4.3),
+  new THREE.Vector3(4.3, 2.9, 4.3),
 );
 
 /** Vertical FOV. Kept modest so the café reads as a room, not a fisheye. */

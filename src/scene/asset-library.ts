@@ -14,9 +14,16 @@ import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
  * 2. **Geometry is authored Z-up.** The node rotation corrects it; we bake that
  *    into the geometry so callers never think about it.
  * 3. **Node translations are the artist's sample-scene layout**, not something
- *    we want. We discard them and re-centre each object on its own footprint
- *    with its base at y=0, so `place("Sofa_Single_Cream", x, z)` does the
- *    obvious thing.
+ *    we want. We always discard those.
+ * 4. **Architecture and props use different origin conventions**, and this one
+ *    is easy to get catastrophically wrong. Walls, floors and doors are
+ *    *tile-modular*: their geometry is authored relative to the centre of a
+ *    4-unit tile, with the wall sitting on that tile's edge — and the four
+ *    `Enclosed_Corner_N/S/E/W` pieces are a single pre-assembled room, all
+ *    four sharing one origin. Re-centring those on their own footprints (which
+ *    the first version did to everything) drags every wall to the middle of
+ *    its tile and pulls the room apart at the corners. So architecture keeps
+ *    its offsets; only props get re-centred, footprint-centre with base at y=0.
  */
 
 const ASSET_BASE = "/assets/cafe";
@@ -34,6 +41,8 @@ export const GRID = 4;
 
 export interface AssetEntry {
   name: string;
+  /** True for tile-modular architecture, which keeps its authored offset. */
+  architectural: boolean;
   /** Which glTF it came from — drives the category grouping in the gallery. */
   source: string;
   geometry: THREE.BufferGeometry;
@@ -58,6 +67,14 @@ export interface CafeAssets {
  */
 function isSampleDuplicate(name: string): boolean {
   return name.startsWith("x_") || /\.\d{3}$/.test(name);
+}
+
+/**
+ * Tile-modular architecture: placed by *tile centre*, not by footprint. Keeps
+ * its authored offset so walls land on tile edges and corner sets assemble.
+ */
+function isArchitectural(name: string): boolean {
+  return name.startsWith("Wall") || name.startsWith("Flooring") || name.startsWith("Door");
 }
 
 let cached: Promise<CafeAssets> | null = null;
@@ -107,17 +124,21 @@ async function loadOnce(): Promise<CafeAssets> {
       );
       geometry.applyMatrix4(rotation);
 
-      // Re-centre: origin at the middle of the footprint, base on the floor.
+      const architectural = isArchitectural(name);
       geometry.computeBoundingBox();
-      const box = geometry.boundingBox!;
-      const centre = box.getCenter(new THREE.Vector3());
-      geometry.translate(-centre.x, -box.min.y, -centre.z);
-      geometry.computeBoundingBox();
+      if (!architectural) {
+        // Props: origin at the middle of the footprint, base on the floor.
+        const box = geometry.boundingBox!;
+        const centre = box.getCenter(new THREE.Vector3());
+        geometry.translate(-centre.x, -box.min.y, -centre.z);
+        geometry.computeBoundingBox();
+      }
       geometry.computeVertexNormals();
 
       const entry: AssetEntry = {
         name,
         source: file.replace(".gltf", ""),
+        architectural,
         geometry,
         size: geometry.boundingBox!.getSize(new THREE.Vector3()),
       };

@@ -8,8 +8,15 @@ import type { CatLabelAnchor } from "@/ui/cat-labels";
 /** How many cats the café can show at once — the rest are napping upstairs. */
 export const MAX_VISIBLE_CATS = CAT_DISPLAY_POSITIONS.length;
 
-/** Scale a settled cat renders at. Exported so layout checks use the real size. */
-export const CAT_DISPLAY_SCALE = 1.25;
+/**
+ * Scale a settled cat renders at.
+ *
+ * The pack's furniture is authored at roughly real-world scale — a sofa is
+ * ~0.9 units, a stool ~0.68. The cats were built before the art landed and at
+ * 1.25 they stood nearly as tall as the seating. 0.8 puts a sitting cat at
+ * about 0.6 units: shorter than a stool, which is what a cat should be.
+ */
+export const CAT_DISPLAY_SCALE = 0.8;
 const BASE_SCALE = CAT_DISPLAY_SCALE;
 const POP_DURATION_MS = 420;
 const PET_DURATION_MS = 650;

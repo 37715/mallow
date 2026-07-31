@@ -58,76 +58,90 @@ const HALF_PI = Math.PI / 2;
 export const DOOR = { x: 3.2, z: 3.6 };
 
 export const CAFE_LAYOUT: Placement[] = [
-  // --- Floor: four tiles ---------------------------------------------------
+  // --- Architecture: placed by TILE CENTRE, not by footprint ---------------
+  //
+  // Wall and floor pieces are tile-modular: their geometry is authored around
+  // the centre of a 4-unit tile with the wall sitting on that tile's edge. So
+  // a wall placed at tile centre (−2,−2) lands on the west edge of that tile,
+  // i.e. x = −4. `Enclosed_Corner_N` and `_W` are two faces of one
+  // pre-assembled room and share an origin — putting BOTH at the same tile
+  // centre is what closes the corner. Placing them anywhere else, or letting
+  // the loader re-centre them, pulls the room apart at the join.
+  //
+  // rotY −90° turns a west-edge piece into a north-edge one.
   { asset: "Flooring_A_Tiling", x: -2, z: -2, y: -FLOOR_THICKNESS },
   { asset: "Flooring_A_Tiling", x: 2, z: -2, y: -FLOOR_THICKNESS },
   { asset: "Flooring_A_Tiling", x: -2, z: 2, y: -FLOOR_THICKNESS },
   { asset: "Flooring_A_Tiling", x: 2, z: 2, y: -FLOOR_THICKNESS },
 
-  // --- Walls: back and left only (cutaway diorama) -------------------------
-  //
-  // The pieces nearest the inside corner are the `Enclosed_Corner` variants.
-  // They are 4.43 long rather than 4.0 — the extra length is what closes the
-  // join where the two walls meet. Building the corner from plain 4.0 `_Mid`
-  // segments leaves a visible gap straight through it, which is exactly what
-  // the first version did.
-  //
-  // `Enclosed_Corner_N` already runs along x (a back wall) and `_W` along z (a
-  // left wall), so neither needs rotating. Plain `_Mid` pieces are thin on x
-  // and run along z, so back-wall ones turn 90°.
-  { asset: "Wall_A_Enclosed_Corner_N", x: -1.8, z: -4 },
-  { asset: "Wall_A_Window_Light_Mid", x: 2.2, z: -4, rotY: HALF_PI },
-  { asset: "Wall_A_Enclosed_Corner_W", x: -4, z: -1.8 },
-  { asset: "Wall_A_Window_Light_Mid", x: -4, z: 2.2 },
+  // The closed corner: both faces of the corner set, same tile centre.
+  { asset: "Wall_A_Enclosed_Corner_N", x: -2, z: -2 },
+  { asset: "Wall_A_Enclosed_Corner_W", x: -2, z: -2 },
+  // The big window, on the back wall where the light comes from.
+  { asset: "Wall_A_Window_Light_Mid", x: 2, z: -2, rotY: -HALF_PI },
+  // Left wall continues south, also a window so the room isn't gloomy.
+  { asset: "Wall_A_Window_Light_Mid", x: -2, z: 2 },
 
   // --- Counter along the back wall ----------------------------------------
-  { asset: "Bar_End_Round", x: -3.5, z: -3.2 },
-  { asset: "Bar_Straight_1", x: -2.8, z: -3.2 },
-  { asset: "Bar_Straight_3_Sink", x: -2.1, z: -3.2 },
-  { asset: "Bar_Straight_2", x: -1.4, z: -3.2 },
-  { asset: "Bar_End_Flat", x: -0.7, z: -3.2 },
+  { asset: "Bar_End_Round", x: -3.4, z: -3.1 },
+  { asset: "Bar_Straight_1", x: -2.7, z: -3.1 },
+  { asset: "Bar_Straight_3_Sink", x: -2.0, z: -3.1 },
+  { asset: "Bar_Straight_2", x: -1.3, z: -3.1 },
+  { asset: "Bar_End_Flat", x: -0.6, z: -3.1 },
 
-  // Things on the counter (counter top is ~0.78 up).
-  { asset: "Coffe_Machine", x: -2.75, z: -3.25, y: 0.78 },
-  { asset: "CupcakeStand", x: -1.5, z: -3.2, y: 0.78 },
-  { asset: "ComputerCashier_A", x: -0.75, z: -3.3, y: 0.78, rotY: Math.PI },
+  // On the counter — the clutter is what makes it look lived in.
+  { asset: "Coffe_Machine", x: -2.65, z: -3.15, y: 0.78 },
+  { asset: "CupcakeStand", x: -1.35, z: -3.05, y: 0.78 },
+  { asset: "Cupcake_RedVelvet", x: -1.35, z: -3.05, y: 0.9 },
+  { asset: "ComputerCashier_A", x: -0.65, z: -3.2, y: 0.78, rotY: Math.PI },
+  { asset: "Food_Milkshake_Strawberry", x: -0.95, z: -2.95, y: 0.78 },
+  { asset: "Deco_Cups_1", x: -3.35, z: -3.1, y: 0.78 },
 
-  // --- Café fittings -------------------------------------------------------
-  { asset: "Cake_Display_A", x: 0.6, z: -3.4 },
-  { asset: "Blackboard_Large", x: -2.4, z: -3.85, y: 2.3 },
-  { asset: "Shelf_B_Plank", x: 0.6, z: -3.9, y: 2.1 },
-  { asset: "Plant_SmallPot_A", x: 0.2, z: -3.88, y: 2.15 },
-  { asset: "Deco_CoffeePack_Matcha", x: 0.95, z: -3.88, y: 2.15 },
+  // --- Wall dressing -------------------------------------------------------
+  { asset: "Cake_Display_A", x: 0.5, z: -3.3 },
+  { asset: "Blackboard_Large", x: -2.3, z: -3.82, y: 2.4 },
+  { asset: "Shelf_C_Plank", x: -0.4, z: -3.86, y: 2.5 },
+  { asset: "Deco_CoffeePack_Matcha", x: -0.8, z: -3.84, y: 2.56 },
+  { asset: "Deco_CoffeePack_Strawberry", x: -0.5, z: -3.84, y: 2.56 },
+  { asset: "Deco_CoffeePack_Cream", x: -0.2, z: -3.84, y: 2.56 },
+  { asset: "Shelf_C_Plank", x: -0.4, z: -3.86, y: 1.85 },
+  { asset: "Plant_Cactus_A_1", x: -0.75, z: -3.84, y: 1.91 },
+  { asset: "Plant_Cactus_A_2", x: -0.4, z: -3.84, y: 1.91 },
+  { asset: "Plant_Cactus_A_3", x: -0.05, z: -3.84, y: 1.91 },
+  { asset: "Plant_Hanging", x: -3.6, z: -3.5, y: 3.3 },
+  { asset: "Plant_Hanging", x: -3.3, z: 1.2, y: 3.3 },
 
   // --- Seating: six seats, a small café ------------------------------------
-  // Two stools at the counter.
-  { asset: "Chair_Bar_A", x: -2.75, z: -2.2, seat: true, seatY: 0.68 },
-  { asset: "Chair_Bar_A", x: -1.6, z: -2.2, seat: true, seatY: 0.68 },
+  { asset: "Chair_Bar_A", x: -2.6, z: -2.1, seat: true, seatY: 0.68 },
+  { asset: "Chair_Bar_A", x: -1.5, z: -2.1, seat: true, seatY: 0.68 },
 
-  // A sofa nook against the left wall.
-  { asset: "Sofa_Double_Cream", x: -3.3, z: 0.4, rotY: HALF_PI, seat: true, seatY: 0.42 },
-  { asset: "Table_Short", x: -2.2, z: 0.4 },
-  { asset: "Sofa_Single_Olive", x: -3.35, z: 2.3, rotY: HALF_PI, seat: true, seatY: 0.42 },
-  { asset: "Table_Tall", x: -2.3, z: 2.3 },
+  { asset: "Sofa_Double_Cream", x: -3.2, z: 0.6, rotY: HALF_PI, seat: true, seatY: 0.42 },
+  { asset: "Table_Short", x: -2.1, z: 0.6 },
+  { asset: "Cup_Upright_Orange", x: -2.1, z: 0.6, y: 0.38 },
 
-  // A low floor-cushion table, the cosiest seat in the house.
-  { asset: "Carpet_Large_Purple", x: 1.2, z: 1.6 },
-  { asset: "Table_Short", x: 1.2, z: 1.6 },
-  { asset: "Cushion_Folded_Blue", x: 0.2, z: 1.6, seat: true, seatY: 0.22 },
-  { asset: "Cushion_Folded_Red", x: 2.2, z: 1.6, seat: true, seatY: 0.22 },
+  { asset: "Sofa_Single_Olive", x: 3.2, z: -1.0, rotY: -HALF_PI, seat: true, seatY: 0.42 },
+  { asset: "Table_Tall", x: 2.2, z: -1.0 },
+  { asset: "Cake_Table_Display_Small_A", x: 2.2, z: -1.0, y: 0.78 },
+
+  // The floor-cushion corner — the cosiest seat in the house.
+  { asset: "Carpet_Large_Purple", x: 1.1, z: 1.9 },
+  { asset: "Table_Short", x: 1.1, z: 1.9 },
+  { asset: "Cushion_Folded_Blue", x: 0.1, z: 1.9, seat: true, seatY: 0.22 },
+  { asset: "Cushion_Folded_Red", x: 2.1, z: 1.9, seat: true, seatY: 0.22 },
+  { asset: "Cushion_Folded_Yellow", x: 1.1, z: 2.9 },
 
   // --- Cat furniture -------------------------------------------------------
-  { asset: "Cat_Climber_A_Cream", x: 3.1, z: -2.6, catSpot: true },
-  { asset: "Cat_Bed_A_Pink", x: 1.6, z: -1.3, catSpot: true },
-  { asset: "Cat_Bed_B_Blue", x: 3.2, z: 0.9, catSpot: true },
-  { asset: "Cat_Bed_C_Pink", x: -2.1, z: 3.5, catSpot: true },
+  { asset: "Cat_Climber_A_Cream", x: 3.2, z: -3.0, catSpot: true },
+  { asset: "Cat_Bed_A_Pink", x: 1.4, z: -2.4, catSpot: true },
+  { asset: "Cat_Bed_B_Blue", x: 3.3, z: 1.5, catSpot: true },
+  { asset: "Cat_Bed_C_Pink", x: -3.3, z: 3.2, catSpot: true },
 
   // --- Greenery and finishing touches --------------------------------------
-  { asset: "Plant_Bush_Square", x: -3.6, z: -1.5 },
-  { asset: "Plant_Cactus_A_1", x: 3.6, z: -3.6 },
-  { asset: "Carpet_Small_Cream", x: 3.2, z: 3.4 },
-  { asset: "Blackboard_Small", x: 3.6, z: 2.4, rotY: -0.5 },
-  { asset: "Bin_Wooden_A", x: -0.2, z: -2.6 },
+  { asset: "Plant_Bush_Square", x: -3.6, z: -1.4 },
+  { asset: "Plant_SmallPot_A", x: 2.2, z: -1.0, y: 0.78 },
+  { asset: "Carpet_Small_Cream", x: 3.0, z: 3.3 },
+  { asset: "Blackboard_Small", x: 3.7, z: 2.6, rotY: -0.5 },
+  { asset: "Bin_Wooden_A", x: 0.0, z: -2.5 },
 ];
 
 /** Seats, in stable index order — the economy addresses these by number. */

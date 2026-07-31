@@ -57,6 +57,24 @@ function addLighting(scene: THREE.Scene): void {
   const roomGlow = new THREE.PointLight(0xffc98a, 5, 7, 2);
   roomGlow.position.set(1.4, 2.4, 1.4);
   scene.add(roomGlow);
+
+  // Daylight through the back window. A wide, soft spot aimed in from outside
+  // and slightly down, so the light lands as a warm patch on the floor rather
+  // than lifting the whole room evenly — that patch is what sells "afternoon
+  // sun through the window" instead of "the lights are on".
+  const windowLight = new THREE.SpotLight(0xfff0d2, 26, 16, Math.PI / 4.5, 0.85, 1.6);
+  windowLight.position.set(2.4, 3.4, -7.5);
+  windowLight.target.position.set(1.2, 0, 1.2);
+  windowLight.castShadow = false; // the key already casts; a second is wasted cost
+  scene.add(windowLight);
+  scene.add(windowLight.target);
+
+  // The same again, much gentler, through the side window.
+  const sideWindow = new THREE.SpotLight(0xffeccd, 12, 14, Math.PI / 4.5, 0.9, 1.6);
+  sideWindow.position.set(-7.5, 3.2, 2.2);
+  sideWindow.target.position.set(1.0, 0, 1.0);
+  scene.add(sideWindow);
+  scene.add(sideWindow.target);
 }
 
 export async function createScene(canvas: HTMLCanvasElement): Promise<SceneContext> {

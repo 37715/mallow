@@ -86,23 +86,49 @@ interface Placed {
   flat: boolean;
 }
 
-/** Where each layout entry actually ends up, applying the loader's re-centring. */
+/** Architecture keeps its authored offset; props are re-centred. See asset-library. */
+const isArchitectural = (name: string): boolean =>
+  name.startsWith("Wall") || name.startsWith("Flooring") || name.startsWith("Door");
+
+/**
+ * Where each layout entry actually ends up, mirroring the loader exactly.
+ *
+ * The two origin conventions matter here as much as they do at runtime: a prop
+ * is centred on `item.x/z`, but a wall sits at `item.x/z` *plus its authored
+ * offset*, which is what puts it on a tile edge rather than a tile centre.
+ */
 const PLACED: Placed[] = CAFE_LAYOUT.map((item) => {
   const box = FOOTPRINTS.get(item.asset);
   if (!box) throw new Error(`layout uses unknown asset: ${item.asset}`);
 
-  // Y rotations of 90° swap the x and z extents.
-  const quarterTurn = Math.abs(Math.round((item.rotY ?? 0) / (Math.PI / 2))) % 2 === 1;
-  const width = quarterTurn ? box.size[2] : box.size[0];
-  const depth = quarterTurn ? box.size[0] : box.size[2];
+  const theta = item.rotY ?? 0;
+  const cos = Math.cos(theta);
+  const sin = Math.sin(theta);
   const y = item.y ?? 0;
+
+  // Local horizontal extents: offset-preserving for architecture, centred for props.
+  const [lx0, lx1] = isArchitectural(item.asset)
+    ? [box.min[0], box.min[0] + box.size[0]]
+    : [-box.size[0] / 2, box.size[0] / 2];
+  const [lz0, lz1] = isArchitectural(item.asset)
+    ? [box.min[2], box.min[2] + box.size[2]]
+    : [-box.size[2] / 2, box.size[2] / 2];
+
+  const xs: number[] = [];
+  const zs: number[] = [];
+  for (const lx of [lx0, lx1]) {
+    for (const lz of [lz0, lz1]) {
+      xs.push(item.x + lx * cos + lz * sin);
+      zs.push(item.z - lx * sin + lz * cos);
+    }
+  }
 
   return {
     name: item.asset,
-    minX: item.x - width / 2,
-    maxX: item.x + width / 2,
-    minZ: item.z - depth / 2,
-    maxZ: item.z + depth / 2,
+    minX: Math.min(...xs),
+    maxX: Math.max(...xs),
+    minZ: Math.min(...zs),
+    maxZ: Math.max(...zs),
     minY: y,
     maxY: y + box.size[1],
     flat: box.size[1] < 0.3,
@@ -131,6 +157,9 @@ describe("café layout", () => {
         const b = PLACED[j];
         // Flat things (floors, carpets, cushions) are meant to be sat on top of.
         if (a.flat || b.flat) continue;
+        // Wall pieces are *designed* to interlock — the corner set overlaps by
+        // 0.3 at the join, and that overlap is what closes the corner.
+        if (isArchitectural(a.name) && isArchitectural(b.name)) continue;
         // Objects at clearly different heights (counter-top items, wall décor)
         // are deliberately stacked.
         if (a.minY >= b.maxY - 0.05 || b.minY >= a.maxY - 0.05) continue;
@@ -169,6 +198,9 @@ describe("café layout", () => {
           if (p.flat || p.minY > 0.4) continue;
           if (p.name.startsWith("Cushion") || p.name.startsWith("Sofa")) continue;
           if (p.name.startsWith("Chair") || p.name.startsWith("Table")) continue;
+          // Seats are pushed right up against the walls on purpose; a guest
+          // reaching one clips the wall's last few centimetres and that's fine.
+          if (isArchitectural(p.name)) continue;
           if (px > p.minX + 0.1 && px < p.maxX - 0.1 && pz > p.minZ + 0.1 && pz < p.maxZ - 0.1) {
             blocked.push(`seat (${seat.x},${seat.z}) ↔ ${p.name}`);
           }
