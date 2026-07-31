@@ -5,6 +5,7 @@ import {
   type AnalyticsTransport,
   type Signal,
 } from "@/analytics/transport";
+import { randomUuid } from "@/analytics/uuid";
 
 /**
  * Event-logging abstraction (§11). Game code calls logEvent() and nothing
@@ -54,12 +55,12 @@ function readOrCreateInstallId(): { id: string; isFirstOpen: boolean } {
   try {
     const existing = localStorage.getItem(INSTALL_ID_KEY);
     if (existing) return { id: existing, isFirstOpen: false };
-    const id = crypto.randomUUID();
+    const id = randomUuid();
     localStorage.setItem(INSTALL_ID_KEY, id);
     return { id, isFirstOpen: true };
   } catch {
     // Storage unavailable — session-scoped id; retention won't track this device.
-    return { id: crypto.randomUUID(), isFirstOpen: false };
+    return { id: randomUuid(), isFirstOpen: false };
   }
 }
 
@@ -68,8 +69,26 @@ const endpoint: string =
   import.meta.env.VITE_TELEMETRYDECK_ENDPOINT ?? "https://nom.telemetrydeck.com/v2/";
 
 const transport: AnalyticsTransport = appId ? telemetryDeckTransport(endpoint) : consoleTransport();
+
+/**
+ * Say out loud which backend is live. Without this the "no app id" case is
+ * silent — the game looks fine, events look logged, and you only find out
+ * nothing was ever recorded when you go looking for retention data that
+ * doesn't exist. Cheap insurance against wasting a whole test cohort.
+ */
+// eslint-disable-next-line no-console
+console.log(
+  appId
+    ? `[analytics] recording to TelemetryDeck (app ${appId.slice(0, 8)}…)`
+    : "[analytics] CONSOLE ONLY — no VITE_TELEMETRYDECK_APP_ID set, nothing is being recorded",
+);
+
+/** Whether events are reaching a real backend. Surfaced for setup checks. */
+export function isRecording(): boolean {
+  return appId !== "";
+}
 const install = readOrCreateInstallId();
-const sessionId = crypto.randomUUID();
+const sessionId = randomUuid();
 const sessionStartedAt = Date.now();
 
 export function logEvent(event: AnalyticsEvent): void {

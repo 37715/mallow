@@ -32,15 +32,30 @@ This file is the shared brain for the project. **Read it before starting work in
 - `npm test` — 70 tests over the pure systems, save migrations, café geometry,
   the visitor loop, and a jsdom smoke suite for the HUD.
 
-**Next up:**
-1. **Ship the gate (§15).** TestFlight → small cosy Discord → measure D1/D7.
-   This is now worth doing: the build represents the real game well enough that
-   retention data means something. **Everything below is gated on this.**
-2. **The LTE (limited-time event) framework.** The last M3 piece and, per §8,
-   the single highest-ROI retention feature in the genre. Data-driven event
-   definitions in `/data` so new events are content, not code.
+**Next up — build depth first, then test (revised 2026-07-31):**
+
+> **On when to test.** §15's gate reads as one event; it's really two questions
+> with different readiness dates, and conflating them wastes a cohort.
+> - **D1** — "was the first session good enough to come back tomorrow?" That's
+>   the first 5–10 minutes, which *is* built. Answerable now, and cheap to read
+>   qualitatively with 5–8 people watching a first run.
+> - **D7** — "is there a reason to return on day 3?" **Not answerable yet.**
+>   Content runs out in roughly an hour, so D7 would come back bad regardless
+>   of loop quality, and you'd learn only what you already know.
+>
+> So: **no large public cohort until a week of play exists.** First impressions
+> are a one-shot resource and cosy communities are small. Small qualitative
+> reads along the way are fine and encouraged. Keep instrumentation live the
+> whole time so the data is there when the cohort is worth running.
+
+1. **Venue progression.** The direct fix for the content drought — see §8.
+2. **The LTE (limited-time event) framework.** Per §8 the highest-ROI retention
+   feature in the genre. Note the framework alone adds no playable content;
+   its value arrives with authored events, which is why it sits after venues.
 3. **Cosmetic-only décor tier.** §8 wants décor to have a purely cosmetic tier
    alongside the stat one; currently every décor level is also a stat buy.
+4. **Then** the real D1/D7 cohort, and iOS packaging (no Capacitor yet — no
+   `ios/`, nothing in `package.json`; it's unbuilt work, not a `cap sync`).
 
 **Open design questions (raised 2026-07-31, not yet decided):**
 - **Two views** — an exterior/street view alongside the café interior, showing
@@ -48,10 +63,19 @@ This file is the shared brain for the project. **Read it before starting work in
   makes short-form video the top growth lever, and an exterior queue shot is
   far more shareable than an interior. Cheaper than it looks (façade + street
   strip + existing visitor meshes), but it does double the art surface.
-- **Venue progression / prestige** — escalating locations, each a fresh start
-  with a bigger multiplier. This is the standard idle-game answer to content
-  drought and directly addresses the balance debt below. Needs designing into
-  the economy and save format early; retrofitting a prestige layer is painful.
+- **Venue progression** — escalating locations. Now **next up** (see above): it
+  multiplies the lifespan of every system already built, which is exactly the
+  content-drought fix, and it's cheaper than authoring content one upgrade at a
+  time. Needs designing into the economy and save format early; retrofitting is
+  painful.
+
+  **Hard constraint: this cannot be a normal prestige reset.** Standard idle
+  prestige wipes your progress for a multiplier. Here that would delete the
+  player's named cats — violating "never lose a player's cats. Sacred." (§8)
+  and pillar 1. The cosy-compatible framing is a **move, not a reset**: you
+  relocate the café to a bigger, lovelier venue and *your cats come with you*.
+  The venue raises capacity and multipliers; décor/upgrades may reset (they're
+  fixtures, they belong to the building), cats and their names never do.
 - **How far does the escalation go?** Ellis floated ending at a cat spaceship
   in space. It's shareable, but it's a *different brand* from the cosy, warm
   positioning §1 commits to — that's gag-idle territory (Adventure Capitalist,
