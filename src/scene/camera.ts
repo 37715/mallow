@@ -24,8 +24,8 @@ import * as THREE from "three";
  * and the top of a blank wall is the least interesting thing on screen.
  */
 const FRAME_BOX = new THREE.Box3(
-  new THREE.Vector3(-4.3, 0, -4.3),
-  new THREE.Vector3(4.3, 2.9, 4.3),
+  new THREE.Vector3(-2.4, 0, -2.4),
+  new THREE.Vector3(2.4, 2.7, 2.4),
 );
 
 /** Vertical FOV. Kept modest so the café reads as a room, not a fisheye. */

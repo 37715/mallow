@@ -15,7 +15,15 @@ import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
  *    into the geometry so callers never think about it.
  * 3. **Node translations are the artist's sample-scene layout**, not something
  *    we want. We always discard those.
- * 4. **Architecture and props use different origin conventions**, and this one
+ * 4. **Window and door pieces have two primitives** — the frame and the glass —
+ *    and GLTFLoader turns any multi-primitive mesh into a *Group* whose children
+ *    are named `<name>_0`, `<name>_1`. Registering only `THREE.Mesh` by its own
+ *    name therefore misses those pieces entirely: `create("Wall_A_Window_...")`
+ *    returned null and every window in the café silently failed to appear,
+ *    leaving holes where half the walls should be. We walk scene *nodes*, not
+ *    meshes, and keep their primitives together. The glass primitive gets the
+ *    pack's separate glass texture rather than the atlas.
+ * 5. **Architecture and props use different origin conventions**, and this one
  *    is easy to get catastrophically wrong. Walls, floors and doors are
  *    *tile-modular*: their geometry is authored relative to the centre of a
  *    4-unit tile, with the wall sitting on that tile's edge — and the four
@@ -45,7 +53,8 @@ export interface AssetEntry {
   architectural: boolean;
   /** Which glTF it came from — drives the category grouping in the gallery. */
   source: string;
-  geometry: THREE.BufferGeometry;
+  /** One entry per glTF primitive: the frame, and for windows/doors the glass. */
+  parts: { geometry: THREE.BufferGeometry; glass: boolean }[];
   /** Footprint after correction, in world units (x = width, y = height, z = depth). */
   size: THREE.Vector3;
 }
@@ -54,9 +63,9 @@ export interface CafeAssets {
   /** Every object name, sorted. */
   names: string[];
   get(name: string): AssetEntry | undefined;
-  /** Build a mesh for an object, ready to position. Returns null if unknown. */
-  create(name: string): THREE.Mesh | null;
-  /** The single shared material every café object uses. */
+  /** Build an object, ready to position. Returns null if unknown. */
+  create(name: string): THREE.Object3D | null;
+  /** The shared material almost every café object uses. */
   material: THREE.MeshStandardMaterial;
   bySource: Map<string, AssetEntry[]>;
 }
@@ -101,6 +110,20 @@ async function loadOnce(): Promise<CafeAssets> {
     metalness: 0,
   });
 
+  // Windows carry a second primitive for the glass, which maps to its own
+  // texture. Left on the atlas it renders as a slab of arbitrary café colours.
+  const glassMap = await textureLoader.loadAsync(`${ASSET_BASE}/T_CatCafe_Glass.png`);
+  glassMap.colorSpace = THREE.SRGBColorSpace;
+  glassMap.flipY = false;
+  const glassMaterial = new THREE.MeshStandardMaterial({
+    map: glassMap,
+    roughness: 0.25,
+    metalness: 0,
+    transparent: true,
+    opacity: 0.55,
+    depthWrite: false,
+  });
+
   const loader = new GLTFLoader();
   const entries = new Map<string, AssetEntry>();
   const bySource = new Map<string, AssetEntry[]>();
@@ -109,42 +132,56 @@ async function loadOnce(): Promise<CafeAssets> {
     const gltf = await loader.loadAsync(`${ASSET_BASE}/${file}`);
     const list: AssetEntry[] = [];
 
-    gltf.scene.traverse((object) => {
-      if (!(object instanceof THREE.Mesh)) return;
-      const name = object.name;
-      if (!name || isSampleDuplicate(name) || entries.has(name)) return;
+    // Walk top-level nodes, not meshes: a multi-primitive node arrives as a
+    // Group and its child meshes carry mangled `_0`/`_1` names.
+    for (const node of gltf.scene.children) {
+      const name = node.name;
+      if (!name || isSampleDuplicate(name) || entries.has(name)) continue;
 
-      const geometry = (object.geometry as THREE.BufferGeometry).clone();
+      const meshes: THREE.Mesh[] = [];
+      node.traverse((child) => {
+        if (child instanceof THREE.Mesh) meshes.push(child);
+      });
+      if (meshes.length === 0) continue;
 
-      // Bake the node's rotation (the Z-up → Y-up correction) but not its
-      // sample-scene translation.
-      object.updateMatrixWorld(true);
+      node.updateMatrixWorld(true);
       const rotation = new THREE.Matrix4().makeRotationFromQuaternion(
-        object.getWorldQuaternion(new THREE.Quaternion()),
+        node.getWorldQuaternion(new THREE.Quaternion()),
       );
-      geometry.applyMatrix4(rotation);
 
       const architectural = isArchitectural(name);
-      geometry.computeBoundingBox();
-      if (!architectural) {
-        // Props: origin at the middle of the footprint, base on the floor.
-        const box = geometry.boundingBox!;
-        const centre = box.getCenter(new THREE.Vector3());
-        geometry.translate(-centre.x, -box.min.y, -centre.z);
+      const geometries = meshes.map((mesh) => {
+        const geometry = (mesh.geometry as THREE.BufferGeometry).clone();
+        geometry.applyMatrix4(rotation);
+        return geometry;
+      });
+
+      // Measure across every primitive so the frame and its glass stay aligned.
+      const bounds = new THREE.Box3();
+      for (const geometry of geometries) {
         geometry.computeBoundingBox();
+        bounds.union(geometry.boundingBox!);
       }
-      geometry.computeVertexNormals();
+      if (!architectural) {
+        const centre = bounds.getCenter(new THREE.Vector3());
+        for (const geometry of geometries) {
+          geometry.translate(-centre.x, -bounds.min.y, -centre.z);
+        }
+        bounds.translate(new THREE.Vector3(-centre.x, -bounds.min.y, -centre.z));
+      }
+      for (const geometry of geometries) geometry.computeVertexNormals();
 
       const entry: AssetEntry = {
         name,
         source: file.replace(".gltf", ""),
         architectural,
-        geometry,
-        size: geometry.boundingBox!.getSize(new THREE.Vector3()),
+        // Blender exports the frame first and the glass second.
+        parts: geometries.map((geometry, i) => ({ geometry, glass: i > 0 })),
+        size: bounds.getSize(new THREE.Vector3()),
       };
       entries.set(name, entry);
       list.push(entry);
-    });
+    }
 
     bySource.set(file.replace(".gltf", ""), list);
   }
@@ -157,11 +194,24 @@ async function loadOnce(): Promise<CafeAssets> {
     create(name) {
       const entry = entries.get(name);
       if (!entry) return null;
-      const mesh = new THREE.Mesh(entry.geometry, material);
-      mesh.name = name;
-      mesh.castShadow = true;
-      mesh.receiveShadow = true;
-      return mesh;
+
+      const build = (part: { geometry: THREE.BufferGeometry; glass: boolean }) => {
+        const mesh = new THREE.Mesh(part.geometry, part.glass ? glassMaterial : material);
+        mesh.castShadow = !part.glass;
+        mesh.receiveShadow = !part.glass;
+        return mesh;
+      };
+
+      if (entry.parts.length === 1) {
+        const mesh = build(entry.parts[0]);
+        mesh.name = name;
+        return mesh;
+      }
+
+      const group = new THREE.Group();
+      group.name = name;
+      for (const part of entry.parts) group.add(build(part));
+      return group;
     },
   };
 }

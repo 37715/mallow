@@ -166,9 +166,16 @@ describe("café layout", () => {
 
         const overlapX = Math.min(a.maxX, b.maxX) - Math.max(a.minX, b.minX);
         const overlapZ = Math.min(a.maxZ, b.maxZ) - Math.max(a.minZ, b.minZ);
-        // A little intersection is fine and often looks better (a chair tucked
-        // under a table); a deep one means something is buried.
-        if (overlapX > 0.25 && overlapZ > 0.25) {
+
+        // Furniture is *supposed* to sit flush against a wall — a counter or a
+        // sofa pushed right up to it will overlap the wall's own ~0.3
+        // thickness, and that reads correctly. What's wrong is a prop shoved
+        // through a wall, so for wall-vs-prop only the shallow axis matters and
+        // it gets the wall's thickness as slack.
+        const againstWall = isArchitectural(a.name) !== isArchitectural(b.name);
+        const limit = againstWall ? 0.35 : 0.25;
+        const shallow = Math.min(overlapX, overlapZ);
+        if (shallow > limit) {
           clashes.push(
             `${a.name} ↔ ${b.name} (x ${overlapX.toFixed(2)}, z ${overlapZ.toFixed(2)})`,
           );

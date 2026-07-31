@@ -76,9 +76,11 @@ export const ECONOMY_CONFIG = {
    *
    * The old game let you accumulate fifty, which is why the room turned into a
    * pyramid of clipping cats and why each new one stopped meaning anything.
-   * Eight cats you know by name beats fifty you don't (§0 direction change).
+   * Five cats you know by name beats fifty you don't (§0 direction change) —
+   * and five is exactly how many resting places the one-tile café has, so the
+   * room never looks crowded.
    */
-  maxCats: 8,
+  maxCats: 5,
 
   /** Base cost of the Nth additional cat (index 1 = second cat). Cost curve below. */
   baseCatCost: 45,

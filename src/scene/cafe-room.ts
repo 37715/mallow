@@ -17,16 +17,20 @@ export interface BuiltRoom {
   missing: string[];
 }
 
-function place(assets: CafeAssets, item: Placement): THREE.Mesh | null {
-  const mesh = assets.create(item.asset);
-  if (!mesh) return null;
-  mesh.position.set(item.x, item.y ?? 0, item.z);
-  if (item.rotY) mesh.rotation.y = item.rotY;
-  // Floors and carpets only receive; everything else casts too. Fewer
+function place(assets: CafeAssets, item: Placement): THREE.Object3D | null {
+  const object = assets.create(item.asset);
+  if (!object) return null;
+  object.position.set(item.x, item.y ?? 0, item.z);
+  if (item.rotY) object.rotation.y = item.rotY;
+
+  // Floors and carpets only receive shadow; everything else casts too. Fewer
   // shadow casters is the cheapest shadow win there is (§13).
-  const flat = (assets.get(item.asset)?.size.y ?? 1) < 0.3;
-  mesh.castShadow = !flat;
-  return mesh;
+  if ((assets.get(item.asset)?.size.y ?? 1) < 0.3) {
+    object.traverse((child) => {
+      if (child instanceof THREE.Mesh) child.castShadow = false;
+    });
+  }
+  return object;
 }
 
 export async function buildCafeRoom(): Promise<BuiltRoom> {
