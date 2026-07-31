@@ -61,6 +61,13 @@ This file is the shared brain for the project. **Read it before starting work in
 4. **Then** the real D1/D7 cohort, and iOS packaging (no Capacitor yet — no
    `ios/`, nothing in `package.json`; it's unbuilt work, not a `cap sync`).
 
+> **This is a mobile game. There is no web release.** (Decided 2026-07-31.)
+> The web build is a *development tool* — fast iteration, and `npm run dev:lan`
+> for device testing — never a distribution channel. Don't propose deploying it
+> to a URL as a shortcut to testers; it was raised and rejected. This also means
+> licensed assets ship inside the `.ipa`, which satisfies asset-store EULA terms
+> that forbid users extracting raw asset files (a web build would not).
+
 **Open design questions (raised 2026-07-31, not yet decided):**
 - **Two views** — an exterior/street view alongside the café interior, showing
   visitors walking in and a storefront that visibly upgrades. Strong idea: §12
@@ -88,6 +95,16 @@ This file is the shared brain for the project. **Read it before starting work in
   this go?" hook without the tonal break. **Ellis's call — not yet made.**
 
 **Known gaps / debts:**
+- **The game does not look good, and that is the top risk.** Everything visible
+  is procedural greybox standing in for art. For a cosy game the look *is* the
+  product (§2), so no amount of systems work compensates. Ellis is sourcing real
+  assets; the next engineering job is the GLB pipeline that consumes them, not
+  more mechanics. Do not describe the current visuals as "art direction" — what
+  exists is a silhouette and a lighting rig.
+- **Venues need art, not just palettes.** Seven environments cannot be bought as
+  a matching set; that pack doesn't exist. The plan is one café furniture set
+  plus ~3 signature props per venue, with lighting and palette doing most of the
+  differentiation. Consider trimming the ladder to what can be art'd properly.
 - Cat/visitor/décor meshes are procedural placeholders; no GLB assets yet.
 - Ambient audio is synthesised; a composed bed would be better.
 - No UI/icon art — upgrade icons are emoji.
@@ -115,6 +132,17 @@ This file is the shared brain for the project. **Read it before starting work in
   Added tap-to-pet, coin floaters, dust motes, and a fully synthesised audio
   layer. Reordered §15 and wrote down why. Added jsdom HUD smoke tests, since
   no agent has been able to open a browser on this project yet.
+- *2026-07-31* — **Playtest fixes from Ellis on device.** Four real faults, all
+  found by playing rather than by any test: (1) cat cost growth was 1.6, nearly
+  4x outside genre norms — Cookie Clicker is 1.15 — so every cat past ~25 was a
+  trap purchase you could never pay off, killing the core hook; now 1.28 with a
+  payback-time regression test. (2) Cats past the sixth were nudged backwards
+  per wrap and stacked into a pyramid through the back wall (z=4.3 in a room
+  ending at 4.0); the lounge is now 16 fixed spots and a hard cap, with the
+  overflow explained in the roster. (3) The coin chime fired 4x/second and was
+  correctly called annoying; now 1.3s apart and quieter. (4) Coin floaters were
+  uncapped; now 8 max. **Also: the progression curve had never been benchmarked
+  against real games — that was a real gap, and it is what let (1) through.**
 - *2026-07-31* — **Venue progression + the pacing rebalance.** Ellis flagged
   that you could buy a couple of cats, leave for days, and come back rich —
   the game encouraged *not* playing. Measured it: active play earned exactly

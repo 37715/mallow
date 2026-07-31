@@ -1,6 +1,7 @@
 import { gameStore, discoveredBreeds, currentCafeStats, type CatInstance } from "@/state/store";
 import { formatMoney, formatDuration } from "@/ui/format";
 import { contentCatCount } from "@/systems/cafe";
+import { MAX_VISIBLE_CATS } from "@/entities/cat-manager";
 import { moveProgress, nextVenue, venueAt } from "@/systems/venues";
 import { costForNextCat } from "@/data/economy";
 import {
@@ -205,6 +206,17 @@ export function mountUI(root: HTMLElement): MountedUI {
 
     const panel = el("div", "roster-panel");
     panel.appendChild(panelHeader("Your cats"));
+
+    // Be honest about the room's capacity rather than silently dropping cats.
+    if (cats.length > MAX_VISIBLE_CATS) {
+      panel.appendChild(
+        el(
+          "div",
+          "roster-capacity",
+          `${MAX_VISIBLE_CATS} cats are out front — the other ${cats.length - MAX_VISIBLE_CATS} are napping upstairs. They all still bring guests in.`,
+        ),
+      );
+    }
 
     const list = el("div", "roster-list");
     for (const cat of cats) {

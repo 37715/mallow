@@ -42,16 +42,26 @@ export const SEAT_POSITIONS: THREE.Vector3[] = ROW_Z.flatMap((z) =>
 ).slice(0, MAX_SEATS);
 
 /**
- * Cats lounge in the foreground between the seating and the door, off the
- * central aisle so guests walking in don't march straight through them.
+ * Where cats lounge: the foreground strip between the seating and the door.
+ *
+ * Three rows, filled centre-outward so the first cats you adopt sit front and
+ * centre. The back row skips the corners, which belong to the floor lamp and
+ * the cat tree.
+ *
+ * **This list is the hard limit on visible cats.** An earlier version had six
+ * spots and nudged extras backwards by a fixed offset per wrap, which stacked
+ * twenty cats into a pyramid that pushed straight through the back wall
+ * (z=4.3 in a room that ends at 4.0). Cats beyond this list are simply not
+ * rendered — CatManager caps at `CAT_DISPLAY_POSITIONS.length` — so adding a
+ * spot means adding it here, with the layout test to prove it fits.
  */
+const CAT_ROW_X = [-0.39, 0.39, -1.17, 1.17, -1.95, 1.95];
+const CAT_BACK_ROW_X = [-0.5, 0.5, -1.3, 1.3];
+
 export const CAT_DISPLAY_POSITIONS: THREE.Vector3[] = [
-  new THREE.Vector3(-0.55, 0, 1.75),
-  new THREE.Vector3(0.55, 0, 1.75),
-  new THREE.Vector3(-1.65, 0, 1.75),
-  new THREE.Vector3(1.65, 0, 1.75),
-  new THREE.Vector3(-1.1, 0, 3.15),
-  new THREE.Vector3(1.1, 0, 3.15),
+  ...CAT_ROW_X.map((x) => new THREE.Vector3(x, 0, 1.5)),
+  ...CAT_ROW_X.map((x) => new THREE.Vector3(x, 0, 2.4)),
+  ...CAT_BACK_ROW_X.map((x) => new THREE.Vector3(x, 0, 3.3)),
 ];
 
 export function mesh(

@@ -5,6 +5,9 @@ import { buildCatMesh } from "@/entities/cat";
 import { CAT_DISPLAY_POSITIONS } from "@/scene/room";
 import type { CatLabelAnchor } from "@/ui/cat-labels";
 
+/** How many cats the café can show at once — the rest are napping upstairs. */
+export const MAX_VISIBLE_CATS = CAT_DISPLAY_POSITIONS.length;
+
 /** Scale a settled cat renders at. Exported so layout checks use the real size. */
 export const CAT_DISPLAY_SCALE = 1.25;
 const BASE_SCALE = CAT_DISPLAY_SCALE;
@@ -43,19 +46,18 @@ export class CatManager {
   sync(cats: CatInstance[], now: number): void {
     for (const cat of cats) {
       if (this.tracked.has(cat.id)) continue;
+      // Hard cap: the room has a fixed number of lounge spots (scene/room.ts).
+      // Overflow cats still exist — they count for appeal and appear in the
+      // roster — they just aren't rendered. Nudging them backwards instead,
+      // as an earlier version did, stacked them into a pyramid that clipped
+      // through the back wall.
+      if (this.tracked.size >= CAT_DISPLAY_POSITIONS.length) break;
 
       const mesh = buildCatMesh(catDefinition(cat.definitionId));
       // buildCatMesh already scales; we animate from near-zero on spawn.
       mesh.scale.setScalar(0.01);
 
-      const slot = this.tracked.size;
-      const displayIndex = slot % CAT_DISPLAY_POSITIONS.length;
-      const pos = CAT_DISPLAY_POSITIONS[displayIndex].clone();
-      // Once every lounge spot is taken, later cats nudge forward so they
-      // don't sit exactly inside an earlier cat.
-      const wrap = Math.floor(slot / CAT_DISPLAY_POSITIONS.length);
-      pos.z += wrap * 0.55;
-      pos.x += wrap * (displayIndex % 2 === 0 ? 0.25 : -0.25);
+      const pos = CAT_DISPLAY_POSITIONS[this.tracked.size].clone();
       mesh.position.copy(pos);
       // Sitting cats face the door/camera, angled gently toward the aisle.
       mesh.rotation.y = pos.x < 0 ? Math.PI * 0.12 : -Math.PI * 0.12;

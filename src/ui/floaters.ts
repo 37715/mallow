@@ -10,6 +10,13 @@ import * as THREE from "three";
  */
 
 const FLOAT_DURATION_MS = 1150;
+/**
+ * Most floaters allowed on screen at once. A fully upgraded café pays several
+ * times a second; past a handful of coins in flight the effect stops reading
+ * as "lovely" and starts reading as visual noise, which is the same mistake
+ * the coin *sound* made (see audio.ts).
+ */
+const MAX_ACTIVE = 8;
 
 export type FloaterKind = "coin" | "heart";
 
@@ -28,6 +35,7 @@ export class FloaterLayer {
    * hearts ignore it.
    */
   spawn(worldPosition: THREE.Vector3, camera: THREE.Camera, kind: FloaterKind, label?: string): void {
+    if (this.layer.childElementCount >= MAX_ACTIVE) return;
     this.ndc.copy(worldPosition).project(camera);
     if (this.ndc.z > 1) return; // behind the camera
 

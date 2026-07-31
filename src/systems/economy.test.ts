@@ -7,6 +7,8 @@ import {
   visitorPayAmount,
 } from "@/data/economy";
 import { totalAppeal, RARITY_CONFIG, CAT_DEFINITIONS } from "@/data/cats";
+import { cafeStats } from "@/systems/cafe";
+import { liveIncomePerSecond } from "@/systems/offline";
 
 describe("purchaseNextCat", () => {
   it("fails without deducting when the player can't afford it", () => {
@@ -58,5 +60,45 @@ describe("appeal-based economy", () => {
     );
     // Unknown ids (removed content in an old save) fall back to the starter breed.
     expect(totalAppeal(["not-a-real-cat"])).toBe(RARITY_CONFIG.common.appeal);
+  });
+});
+
+describe("cats stay worth buying", () => {
+  /**
+   * "One more cat" is the core hook (§8). If a cat costs more than it can ever
+   * earn back, the hook is dead and the collection becomes a trap purchase —
+   * which is exactly what happened at a 1.6 cost growth (benchmarked against
+   * Cookie Clicker's 1.15, it was nearly 4x outside genre norms).
+   */
+  const AVG_CAT_APPEAL = (() => {
+    const total = Object.values(RARITY_CONFIG).reduce((s, r) => s + r.weight, 0);
+    return Object.values(RARITY_CONFIG).reduce(
+      (sum, r) => sum + (r.weight / total) * r.appeal,
+      0,
+    );
+  })();
+
+  const paybackMinutes = (catsOwned: number): number => {
+    const upgrades = { seating: 6, decor: 10, brews: 10, hands: 6 };
+    const appeal = catsOwned * AVG_CAT_APPEAL;
+    const before = liveIncomePerSecond(cafeStats(appeal, upgrades, 3));
+    const after = liveIncomePerSecond(cafeStats(appeal + AVG_CAT_APPEAL, upgrades, 3));
+    return costForNextCat(catsOwned) / (after - before) / 60;
+  };
+
+  it("pays a cat back within a session, well past the fortieth", () => {
+    for (const owned of [5, 10, 20, 30, 40]) {
+      expect(paybackMinutes(owned)).toBeLessThan(30);
+    }
+  });
+
+  it("keeps cost growth inside idle-genre norms", () => {
+    // Cookie Clicker is 1.15 (doubles every 5 buildings). Ours is looser
+    // because each cat is an individual you name rather than one of hundreds
+    // of interchangeable buildings — but it must not run away.
+    expect(ECONOMY_CONFIG.catCostGrowth).toBeGreaterThan(1.1);
+    expect(ECONOMY_CONFIG.catCostGrowth).toBeLessThan(1.35);
+    const doublesEvery = Math.log(2) / Math.log(ECONOMY_CONFIG.catCostGrowth);
+    expect(doublesEvery).toBeGreaterThan(2);
   });
 });

@@ -51,8 +51,21 @@ export const ECONOMY_CONFIG = {
   /** Base cost of the Nth additional cat (index 1 = second cat). Cost curve below. */
   baseCatCost: 25,
 
-  /** Growth factor applied per additional cat already owned. */
-  catCostGrowth: 1.6,
+  /**
+   * Growth factor applied per additional cat already owned.
+   *
+   * Benchmarked against the genre: Cookie Clicker uses 1.15, which doubles a
+   * building's price every 5 purchases. This was 1.6 — doubling every 1.5 cats
+   * — which made every cat past ~25 a trap purchase you could never pay off,
+   * killing the "one more cat" hook that is the whole point of the game (§8).
+   *
+   * 1.28 doubles every ~2.8 cats: cats stay worth buying to roughly the 40th,
+   * which suits a game where each one is an individual you name, rather than
+   * Cookie Clicker's hundreds of interchangeable grandmas.
+   *
+   * Check this with `npm run balance` before changing it.
+   */
+  catCostGrowth: 1.28,
 
   /**
    * Petting a cat makes it content for a while, and content cats draw more

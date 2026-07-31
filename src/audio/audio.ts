@@ -189,12 +189,16 @@ function startAmbient(): void {
 }
 
 /**
- * Minimum gap between coin chimes. A fully upgraded café pays out ~2.5 times a
- * second, and a chime that often stops being a reward and becomes a nag —
- * which would break pillar 1 (§2, relaxing above all). Payments still all
- * register visually via the coin floaters; only the sound is thinned.
+ * Minimum gap between coin chimes.
+ *
+ * A busy café pays out several times a second. This started at 0.22s, which
+ * playtesting immediately flagged as "so annoying" — of course it was, that's
+ * still four chimes a second, forever, while you're trying to relax. Pillar 1
+ * (§2) beats feedback density every time: the coin floaters already show every
+ * single payment, so the sound only needs to say "money is happening", not
+ * count it. If in doubt, make this longer, not shorter.
  */
-const COIN_MIN_GAP_S = 0.22;
+const COIN_MIN_GAP_S = 1.3;
 let lastCoinAt = -Infinity;
 
 /** A visitor paid — a soft two-note chime, pitch varied so it never nags. */
@@ -205,8 +209,8 @@ export function playCoin(): void {
 
   const step = Math.floor(Math.random() * 3);
   const root = [880, 987.77, 1046.5][step];
-  tone(root, { duration: 0.22, gain: 0.12, type: "triangle" });
-  tone(root * 1.5, { duration: 0.3, gain: 0.07, type: "sine", delay: 0.06 });
+  tone(root, { duration: 0.22, gain: 0.07, type: "triangle" });
+  tone(root * 1.5, { duration: 0.3, gain: 0.04, type: "sine", delay: 0.06 });
 }
 
 /** Petting a cat — a low, warm rumble that swells and settles. */
