@@ -58,6 +58,11 @@ export interface Placement {
   catSpot?: boolean;
   /** Height a guest's feet rest at when seated here. Defaults to a chair. */
   seatY?: number;
+  /**
+   * Height a cat sits at here. Beds and climbers have a rim or a platform, and
+   * a cat left at y=0 is cut in half by it.
+   */
+  catY?: number;
 }
 
 const HALF_PI = Math.PI / 2;
@@ -68,17 +73,12 @@ export const DOOR = { x: 3.2, z: 3.6 };
 export const CAFE_LAYOUT: Placement[] = [
   // --- Architecture: one tile, placed by TILE CENTRE ------------------------
   //
-  // Wall pieces are tile-modular: geometry authored around a 4-unit tile's
-  // centre with the wall body on that tile's edge. So both walls go at (0,0)
-  // and land on the west and north edges of the single tile. rotY −90° turns
-  // a west-edge piece into a north-edge one.
-  //
-  // The window pieces are the arched ones — they carry two glTF primitives,
-  // frame and glass, which is why they need the multi-primitive handling in
-  // asset-library.ts. Without it they silently don't render and half the
-  // walls are simply absent.
+  // Exactly ONE window, on the left wall. The back wall is solid because it
+  // carries the blackboard, the shelf and the counter — hanging those over a
+  // window put a shelf straight across the glass, which looked like a bug
+  // because it was one.
   { asset: "Flooring_A_Tiling", x: 0, z: 0, y: -FLOOR_THICKNESS },
-  { asset: "Wall_A_Window_Light_Mid", x: 0, z: 0, rotY: -HALF_PI },
+  { asset: "Wall_A_Light_Mid", x: 0, z: 0, rotY: -HALF_PI },
   { asset: "Wall_A_Window_Light_Mid", x: 0, z: 0 },
 
   // --- Counter along the back wall ----------------------------------------
@@ -87,47 +87,48 @@ export const CAFE_LAYOUT: Placement[] = [
   { asset: "Bar_Straight_3_Sink", x: -0.15, z: -1.45 },
   { asset: "Bar_End_Flat", x: 0.55, z: -1.45 },
 
-  { asset: "Coffe_Machine", x: -0.85, z: -1.5, y: 0.78 },
+  { asset: "Coffe_Machine", x: -0.9, z: -1.5, y: 0.78 },
   { asset: "CupcakeStand", x: -0.15, z: -1.4, y: 0.78 },
-  { asset: "Cupcake_RedVelvet", x: -0.15, z: -1.4, y: 0.9 },
   { asset: "ComputerCashier_A", x: 0.5, z: -1.55, y: 0.78, rotY: Math.PI },
-  { asset: "Deco_Cups_1", x: -1.5, z: -1.45, y: 0.78 },
 
-  // --- Back wall dressing --------------------------------------------------
-  { asset: "Blackboard_Large", x: -0.75, z: -1.92, y: 2.35 },
-  { asset: "Shelf_C_Plank", x: 0.85, z: -1.94, y: 2.3 },
-  { asset: "Deco_CoffeePack_Matcha", x: 0.6, z: -1.92, y: 2.36 },
-  { asset: "Deco_CoffeePack_Strawberry", x: 0.85, z: -1.92, y: 2.36 },
-  { asset: "Deco_CoffeePack_Cream", x: 1.1, z: -1.92, y: 2.36 },
-  { asset: "Shelf_C_Plank", x: 0.85, z: -1.94, y: 1.75 },
-  { asset: "Plant_Cactus_A_1", x: 0.6, z: -1.92, y: 1.81 },
-  { asset: "Plant_Cactus_A_2", x: 0.9, z: -1.92, y: 1.81 },
-  { asset: "Plant_Hanging", x: -1.6, z: -1.55, y: 3.2 },
+  // --- Back wall dressing (kept sparse on purpose) -------------------------
+  { asset: "Blackboard_Large", x: -0.7, z: -1.92, y: 2.35 },
+  { asset: "Shelf_C_Plank", x: 1.0, z: -1.94, y: 1.9 },
+  { asset: "Deco_CoffeePack_Matcha", x: 0.78, z: -1.92, y: 1.96 },
+  { asset: "Deco_CoffeePack_Strawberry", x: 1.05, z: -1.92, y: 1.96 },
+  { asset: "Plant_Hanging", x: -1.5, z: -1.5, y: 3.2 },
 
-  // --- Seating: four seats, a genuinely small café -------------------------
+  // --- Seating: four seats -------------------------------------------------
   { asset: "Chair_Bar_A", x: -0.85, z: -0.62, seat: true, seatY: 0.68 },
   { asset: "Chair_Bar_A", x: -0.15, z: -0.62, seat: true, seatY: 0.68 },
 
-  { asset: "Sofa_Single_Cream", x: -1.5, z: 0.85, rotY: HALF_PI, seat: true, seatY: 0.42 },
-  { asset: "Table_Short", x: -0.5, z: 0.9 },
-  { asset: "Cup_Upright_Orange", x: -0.5, z: 0.9, y: 0.38 },
+  { asset: "Sofa_Single_Cream", x: -1.5, z: 0.9, rotY: HALF_PI, seat: true, seatY: 0.42 },
+  { asset: "Table_Short", x: -0.5, z: 0.95 },
+  { asset: "Cup_Upright_Orange", x: -0.5, z: 0.95, y: 0.38 },
 
-  { asset: "Carpet_Large_Purple", x: 0.95, z: 1.25 },
-  { asset: "Cushion_Folded_Blue", x: 0.95, z: 0.55, seat: true, seatY: 0.22, catSpot: true },
-  { asset: "Cushion_Folded_Red", x: 1.6, z: 1.5, catSpot: true },
+  { asset: "Carpet_Large_Purple", x: 1.0, z: 1.15 },
+  { asset: "Cushion_Folded_Blue", x: 1.0, z: 0.5, seat: true, seatY: 0.22 },
 
-  // --- Cat furniture -------------------------------------------------------
-  { asset: "Cat_Climber_A_Cream", x: 1.45, z: -0.55, catSpot: true },
-  { asset: "Cat_Bed_A_Pink", x: -1.5, z: -0.35, catSpot: true },
-  { asset: "Cat_Bed_B_Blue", x: 0.2, z: 1.55, catSpot: true },
+  // --- Cat furniture. `catY` lifts the cat onto the cushion, not into it. ---
+  { asset: "Cat_Climber_A_Cream", x: 1.5, z: -0.7, catSpot: true, catY: 1.02 },
+  { asset: "Cat_Bed_A_Pink", x: -1.45, z: -0.2, catSpot: true, catY: 0.1 },
+];
 
-  // --- Finishing touches ---------------------------------------------------
-  { asset: "Cake_Display_A", x: 1.4, z: -1.5 },
-  { asset: "Bin_Wooden_A", x: 1.75, z: 0.45 },
+/**
+ * Cats also settle on the bare floor. These aren't objects, just places — a
+ * café where every cat is parked on furniture looks staged.
+ */
+export const FLOOR_CAT_SPOTS: Placement[] = [
+  { asset: "", x: 0.35, z: 1.6, catSpot: true },
+  { asset: "", x: 1.55, z: 1.55, catSpot: true },
+  { asset: "", x: -0.95, z: 1.75, catSpot: true },
 ];
 
 /** Seats, in stable index order — the economy addresses these by number. */
 export const SEATS: Placement[] = CAFE_LAYOUT.filter((p) => p.seat);
 
-/** Where cats settle. */
-export const CAT_SPOTS: Placement[] = CAFE_LAYOUT.filter((p) => p.catSpot);
+/** Where cats settle: cat furniture first, then bare-floor spots. */
+export const CAT_SPOTS: Placement[] = [
+  ...CAFE_LAYOUT.filter((p) => p.catSpot),
+  ...FLOOR_CAT_SPOTS,
+];

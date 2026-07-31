@@ -97,7 +97,7 @@ const isArchitectural = (name: string): boolean =>
  * is centred on `item.x/z`, but a wall sits at `item.x/z` *plus its authored
  * offset*, which is what puts it on a tile edge rather than a tile centre.
  */
-const PLACED: Placed[] = CAFE_LAYOUT.map((item) => {
+const PLACED: Placed[] = CAFE_LAYOUT.filter((i) => i.asset).map((item) => {
   const box = FOOTPRINTS.get(item.asset);
   if (!box) throw new Error(`layout uses unknown asset: ${item.asset}`);
 
@@ -137,7 +137,7 @@ const PLACED: Placed[] = CAFE_LAYOUT.map((item) => {
 
 describe("café layout", () => {
   it("uses only assets that exist in the pack", () => {
-    const unknown = CAFE_LAYOUT.filter((i) => !FOOTPRINTS.has(i.asset)).map((i) => i.asset);
+    const unknown = CAFE_LAYOUT.filter((i) => i.asset && !FOOTPRINTS.has(i.asset)).map((i) => i.asset);
     expect(unknown).toEqual([]);
   });
 
@@ -183,6 +183,18 @@ describe("café layout", () => {
       }
     }
     expect(clashes).toEqual([]);
+  });
+
+  it("gives every cat somewhere to sit without burying it in the furniture", () => {
+    // Cats used to be planted at y=0 on top of a bed with a 0.25 rim, which
+    // sliced them in half. Anything with a raised cushion needs a catY.
+    for (const spot of CAT_SPOTS) {
+      if (!spot.asset) continue; // bare-floor spot
+      const box = FOOTPRINTS.get(spot.asset)!;
+      if (box.size[1] > 0.15) {
+        expect(spot.catY, `${spot.asset} needs a catY`).toBeGreaterThan(0);
+      }
+    }
   });
 
   it("has a small café's worth of seats, and cat spots for a small roster", () => {

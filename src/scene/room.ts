@@ -33,7 +33,7 @@ export const SEAT_FACINGS: number[] = SEATS.map((s) => Math.atan2(-s.x, -s.z));
 
 /** Where cats settle: beds, the climber, sunny spots. */
 export const CAT_DISPLAY_POSITIONS: THREE.Vector3[] = CAT_SPOTS.map(
-  (c) => new THREE.Vector3(c.x, 0, c.z),
+  (c) => new THREE.Vector3(c.x, c.catY ?? 0, c.z),
 );
 
 /** Every seat the café can ever have. Fixed now — no venue ladder. */
