@@ -15,6 +15,15 @@
  * the test tells you if you've put a chair inside a counter.
  */
 
+/**
+ * Floor tiles are 0.26 thick and, like every asset, are placed with their
+ * *base* at y=0 — so left alone their walking surface sits at y=0.26 and
+ * every chair, table and cat is buried a quarter-unit into the ground.
+ * Dropping the tiles by their own thickness puts the surface at y=0, which is
+ * what the rest of the layout assumes.
+ */
+const FLOOR_THICKNESS = 0.26;
+
 export const ROOM = {
   /** Half-extent of the floor: the room spans −4…4 on both x and z. */
   half: 4,
@@ -50,17 +59,26 @@ export const DOOR = { x: 3.2, z: 3.6 };
 
 export const CAFE_LAYOUT: Placement[] = [
   // --- Floor: four tiles ---------------------------------------------------
-  { asset: "Flooring_A_Tiling", x: -2, z: -2 },
-  { asset: "Flooring_A_Tiling", x: 2, z: -2 },
-  { asset: "Flooring_A_Tiling", x: -2, z: 2 },
-  { asset: "Flooring_A_Tiling", x: 2, z: 2 },
+  { asset: "Flooring_A_Tiling", x: -2, z: -2, y: -FLOOR_THICKNESS },
+  { asset: "Flooring_A_Tiling", x: 2, z: -2, y: -FLOOR_THICKNESS },
+  { asset: "Flooring_A_Tiling", x: -2, z: 2, y: -FLOOR_THICKNESS },
+  { asset: "Flooring_A_Tiling", x: 2, z: 2, y: -FLOOR_THICKNESS },
 
   // --- Walls: back and left only (cutaway diorama) -------------------------
-  // Wall segments are thin on x and run along z, so back-wall pieces turn 90°.
-  { asset: "Wall_A_Light_Mid", x: -2, z: -4, rotY: HALF_PI },
-  { asset: "Wall_A_Window_Light_Mid", x: 2, z: -4, rotY: HALF_PI },
-  { asset: "Wall_A_Window_Light_Mid", x: -4, z: -2 },
-  { asset: "Wall_A_Light_Mid", x: -4, z: 2 },
+  //
+  // The pieces nearest the inside corner are the `Enclosed_Corner` variants.
+  // They are 4.43 long rather than 4.0 — the extra length is what closes the
+  // join where the two walls meet. Building the corner from plain 4.0 `_Mid`
+  // segments leaves a visible gap straight through it, which is exactly what
+  // the first version did.
+  //
+  // `Enclosed_Corner_N` already runs along x (a back wall) and `_W` along z (a
+  // left wall), so neither needs rotating. Plain `_Mid` pieces are thin on x
+  // and run along z, so back-wall ones turn 90°.
+  { asset: "Wall_A_Enclosed_Corner_N", x: -1.8, z: -4 },
+  { asset: "Wall_A_Window_Light_Mid", x: 2.2, z: -4, rotY: HALF_PI },
+  { asset: "Wall_A_Enclosed_Corner_W", x: -4, z: -1.8 },
+  { asset: "Wall_A_Window_Light_Mid", x: -4, z: 2.2 },
 
   // --- Counter along the back wall ----------------------------------------
   { asset: "Bar_End_Round", x: -3.5, z: -3.2 },

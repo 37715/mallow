@@ -178,6 +178,18 @@ describe("café layout", () => {
     expect([...new Set(blocked)]).toEqual([]);
   });
 
+  it("puts the floor surface at y=0, not the floor's underside", () => {
+    // Assets are placed base-first, so an un-offset floor tile puts its walking
+    // surface at +0.26 and sinks every piece of furniture into the ground.
+    const floors = CAFE_LAYOUT.filter((p) => p.asset.startsWith("Flooring"));
+    expect(floors.length).toBeGreaterThan(0);
+    for (const floor of floors) {
+      const box = FOOTPRINTS.get(floor.asset)!;
+      const surface = (floor.y ?? 0) + box.size[1];
+      expect(surface, floor.asset).toBeCloseTo(0, 2);
+    }
+  });
+
   it("puts the door on the open side of the diorama", () => {
     // Walls are on −x and −z; guests must arrive from the open corner or
     // they'd walk through a wall.
