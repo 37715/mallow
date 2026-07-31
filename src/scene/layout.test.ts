@@ -9,6 +9,9 @@ import {
   buildTableSet,
 } from "@/scene/room";
 import { DECOR_PROPS } from "@/scene/decor";
+import { buildCatMesh } from "@/entities/cat";
+import { CAT_DISPLAY_SCALE } from "@/entities/cat-manager";
+import { CAT_DEFINITIONS } from "@/data/cats";
 
 /**
  * Geometry regression guard (§17 — add debug checks for anything spatial early,
@@ -84,18 +87,42 @@ describe("café layout", () => {
     expect(clashes).toEqual([]);
   });
 
+  /** A cat at display scale, measured from the real mesh rather than guessed. */
+  function catBoxAt(position: THREE.Vector3): THREE.Box3 {
+    const cat = buildCatMesh(CAT_DEFINITIONS[0]);
+    cat.scale.setScalar(CAT_DISPLAY_SCALE);
+    cat.position.copy(position);
+    cat.updateMatrixWorld(true);
+    return new THREE.Box3().setFromObject(cat);
+  }
+
   it("leaves every cat lounge spot clear of furniture", () => {
     const clashes: string[] = [];
     CAT_DISPLAY_POSITIONS.forEach((position, index) => {
-      const cat = new THREE.Box3().setFromCenterAndSize(
-        new THREE.Vector3(position.x, 0.35, position.z),
-        new THREE.Vector3(0.7, 0.7, 0.9),
-      );
+      const cat = catBoxAt(position);
       for (const item of ITEMS) {
         if (item.flat) continue;
         if (item.box.intersectsBox(cat)) clashes.push(`cat-spot-${index} ↔ ${item.name}`);
       }
     });
+    expect(clashes).toEqual([]);
+  });
+
+  it("keeps cats from overlapping each other or leaving the room", () => {
+    const boxes = CAT_DISPLAY_POSITIONS.map(catBoxAt);
+    const halfW = ROOM_SIZE.width / 2;
+    const halfD = ROOM_SIZE.depth / 2;
+
+    const clashes: string[] = [];
+    for (let i = 0; i < boxes.length; i++) {
+      const b = boxes[i];
+      if (b.min.x < -halfW || b.max.x > halfW || b.min.z < -halfD || b.max.z > halfD) {
+        clashes.push(`cat-spot-${i} outside the room`);
+      }
+      for (let j = i + 1; j < boxes.length; j++) {
+        if (b.intersectsBox(boxes[j])) clashes.push(`cat-spot-${i} ↔ cat-spot-${j}`);
+      }
+    }
     expect(clashes).toEqual([]);
   });
 

@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { buildRoom } from "@/scene/room";
+import { CAMERA_FOV, fitCameraToCafe } from "@/scene/camera";
 
 export interface SceneContext {
   scene: THREE.Scene;
@@ -30,10 +31,14 @@ export function createScene(canvas: HTMLCanvasElement): SceneContext {
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0xf7ecd9);
 
-  const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 50);
-  // Cosy isometric-ish angle looking into the café, tuned for a tall/portrait screen.
-  camera.position.set(0, 5.8, 6.8);
-  camera.lookAt(0, 0.4, -0.5);
+  // Position and distance are solved per aspect ratio in resize() below, so the
+  // café is fully framed on a portrait phone as well as a desktop window (§6).
+  const camera = new THREE.PerspectiveCamera(
+    CAMERA_FOV,
+    window.innerWidth / window.innerHeight,
+    0.1,
+    100,
+  );
 
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -46,8 +51,7 @@ export function createScene(canvas: HTMLCanvasElement): SceneContext {
   function resize() {
     const width = window.innerWidth;
     const height = window.innerHeight;
-    camera.aspect = width / height;
-    camera.updateProjectionMatrix();
+    fitCameraToCafe(camera, width / height);
     renderer.setSize(width, height);
   }
   resize();

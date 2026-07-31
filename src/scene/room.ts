@@ -6,9 +6,15 @@ import { MAX_SEAT_UPGRADES } from "@/data/upgrades";
  * Spatial layout for the café room. The shell (floor, walls, counter, door) is
  * fixed; seating and décor are revealed by CafeManager as the player upgrades,
  * so the room visibly grows with the economy (§8 expansion).
+ *
+ * **Shaped for a portrait phone (§6).** The room is deliberately narrow and
+ * deep — a tall screen has very little horizontal field of view to spend, so
+ * the café grows *away* from the camera rather than out to the sides. Widening
+ * this room is how you crop the café off the sides of a phone; if you need more
+ * room for seats, add depth (another row), not width.
  */
 
-export const ROOM_SIZE = { width: 8, depth: 8, wallHeight: 3.6 };
+export const ROOM_SIZE = { width: 5.0, depth: 8, wallHeight: 3.2 };
 
 export const DOOR_POSITION = new THREE.Vector3(0, 0.4, ROOM_SIZE.depth / 2 - 0.35);
 
@@ -16,30 +22,31 @@ export const DOOR_POSITION = new THREE.Vector3(0, 0.4, ROOM_SIZE.depth / 2 - 0.3
 export const MAX_SEATS = ECONOMY_CONFIG.baseSeatCount + MAX_SEAT_UPGRADES;
 
 const SEAT_HEIGHT = 0.42;
-const ROW_Z = [-1.0, 0.9];
-const ROW_X = [-1.65, -0.55, 0.55, 1.65, -2.75, 2.75];
+/** Four seats across is the most that fits the portrait frame comfortably. */
+const ROW_X = [-1.45, -0.48, 0.48, 1.45];
+/** Middle row first (it sits centre-frame), then the back row, then the front. */
+const ROW_Z = [-0.7, -2.0, 0.6];
 
 /**
- * Seat positions in unlock order: the back row fills from the middle outward,
- * then a second row appears in front of it. Index is stable forever — a saved
- * visitor in seat 7 always means the same chair — so this array is built once
- * at full size and the economy simply uses the first `seatCount` entries.
+ * Seat positions in unlock order. Index is stable forever — seat 7 always means
+ * the same chair — so this array is built once at full size and the economy
+ * simply uses the first `seatCount` entries.
  */
 export const SEAT_POSITIONS: THREE.Vector3[] = ROW_Z.flatMap((z) =>
   ROW_X.map((x) => new THREE.Vector3(x, SEAT_HEIGHT, z)),
 ).slice(0, MAX_SEATS);
 
 /**
- * Cats lounge in the foreground, off the central aisle so guests walking in
- * from the door don't march straight through them.
+ * Cats lounge in the foreground between the seating and the door, off the
+ * central aisle so guests walking in don't march straight through them.
  */
 export const CAT_DISPLAY_POSITIONS: THREE.Vector3[] = [
-  new THREE.Vector3(-2.4, 0, 1.9),
-  new THREE.Vector3(2.4, 0, 1.9),
-  new THREE.Vector3(-1.3, 0, 2.8),
-  new THREE.Vector3(1.3, 0, 2.8),
-  new THREE.Vector3(-3.4, 0, 3.3),
-  new THREE.Vector3(3.4, 0, 3.3),
+  new THREE.Vector3(-0.55, 0, 1.75),
+  new THREE.Vector3(0.55, 0, 1.75),
+  new THREE.Vector3(-1.65, 0, 1.75),
+  new THREE.Vector3(1.65, 0, 1.75),
+  new THREE.Vector3(-1.1, 0, 3.15),
+  new THREE.Vector3(1.1, 0, 3.15),
 ];
 
 export function mesh(
@@ -64,13 +71,13 @@ export function buildTableSet(seatPos: THREE.Vector3): THREE.Group {
 
   // Table toward the counter (−z) from the seat.
   const tableX = seatPos.x;
-  const tableZ = seatPos.z - 0.55;
-  set.add(mesh(new THREE.BoxGeometry(0.72, 0.06, 0.72), wood, tableX, 0.58, tableZ));
+  const tableZ = seatPos.z - 0.5;
+  set.add(mesh(new THREE.BoxGeometry(0.64, 0.06, 0.64), wood, tableX, 0.58, tableZ));
   set.add(mesh(new THREE.BoxGeometry(0.1, 0.55, 0.1), wood, tableX, 0.28, tableZ));
 
   // Chair under the visitor seat position.
-  set.add(mesh(new THREE.BoxGeometry(0.48, 0.08, 0.48), cushion, seatPos.x, 0.3, seatPos.z));
-  set.add(mesh(new THREE.BoxGeometry(0.48, 0.42, 0.07), wood, seatPos.x, 0.52, seatPos.z + 0.22));
+  set.add(mesh(new THREE.BoxGeometry(0.44, 0.08, 0.44), cushion, seatPos.x, 0.3, seatPos.z));
+  set.add(mesh(new THREE.BoxGeometry(0.44, 0.4, 0.07), wood, seatPos.x, 0.5, seatPos.z + 0.2));
 
   return set;
 }
@@ -103,13 +110,13 @@ export function buildRoom(): THREE.Group {
   floor.receiveShadow = true;
   room.add(floor);
 
-  // Soft rug under both seating rows so the café “zone” reads clearly.
+  // Soft rug under all three seating rows so the café “zone” reads clearly.
   const rug = new THREE.Mesh(
-    new THREE.PlaneGeometry(6.6, 4.0),
+    new THREE.PlaneGeometry(4.1, 4.4),
     new THREE.MeshStandardMaterial({ color: 0xd9b48a, roughness: 1 }),
   );
   rug.rotation.x = -Math.PI / 2;
-  rug.position.set(0, 0.01, -0.3);
+  rug.position.set(0, 0.01, -0.7);
   rug.receiveShadow = true;
   room.add(rug);
 
@@ -136,13 +143,13 @@ export function buildRoom(): THREE.Group {
   room.add(rightWall);
 
   const counterMaterial = new THREE.MeshStandardMaterial({ color: 0xb5876a, roughness: 0.6 });
-  const counter = mesh(new THREE.BoxGeometry(3.6, 0.95, 0.65), counterMaterial, 0, 0.48, -ROOM_SIZE.depth / 2 + 0.55);
+  const counter = mesh(new THREE.BoxGeometry(2.6, 0.95, 0.65), counterMaterial, 0, 0.48, -ROOM_SIZE.depth / 2 + 0.55);
   room.add(counter);
 
   // Counter top shelf lip for a tiny bit of café detail.
   room.add(
     mesh(
-      new THREE.BoxGeometry(3.6, 0.08, 0.12),
+      new THREE.BoxGeometry(2.6, 0.08, 0.12),
       new THREE.MeshStandardMaterial({ color: 0x9a7358, roughness: 0.55 }),
       0,
       0.98,

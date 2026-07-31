@@ -84,7 +84,7 @@ function bunting(): THREE.Group {
   const group = new THREE.Group();
   const colors = [BLUSH, CREAM, SAGE, TERRACOTTA, LAMPSHADE];
   for (let i = 0; i < 11; i++) {
-    const x = -3.0 + i * 0.6;
+    const x = -1.9 + i * 0.38;
     // Gentle catenary sag so the string doesn't read as a straight bar.
     const sag = Math.cos((i / 10 - 0.5) * Math.PI) * 0.22;
     const flag = mesh(new THREE.ConeGeometry(0.13, 0.26, 3), colors[i % colors.length], x, -sag, 0);
@@ -132,45 +132,43 @@ export interface DecorProp {
 /**
  * Revealed in order, one per "cosy touches" level.
  *
- * Placement is constrained by a *fully expanded* café: 12 seats fill
- * x −3.1…3.1, z −1.9…1.1, and cats lounge in front of them. That leaves the
- * back corners, the strip between counter and seating, and the walls above
- * table height. scene/layout.test.ts verifies nothing here clips.
+ * The room is narrow by design (portrait phone, see scene/room.ts), so floor
+ * space is scarce: a fully expanded café fills x −2.0…2.0 from z −3.2 to 0.8
+ * with tables, and cats lounge in front of that. Floor props therefore live in
+ * the four corners only; everything else hangs on a wall above table height,
+ * where it cannot collide with seating by construction.
+ *
+ * scene/layout.test.ts verifies nothing here clips, blocks a cat, or lands in
+ * the door→seat walk line.
  */
 export const DECOR_PROPS: DecorProp[] = [
-  { id: "plant-back-left", build: pottedPlant, position: new THREE.Vector3(-3.15, 0, -3.5) },
-  { id: "plant-back-right", build: pottedPlant, position: new THREE.Vector3(3.15, 0, -3.5) },
+  { id: "plant-back-left", build: pottedPlant, position: new THREE.Vector3(-2.0, 0, -3.45) },
+  { id: "plant-back-right", build: pottedPlant, position: new THREE.Vector3(2.0, 0, -3.45) },
   {
     id: "art-left",
     build: () => wallArt(BLUSH),
-    position: new THREE.Vector3(-1.9, 2.05, BACK_WALL_Z),
+    position: new THREE.Vector3(-0.9, 1.95, BACK_WALL_Z),
   },
   {
     id: "art-right",
     build: () => wallArt(SAGE),
-    position: new THREE.Vector3(1.9, 2.05, BACK_WALL_Z),
+    position: new THREE.Vector3(0.9, 1.95, BACK_WALL_Z),
   },
-  {
-    // Tucked between the counter and the seating, where no table can ever go.
-    id: "lamp-right",
-    build: floorLamp,
-    position: new THREE.Vector3(3.5, 0, -2.75),
-  },
+  { id: "cat-tree", build: catTree, position: new THREE.Vector3(2.1, 0, 3.35) },
   {
     id: "bookshelf",
     build: bookshelf,
-    position: new THREE.Vector3(LEFT_WALL_X + 0.15, 0, -2.75),
+    position: new THREE.Vector3(LEFT_WALL_X + 0.07, 0, -1.9),
   },
   {
-    // Wall-mounted above table height, so it clears the seating by construction.
     id: "shelf-right",
     build: wallShelf,
-    position: new THREE.Vector3(RIGHT_WALL_X - 0.15, 1.55, -0.8),
+    position: new THREE.Vector3(RIGHT_WALL_X - 0.12, 1.55, -1.9),
   },
-  { id: "bunting", build: bunting, position: new THREE.Vector3(0, 2.95, BACK_WALL_Z + 0.12) },
-  { id: "door-mat", build: doorMat, position: new THREE.Vector3(0, 0.02, 3.0) },
-  { id: "cat-tree", build: catTree, position: new THREE.Vector3(3.5, 0, 2.2) },
-  { id: "window-box", build: windowBox, position: new THREE.Vector3(LEFT_WALL_X + 0.15, 1.5, 1.6) },
+  { id: "bunting", build: bunting, position: new THREE.Vector3(0, 2.7, BACK_WALL_Z + 0.12) },
+  { id: "door-mat", build: doorMat, position: new THREE.Vector3(0, 0.02, 3.1) },
+  { id: "lamp-front-left", build: floorLamp, position: new THREE.Vector3(-2.1, 0, 3.35) },
+  { id: "window-box", build: windowBox, position: new THREE.Vector3(LEFT_WALL_X + 0.12, 1.5, 0.6) },
 ];
 
 // A missing prop would silently cap visible décor below what the player bought.

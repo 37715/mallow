@@ -49,6 +49,12 @@ This file is the shared brain for the project. **Read it before starting work in
 - *2026-07-31* — Built the café upgrade system end-to-end (data → pure systems →
   store → save v3 → UI → 3D scene → analytics → tests). Retuned the arrival-rate
   curve; see §8 "Economy loop" for why. Added this §0.
+- *2026-07-31* — **Reframed the whole scene for portrait.** The room had been
+  laid out and framed for a desktop window; on an iPhone the camera saw only
+  3.5 of its 8 world units, cropping chairs, cats and décor off the sides.
+  Room is now narrow and deep (5 × 8, seats 4 across × 3 rows) and the camera
+  solves its own distance per aspect ratio. See §9 "Framing" — this is a
+  standing constraint, not a one-off fix.
 
 ---
 
@@ -224,6 +230,17 @@ Early game (first 5–10 min) must reward fast — first extra cat quickly, visi
 - **Cohesion rule:** pick ONE base art style and match everything to it. Mixing packs from different styles is the #1 tell of an amateur build.
 - **Asset sources:** base café/furniture/props from a single cohesive pack (Synty POLYGON, or free: Kenney, Quaternius, Poly Pizza); custom hero assets (the cats) via AI 3D generators (Meshy / Tripo / Rodin) — but **quad-remesh and clean up** raw AI meshes and **confirm commercial licensing before shipping**; UI/icons/promo art via AI 2D generators.
 - **Format:** GLB for models (loads cleanly into Three.js). Poly budget by role: background props very low, interactive props mid, hero cats slightly higher.
+
+### Framing: portrait-first, non-negotiable
+
+A `PerspectiveCamera`'s `fov` is its **vertical** field of view, so a tall phone has very little *horizontal* view to spend: at 45° and a 0.46 aspect ratio, an iPhone sees barely 3.5 world units across. A fixed camera position that looks right in a desktop browser window will therefore crop the café off the sides of every phone — which is exactly what happened on the first pass.
+
+Two rules follow, and both are load-bearing:
+
+1. **The room is narrow and deep** (currently 5 × 8), and grows *away* from the camera. Seats are 4 across in 3 rows. Widening the room is how you crop the café off a phone; if you need more capacity, add a row, not a column.
+2. **The camera is solved, never hard-coded.** `scene/camera.ts` declares a `FRAME_BOX` that must stay on screen and binary-searches the camera distance that contains it at the current aspect. Wide screens sit close, narrow ones pull back, nothing is ever cropped. Don't reintroduce a literal `camera.position.set(...)`.
+
+Always sanity-check framing at **393 × 852** (iPhone 14 Pro), not in a desktop window. Current result: everything visible on every device tested, with a foreground cat at ~14% of screen height on a phone.
 
 ---
 

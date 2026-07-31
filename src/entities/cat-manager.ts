@@ -5,7 +5,9 @@ import { buildCatMesh } from "@/entities/cat";
 import { CAT_DISPLAY_POSITIONS } from "@/scene/room";
 import type { CatLabelAnchor } from "@/ui/cat-labels";
 
-const BASE_SCALE = 1.25;
+/** Scale a settled cat renders at. Exported so layout checks use the real size. */
+export const CAT_DISPLAY_SCALE = 1.25;
+const BASE_SCALE = CAT_DISPLAY_SCALE;
 const POP_DURATION_MS = 420;
 const LABEL_HEIGHT = 0.95;
 
