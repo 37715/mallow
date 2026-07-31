@@ -10,6 +10,13 @@ import { purchaseNextCat } from "@/systems/economy";
 import { drawCatDefinition } from "@/systems/cats";
 import { computeOfflineEarnings } from "@/systems/offline";
 import { tickVisitors, type Visitor } from "@/systems/visitors";
+import { cafeStats, type CafeStats } from "@/systems/cafe";
+import {
+  purchaseUpgrade,
+  totalUpgradeLevels,
+  type UpgradeLevels,
+} from "@/systems/upgrades";
+import type { UpgradeId } from "@/data/upgrades";
 import { loadSave } from "@/state/save";
 import { logEvent } from "@/analytics/analytics";
 
@@ -26,6 +33,8 @@ export interface GameState {
   cats: CatInstance[];
   /** Monotonic counter so cat ids never collide across saves. */
   nextCatId: number;
+  /** Levels bought per café upgrade (§8 — expansion + décor). Absent id = level 0. */
+  upgrades: UpgradeLevels;
   visitors: Visitor[];
   lastVisitorSpawnAt: number;
 
@@ -39,6 +48,8 @@ export interface GameState {
   adoptCat: () => CatInstance | null;
   /** Rename a cat. Empty/whitespace names are ignored — a cat always has a name. */
   renameCat: (id: string, name: string) => void;
+  /** Buy one level of a café upgrade. Returns true if the purchase went through. */
+  buyUpgrade: (id: UpgradeId) => boolean;
   /**
    * Grant idle earnings for time spent away (§8). Returns the amount earned
    * (0 below the minimum-away threshold) so the UI can show the welcome-back card.
@@ -51,11 +62,22 @@ export function discoveredBreeds(cats: CatInstance[]): Set<string> {
   return new Set(cats.map((c) => c.definitionId));
 }
 
-function freshState(): Pick<GameState, "money" | "cats" | "nextCatId"> {
+/**
+ * The café's current performance numbers. One helper so the tick, the offline
+ * calculation, and the UI readouts can never drift apart.
+ */
+export function currentCafeStats(state: Pick<GameState, "cats" | "upgrades">): CafeStats {
+  return cafeStats(totalAppeal(state.cats.map((c) => c.definitionId)), state.upgrades);
+}
+
+type PersistedState = Pick<GameState, "money" | "cats" | "nextCatId" | "upgrades">;
+
+function freshState(): PersistedState {
   return {
     money: ECONOMY_CONFIG.startingMoney,
     cats: [{ id: "cat-0", name: suggestName([]), definitionId: STARTER_CAT_ID }],
     nextCatId: 1,
+    upgrades: {},
   };
 }
 
@@ -66,19 +88,24 @@ export const bootAwayMs = saved ? Math.max(0, Date.now() - saved.savedAt) : 0;
 
 export const gameStore = createStore<GameState>((set, get) => ({
   ...(saved
-    ? { money: saved.money, cats: saved.cats, nextCatId: saved.nextCatId }
+    ? {
+        money: saved.money,
+        cats: saved.cats,
+        nextCatId: saved.nextCatId,
+        upgrades: saved.upgrades,
+      }
     : freshState()),
   visitors: [],
   lastVisitorSpawnAt: 0,
 
   tick: (now) => {
-    const { visitors, lastVisitorSpawnAt, cats, money } = get();
+    const state = get();
+    const { visitors, lastVisitorSpawnAt, money } = state;
     const result = tickVisitors(
       visitors,
       now,
       lastVisitorSpawnAt || now,
-      totalAppeal(cats.map((c) => c.definitionId)),
-      ECONOMY_CONFIG.seatCount,
+      currentCafeStats(state),
     );
 
     if (result.moneyEarned > 0) {
@@ -130,9 +157,30 @@ export const gameStore = createStore<GameState>((set, get) => ({
     logEvent({ name: "cat_named", breed: catDefinition(cat.definitionId).id });
   },
 
+  buyUpgrade: (id) => {
+    const { money, upgrades } = get();
+    const result = purchaseUpgrade(money, upgrades, id);
+    if (!result.success) return false;
+
+    // The very first upgrade of any kind is a progression-funnel milestone (§11).
+    const isFirstEver = totalUpgradeLevels(upgrades) === 0;
+
+    set({ money: result.moneyAfter, upgrades: result.levels });
+    logEvent({
+      name: "upgrade_purchased",
+      upgrade: id,
+      level: result.level,
+      cost: result.cost,
+      money: result.moneyAfter,
+    });
+    if (isFirstEver) logEvent({ name: "first_expansion", upgrade: id });
+    return true;
+  },
+
   grantOfflineEarnings: (awayMs) => {
-    const { money, cats } = get();
-    const earned = computeOfflineEarnings(totalAppeal(cats.map((c) => c.definitionId)), awayMs);
+    const state = get();
+    const { money } = state;
+    const earned = computeOfflineEarnings(currentCafeStats(state), awayMs);
     if (earned <= 0) return 0;
 
     set({ money: money + earned });

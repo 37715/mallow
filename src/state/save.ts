@@ -1,5 +1,7 @@
 import type { StoreApi } from "zustand/vanilla";
 import type { CatInstance, GameState } from "@/state/store";
+import { UPGRADE_DEFINITIONS } from "@/data/upgrades";
+import { levelOf, type UpgradeLevels } from "@/systems/upgrades";
 
 /**
  * Minimal save system (§8): the Zustand store is the single source of truth,
@@ -8,25 +10,42 @@ import type { CatInstance, GameState } from "@/state/store";
  *
  * Visitors are transient scene state and deliberately not saved.
  *
- * v1 → v2: added `savedAt` (wall-clock ms) so offline earnings can be
- * computed from time away on next launch.
+ * Migrations run in order, each bumping one version, so a save from any past
+ * build walks forward to the current shape:
+ *   v1 → v2: added `savedAt` (wall-clock ms) so offline earnings can be
+ *            computed from time away on next launch.
+ *   v2 → v3: added `upgrades` (café expansion + décor levels).
  */
 
 const SAVE_KEY = "mallow-save";
-const SAVE_VERSION = 2;
+const SAVE_VERSION = 3;
 
-interface SaveDataV2 {
-  version: 2;
+interface SaveDataV3 {
+  version: 3;
   money: number;
   nextCatId: number;
   cats: CatInstance[];
   /** Wall-clock (Date.now) timestamp of the last save — basis for offline earnings. */
   savedAt: number;
+  upgrades: UpgradeLevels;
 }
 
-export interface LoadedSave extends Pick<GameState, "money" | "cats" | "nextCatId"> {
+export interface LoadedSave
+  extends Pick<GameState, "money" | "cats" | "nextCatId" | "upgrades"> {
   savedAt: number;
 }
+
+type RawSave = Record<string, unknown>;
+
+/**
+ * Each migration takes the previous shape and returns the next one. Adding a
+ * version means appending one entry here — nothing else changes.
+ */
+const MIGRATIONS: Record<number, (data: RawSave) => RawSave> = {
+  // No retroactive offline windfall for saves that predate savedAt; nothing lost.
+  1: (data) => ({ ...data, version: 2, savedAt: Date.now() }),
+  2: (data) => ({ ...data, version: 3, upgrades: {} }),
+};
 
 function isValidCat(value: unknown): value is CatInstance {
   if (typeof value !== "object" || value === null) return false;
@@ -37,6 +56,21 @@ function isValidCat(value: unknown): value is CatInstance {
     cat.name.length > 0 &&
     typeof cat.definitionId === "string"
   );
+}
+
+/**
+ * Keep only levels for upgrades that still exist, clamped to their current max.
+ * A removed or shrunk upgrade must never corrupt a save — it just stops counting.
+ */
+function sanitizeUpgrades(value: unknown): UpgradeLevels {
+  if (typeof value !== "object" || value === null) return {};
+  const raw = value as Record<string, unknown>;
+  const levels: UpgradeLevels = {};
+  for (const definition of UPGRADE_DEFINITIONS) {
+    const level = levelOf(raw as UpgradeLevels, definition.id);
+    if (level > 0) levels[definition.id] = level;
+  }
+  return levels;
 }
 
 /** Read + validate + migrate the save. Returns null (fresh start) on anything malformed. */
@@ -50,13 +84,13 @@ export function loadSave(): LoadedSave | null {
   if (!raw) return null;
 
   try {
-    const data = JSON.parse(raw) as Record<string, unknown>;
+    let data = JSON.parse(raw) as RawSave;
 
-    // v1 saves predate savedAt — migrate by treating "now" as last seen
-    // (no retroactive offline windfall, nothing lost).
-    if (data.version === 1) {
-      data.version = 2;
-      data.savedAt = Date.now();
+    // Walk the save forward one version at a time to the current shape.
+    while (typeof data.version === "number" && data.version < SAVE_VERSION) {
+      const migrate = MIGRATIONS[data.version];
+      if (!migrate) break;
+      data = migrate(data);
     }
 
     if (data.version !== SAVE_VERSION) return null;
@@ -73,19 +107,26 @@ export function loadSave(): LoadedSave | null {
         ? data.savedAt
         : Date.now();
 
-    return { money: Math.max(0, data.money), cats: data.cats, nextCatId, savedAt };
+    return {
+      money: Math.max(0, data.money),
+      cats: data.cats,
+      nextCatId,
+      savedAt,
+      upgrades: sanitizeUpgrades(data.upgrades),
+    };
   } catch {
     return null;
   }
 }
 
 function persist(state: GameState): void {
-  const data: SaveDataV2 = {
+  const data: SaveDataV3 = {
     version: SAVE_VERSION,
     money: state.money,
     nextCatId: state.nextCatId,
     cats: state.cats,
     savedAt: Date.now(),
+    upgrades: state.upgrades,
   };
   try {
     localStorage.setItem(SAVE_KEY, JSON.stringify(data));

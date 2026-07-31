@@ -1,4 +1,4 @@
-import { gameStore, discoveredBreeds, type CatInstance } from "@/state/store";
+import { gameStore, discoveredBreeds, currentCafeStats, type CatInstance } from "@/state/store";
 import { costForNextCat } from "@/data/economy";
 import {
   CAT_DEFINITIONS,
@@ -6,6 +6,14 @@ import {
   catDefinition,
   type CatDefinition,
 } from "@/data/cats";
+import { UPGRADE_DEFINITIONS } from "@/data/upgrades";
+import {
+  hasAffordableUpgrade,
+  levelOf,
+  nextLevelCost,
+  totalUpgradeLevels,
+} from "@/systems/upgrades";
+import { liveIncomePerSecond } from "@/systems/offline";
 import { logEvent } from "@/analytics/analytics";
 
 function formatMoney(amount: number): string {
@@ -79,9 +87,17 @@ export function mountUI(root: HTMLElement): MountedUI {
   adoptButton.appendChild(adoptLabel);
   adoptButton.appendChild(adoptHint);
 
+  const secondaryRow = el("div", "hud-bottom-row");
   const rosterButton = el("button", "roster-button", "Cats") as HTMLButtonElement;
+  const cafeButton = el("button", "roster-button", "Café") as HTMLButtonElement;
+  // Gentle "something's affordable" dot — an invitation, never a nag (§2).
+  const cafeDot = el("span", "nudge-dot");
+  cafeButton.appendChild(cafeDot);
+  secondaryRow.appendChild(rosterButton);
+  secondaryRow.appendChild(cafeButton);
+
   bottom.appendChild(adoptButton);
-  bottom.appendChild(rosterButton);
+  bottom.appendChild(secondaryRow);
 
   // --- Overlays ------------------------------------------------------------
   const modalLayer = el("div", "overlay-layer");
@@ -132,23 +148,38 @@ export function mountUI(root: HTMLElement): MountedUI {
     input.select();
   }
 
+  // --- Panels --------------------------------------------------------------
+  /**
+   * Panels that show live numbers register an updater here instead of
+   * re-rendering: the store ticks every frame, and rebuilding the DOM that
+   * often would fight the player's own taps and text fields.
+   */
+  let panelUpdate: (() => void) | null = null;
+
+  function closePanel(): void {
+    panelLayer.classList.remove("open");
+    panelLayer.innerHTML = "";
+    panelUpdate = null;
+  }
+
+  function panelHeader(title: string): HTMLElement {
+    const header = el("div", "roster-header");
+    header.appendChild(el("div", "roster-title", title));
+    const close = el("button", "roster-close", "✕") as HTMLButtonElement;
+    close.addEventListener("click", closePanel);
+    header.appendChild(close);
+    return header;
+  }
+
   // --- Roster + cat-dex panel (§8 — collection) ----------------------------
   function renderRosterPanel(): void {
     panelLayer.innerHTML = "";
+    panelUpdate = null;
     const { cats } = gameStore.getState();
     const discovered = discoveredBreeds(cats);
 
     const panel = el("div", "roster-panel");
-
-    const header = el("div", "roster-header");
-    header.appendChild(el("div", "roster-title", "Your cats"));
-    const close = el("button", "roster-close", "✕") as HTMLButtonElement;
-    close.addEventListener("click", () => {
-      panelLayer.classList.remove("open");
-      panelLayer.innerHTML = "";
-    });
-    header.appendChild(close);
-    panel.appendChild(header);
+    panel.appendChild(panelHeader("Your cats"));
 
     const list = el("div", "roster-list");
     for (const cat of cats) {
@@ -205,6 +236,94 @@ export function mountUI(root: HTMLElement): MountedUI {
     panelLayer.classList.add("open");
   }
 
+  // --- Café panel: expansion + décor (§8) ----------------------------------
+  function renderCafePanel(): void {
+    panelLayer.innerHTML = "";
+    panelUpdate = null;
+
+    const panel = el("div", "roster-panel");
+    panel.appendChild(panelHeader("Your café"));
+
+    // The numbers, on screen rather than guessed at (§17).
+    const statStrip = el("div", "cafe-stats");
+    function statCell(label: string): HTMLElement {
+      const cell = el("div", "cafe-stat");
+      const value = el("div", "cafe-stat-value", "—");
+      cell.appendChild(value);
+      cell.appendChild(el("div", "cafe-stat-label", label));
+      statStrip.appendChild(cell);
+      return value;
+    }
+    const seatsValue = statCell("seats");
+    const appealValue = statCell("appeal");
+    const incomeValue = statCell("per min");
+    panel.appendChild(statStrip);
+
+    const list = el("div", "upgrade-list");
+    const refreshers: (() => void)[] = [];
+
+    for (const definition of UPGRADE_DEFINITIONS) {
+      const row = el("div", "upgrade-row");
+
+      row.appendChild(el("div", "upgrade-icon", definition.icon));
+
+      const info = el("div", "upgrade-info");
+      const nameLine = el("div", "upgrade-name", definition.name);
+      const levelTag = el("span", "upgrade-level");
+      nameLine.appendChild(levelTag);
+      info.appendChild(nameLine);
+      info.appendChild(el("div", "upgrade-desc", definition.description));
+      const effect = el("div", "upgrade-effect");
+      info.appendChild(effect);
+      row.appendChild(info);
+
+      const buy = el("button", "upgrade-buy") as HTMLButtonElement;
+      buy.addEventListener("click", () => {
+        if (!gameStore.getState().buyUpgrade(definition.id)) return;
+        for (const refresh of refreshers) refresh();
+      });
+      row.appendChild(buy);
+
+      refreshers.push(() => {
+        const { money, upgrades } = gameStore.getState();
+        const level = levelOf(upgrades, definition.id);
+        const cost = nextLevelCost(upgrades, definition.id);
+
+        levelTag.textContent = `Lv ${level}/${definition.maxLevel}`;
+        effect.textContent = level > 0 ? definition.summary(level) : "not yet added";
+        effect.classList.toggle("inactive", level === 0);
+
+        if (cost === null) {
+          buy.textContent = "Max";
+          buy.disabled = true;
+          buy.classList.add("maxed");
+        } else {
+          buy.textContent = formatMoney(cost);
+          buy.disabled = money < cost;
+          buy.classList.remove("maxed");
+        }
+      });
+
+      list.appendChild(row);
+    }
+    panel.appendChild(list);
+
+    function update(): void {
+      const state = gameStore.getState();
+      const stats = currentCafeStats(state);
+      seatsValue.textContent = String(stats.seatCount);
+      appealValue.textContent = stats.appeal.toFixed(1);
+      incomeValue.textContent = formatMoney(liveIncomePerSecond(stats) * 60);
+      for (const refresh of refreshers) refresh();
+    }
+
+    update();
+    panelUpdate = update;
+
+    panelLayer.appendChild(panel);
+    panelLayer.classList.add("open");
+  }
+
   // --- Welcome back / offline earnings (§8) --------------------------------
   function showWelcomeBack(earned: number, awayMs: number): void {
     modalLayer.innerHTML = "";
@@ -245,11 +364,22 @@ export function mountUI(root: HTMLElement): MountedUI {
     renderRosterPanel();
   });
 
+  cafeButton.addEventListener("click", () => {
+    const state = gameStore.getState();
+    logEvent({
+      name: "cafe_opened",
+      seats: currentCafeStats(state).seatCount,
+      upgradeLevels: totalUpgradeLevels(state.upgrades),
+    });
+    renderCafePanel();
+  });
+
   // --- HUD render loop -----------------------------------------------------
   let lastMoney = gameStore.getState().money;
 
   function render() {
-    const { money, cats } = gameStore.getState();
+    const state = gameStore.getState();
+    const { money, cats, upgrades } = state;
     moneyPill.textContent = formatMoney(money);
     catCount.textContent = cats.length === 1 ? "1 cat" : `${cats.length} cats`;
 
@@ -262,6 +392,9 @@ export function mountUI(root: HTMLElement): MountedUI {
     const cost = costForNextCat(cats.length);
     adoptLabel.textContent = `Adopt a cat — ${formatMoney(cost)}`;
     adoptButton.disabled = money < cost;
+
+    cafeDot.classList.toggle("visible", hasAffordableUpgrade(money, upgrades));
+    panelUpdate?.();
   }
 
   render();

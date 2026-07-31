@@ -2,7 +2,53 @@
 
 > Working title: **Mallow** (a cosy cat-café game). Swap the name here if it changes.
 
-This file is the shared brain for the project. **Read it before starting work in this repo.** Keep it updated as decisions are made — if something here is out of date, fix it. Sections 1–5 are the strategic grounding: the *why*, the *who*, the numbers we're accountable to, and the honest reality that keeps us from drifting. Sections 6+ are the *how*.
+This file is the shared brain for the project. **Read it before starting work in this repo.** Keep it updated as decisions are made — if something here is out of date, fix it. §0 is the live status board: read it first, update it last. Sections 1–5 are the strategic grounding: the *why*, the *who*, the numbers we're accountable to, and the honest reality that keeps us from drifting. Sections 6+ are the *how*.
+
+---
+
+## 0. Current status — read this first, update it last
+
+> **Standing rule for every session.** Start by reading this section to see what
+> exists and what's next. **Finish by updating it** — move completed work into
+> "Built", rewrite "Next up", and append a dated line to the log. Also update
+> §15 milestone ticks and record any architectural or balance decision in the
+> section it belongs to. A session that changed the game but not this file is
+> not finished. Nobody should have to re-derive the state of the project by
+> reading the whole codebase.
+
+**Last updated:** 2026-07-31
+
+**Built and working:**
+- **M1 — playable core loop** ✅ visitors arrive → sit → pay → money accrues.
+- **M2 — the hook** ✅ rarity, gacha-lite adoption, naming, roster + cat-dex.
+- **M3 (partial)** — idle/offline income ✅; save system with a real migration
+  chain ✅; **café upgrades: expansion, décor, tips, service ✅**.
+- **Analytics** ✅ (pulled forward from M5) — TelemetryDeck transport, batching,
+  session + funnel + economy events.
+- `npm test` covers the pure systems, save migrations, and café geometry.
+
+**Next up — finish Milestone 3:**
+1. **The LTE (limited-time event) framework.** The last M3 piece and, per §8,
+   the single highest-ROI retention feature in the genre. Data-driven event
+   definitions in `/data` so new events are content, not code.
+2. **Cosmetic-only décor tier.** §8 wants décor to have a purely cosmetic tier
+   alongside the stat one; currently every décor level is also a stat buy.
+3. Then **M4 (beauty pass)** — and the real gate is §15's: get to TestFlight and
+   measure D1/D7 before investing further.
+
+**Known gaps / debts:**
+- Cat meshes are greybox primitives; no GLB assets yet (M4).
+- No audio at all yet (M4, §10 — "audio is half the cosiness").
+- Décor props are procedural low-poly placeholders, not final art.
+- Bundle is ~518 kB (Three.js); fine for now, revisit before ship.
+- Balance beyond ~48h of play is unexplored; `decor` and `brews` max out in
+  roughly an hour of active play, and the long tail leans on seating/service
+  and the cat cost curve. LTEs are the intended answer to running dry.
+
+**Session log:**
+- *2026-07-31* — Built the café upgrade system end-to-end (data → pure systems →
+  store → save v3 → UI → 3D scene → analytics → tests). Retuned the arrival-rate
+  curve; see §8 "Economy loop" for why. Added this §0.
 
 ---
 
@@ -129,6 +175,12 @@ main.ts          # bootstraps scene + systems + ui
 ### Economy loop
 The heartbeat. Visitors arrive over time → occupy seats → generate income while seated → income buys cats, décor, upgrades → upgrades increase visitor rate / spend / seating. Idle income accrues while the app is closed (computed on next open from elapsed time). All economy numbers live in `/data`, never hard-coded in logic.
 
+**`CafeStats` is the single source of economic truth.** `systems/cafe.ts` composes owned cats + bought upgrades into one object (`appeal`, `seatCount`, `payMultiplier`, `dwellDurationMs`). The live tick, the offline calculation, and the UI readouts all take a `CafeStats`, so they cannot drift apart. Add a new economic lever by extending `CafeStats` and the upgrade catalog — not by threading another parameter through the systems.
+
+**Two throughput ceilings, and which one binds matters.** Income is `pay × min(arrival rate, seat capacity)`. Arrival rate rises with appeal; seat capacity is `seats ÷ visit duration`. Keep `minVisitorIntervalMs` (the hard arrival floor) **below** what a fully-expanded café can seat — otherwise the floor binds first and the seating and service upgrades silently stop doing anything. `systems/offline.test.ts` asserts this invariant; don't delete that test when rebalancing.
+
+**Appeal buys arrivals multiplicatively, not subtractively** (`interval = base / (1 + rate × (appeal − 1))`). The original subtractive curve drove the interval into its floor within the first *minute* of play, after which appeal only bought bigger tips and expansion bought nothing. The multiplicative curve has diminishing returns but never flattens.
+
 ### Cat system
 - **Rarity tiers** (e.g. Common → Uncommon → Rare → Epic → Legendary). Rarer cats are more visually distinct and draw more visitors / spend.
 - **Collection:** acquiring cats is the primary long-term goal. A roster/gallery ("cat-dex") shows what you own and what's still out there — completion is a core driver.
@@ -138,11 +190,27 @@ The heartbeat. Visitors arrive over time → occupy seats → generate income wh
 ### Café / expansion
 Upgrades and décor: more seating, new rooms, themed decorations, aesthetic customization. Décor should have both a stat purpose and a purely cosmetic tier (cosmetics matter enormously to this audience).
 
+**Implemented** as a data-driven upgrade catalog (`data/upgrades.ts`) with four deliberately non-overlapping levers, so every purchase reads clearly:
+
+| id | what it buys | effect |
+|---|---|---|
+| `seating` | another table | +1 seat (raises the throughput ceiling) |
+| `decor` | cosy touches | +appeal (faster arrivals *and* bigger tips) |
+| `brews` | better brews | +% pay per guest |
+| `hands` | a helping hand | shorter visits, so each seat serves more guests |
+
+- Levels are stored sparsely (`{ seating: 2 }`); an absent id means level 0, so adding upgrades never invalidates an old save. `systems/upgrades.ts` clamps unknown, negative, and out-of-range levels rather than trusting the save.
+- **Buying an upgrade visibly changes the room.** `entities/cafe-manager.ts` reveals one table set per unlocked seat and one prop per décor level, popping in rather than snapping (§10). Seat *positions* are fixed for all 12 possible seats so a seat index always means the same chair.
+- `scene/layout.test.ts` asserts the fully-expanded café has no clipping furniture, keeps cat lounge spots clear, and leaves a walkable door→seat line (visitors lerp straight to their seat — there is no pathfinding to route them around a plant).
+- Décor is currently *only* the stat tier. The purely cosmetic tier §8 calls for is still outstanding — see §0.
+
 ### Limited-time events (LTE) framework — the retention engine
 Build a **repeatable event system early** (seasonal themes, special/collab cats, limited décor). This is the single highest-ROI retention feature in the genre — the vast majority of mobile IAP revenue comes from games running live-ops. Design it as data-driven event definitions in `/data` so new events are content, not code.
 
 ### Save / load
 Single source of truth = the Zustand store, serialised to storage. Autosave on every meaningful state change and on app background. Include a `version` field and a migration path so updates never corrupt saves. **Never lose a player's cats.** Sacred.
+
+**Currently at v3.** Migrations are a chain in `state/save.ts`: each entry bumps exactly one version, and `loadSave` walks a save forward from whatever version it's on. Adding a version means appending one migration and one test case to `state/save.test.ts` — which every version must have, because this is the one place a bug costs a player their cats. (v1→v2 added `savedAt`; v2→v3 added `upgrades`.)
 
 ### Progression pacing
 Early game (first 5–10 min) must reward fast — first extra cat quickly, visible growth (this directly protects D1). Mid/late game slows into satisfying idle accumulation. Keep pacing values in config so they can be tuned from data.
@@ -227,7 +295,12 @@ Discoverability is the #1 risk, so treat marketing as a first-class workstream, 
 - **Save system pulled forward from M3** (localStorage, versioned `state/save.ts`): naming cats that vanish on refresh would violate "never lose a player's cats." Offline/idle income remains M3.
 - `vitest` added (`npm test`) for the pure systems/economy math.
 
-**Milestone 3 — Depth:** upgrades, expansion, décor, idle/offline income, save-system hardening (migrations), and the **LTE event framework**.
+**Milestone 3 — Depth:** 🟡 in progress.
+- ✅ **Idle/offline income** — earnings accrue while away, welcome-back card.
+- ✅ **Save-system hardening** — versioned migration chain (now v3), tested.
+- ✅ **Upgrades / expansion / décor** — four-lever upgrade catalog, café panel with live stat readouts, and a room that visibly grows as you buy (see §8 "Café / expansion").
+- ⬜ **LTE event framework** — the remaining piece, and the highest-ROI one.
+- ⬜ **Cosmetic-only décor tier** (§8 wants one; today all décor is a stat buy).
 
 **Milestone 4 — Beauty pass:** art cohesion, lighting, juice (§10), audio.
 
@@ -250,7 +323,17 @@ npx cap open ios   # open in Xcode to run on device / simulator, then TestFlight
 
 ## 17. Working with Claude Code
 
-- Add debug visualisation **early** for anything spatial or state-based — don't wait until you're stuck (hard-won lesson from a previous collision-bug fight).
+- **Start every session by reading §0; end every session by updating it.** That
+  section is how a fresh context window learns what exists and what to tackle
+  next without re-reading the codebase. Update the "Built" and "Next up" lists,
+  append a dated session-log line, tick §15, and write any architectural or
+  balance decision into the section it belongs to. Treat this as part of the
+  work, not paperwork after it.
+- Add debug visualisation **early** for anything spatial or state-based — don't wait until you're stuck (hard-won lesson from a previous collision-bug fight). `scene/layout.test.ts` is the cheap version of this: bounding-box assertions catch clipping furniture without a renderer, and they run in `npm test`.
+- **Simulate the economy before trusting it.** A short script that plays a greedy
+  optimiser forward for 48h exposes stalls, dead upgrades, and runaway inflation
+  in seconds — it is how the two balance bugs above were found, and it beats
+  guessing at cost curves by a mile.
 - Prefer building one system end-to-end over half-finishing several.
 - When balancing feels off, expose the numbers in `/data` and a debug overlay rather than guessing.
 - **Stay grounded in §4.** If a proposed feature or spend isn't serving the retention targets or the validate-first philosophy, question it.

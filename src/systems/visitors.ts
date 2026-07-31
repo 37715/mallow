@@ -1,4 +1,5 @@
 import { ECONOMY_CONFIG, visitorIntervalMs, visitorPayAmount } from "@/data/economy";
+import type { CafeStats } from "@/systems/cafe";
 
 export type VisitorPhase = "walkingIn" | "seated" | "walkingOut";
 
@@ -41,9 +42,9 @@ function freeSeatIndex(visitors: Visitor[], seatCount: number): number | null {
   return null;
 }
 
-function spawnVisitor(now: number, seatIndex: number): Visitor {
+function spawnVisitor(now: number, seatIndex: number, dwellMs: number): Visitor {
   const seatedAt = now + ECONOMY_CONFIG.walkInDurationMs;
-  const leavingAt = seatedAt + ECONOMY_CONFIG.dwellDurationMs;
+  const leavingAt = seatedAt + dwellMs;
   const doneAt = leavingAt + ECONOMY_CONFIG.walkOutDurationMs;
   return {
     id: `visitor-${nextVisitorId++}`,
@@ -64,15 +65,14 @@ export function tickVisitors(
   visitors: Visitor[],
   now: number,
   lastSpawnAt: number,
-  appeal: number,
-  seatCount: number,
+  stats: CafeStats,
 ): VisitorTickResult {
   let moneyEarned = 0;
 
   const next = visitors
     .map((visitor) => {
       if (!visitor.hasPaid && now >= visitor.leavingAt) {
-        moneyEarned += visitorPayAmount(appeal);
+        moneyEarned += visitorPayAmount(stats.appeal, stats.payMultiplier);
         return { ...visitor, hasPaid: true };
       }
       return visitor;
@@ -82,11 +82,11 @@ export function tickVisitors(
   let spawnedThisTick = false;
   let updatedLastSpawnAt = lastSpawnAt;
 
-  const readyToSpawn = now - lastSpawnAt >= visitorIntervalMs(appeal);
+  const readyToSpawn = now - lastSpawnAt >= visitorIntervalMs(stats.appeal);
   if (readyToSpawn) {
-    const seat = freeSeatIndex(next, seatCount);
+    const seat = freeSeatIndex(next, stats.seatCount);
     if (seat !== null) {
-      next.push(spawnVisitor(now, seat));
+      next.push(spawnVisitor(now, seat, stats.dwellDurationMs));
       spawnedThisTick = true;
     }
     // Reset the spawn timer even if no seat was free, so we don't spam-check every frame.

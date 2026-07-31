@@ -1,9 +1,11 @@
 import { createScene } from "@/scene/scene";
 import { startLoop } from "@/core/loop";
-import { gameStore, bootAwayMs } from "@/state/store";
+import { gameStore, bootAwayMs, currentCafeStats } from "@/state/store";
 import { initAutosave } from "@/state/save";
 import { CatManager } from "@/entities/cat-manager";
+import { CafeManager } from "@/entities/cafe-manager";
 import { VisitorManager } from "@/entities/visitor-manager";
+import { levelOf } from "@/systems/upgrades";
 import { mountUI } from "@/ui/ui";
 import { CatLabelLayer } from "@/ui/cat-labels";
 import { initAnalytics } from "@/analytics/analytics";
@@ -14,7 +16,20 @@ function bootstrap(): void {
 
   const { scene, camera, render } = createScene(canvas);
   const catManager = new CatManager(scene);
+  const cafeManager = new CafeManager(scene);
   const visitorManager = new VisitorManager(scene);
+
+  // Build whatever the café already owns before the first frame, so a returning
+  // player's room is simply there rather than popping in around them.
+  {
+    const state = gameStore.getState();
+    cafeManager.sync(
+      currentCafeStats(state).seatCount,
+      levelOf(state.upgrades, "decor"),
+      performance.now(),
+      true,
+    );
+  }
 
   const ui = mountUI(uiRoot);
   const catLabels = new CatLabelLayer(uiRoot);
@@ -44,8 +59,11 @@ function bootstrap(): void {
 
   startLoop((now) => {
     gameStore.getState().tick(now);
-    const { cats, visitors } = gameStore.getState();
+    const state = gameStore.getState();
+    const { cats, visitors, upgrades } = state;
 
+    cafeManager.sync(currentCafeStats(state).seatCount, levelOf(upgrades, "decor"), now);
+    cafeManager.animate(now);
     catManager.sync(cats, now);
     catManager.animate(now);
     visitorManager.sync(visitors, now);
