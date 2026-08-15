@@ -12,10 +12,15 @@ import { levelOf, type UpgradeLevels } from "@/systems/upgrades";
  * Pure: no clocks, no storage, no Three.js.
  */
 export interface CafeStats {
-  /** Combined draw of cats + décor, after contentment. Drives arrivals and tips. */
+  /** Combined draw of cats + furniture, after contentment. Drives arrivals and tips. */
   appeal: number;
   /** How many guests can be seated at once — the throughput ceiling. */
   seatCount: number;
+  /**
+   * Which seats exist, as indices into `SEATS`. Frozen order; see
+   * `availableSeats`. `seatCount` is its length, kept for the throughput maths.
+   */
+  seats: number[];
   /** Multiplier applied to every visitor payout. 1 = no upgrades. */
   payMultiplier: number;
   /** How long a guest sits before paying, after service upgrades. */
@@ -55,11 +60,30 @@ export function contentCatCount(cats: CatForStats[], now: number): number {
 }
 
 /**
- * Compose the café's stats. `catAppealTotal` is the summed appeal of owned cats
- * (see `catAppeal` above); upgrades and the venue layer on top.
+ * Compose the café's stats.
+ *
+ * `catAppealTotal` is the summed appeal of owned cats (see `catAppeal` above);
+ * `furnitureAppealTotal` is what the player has furnished the room with
+ * (`furnitureAppeal` in `data/shop.ts`); upgrades layer on top of both.
+ *
+ * Furniture is passed in rather than read here so this stays pure and the shop
+ * catalogue stays out of the economy's dependencies.
  */
-export function cafeStats(catAppealTotal: number, levels: UpgradeLevels): CafeStats {
-  let appeal = catAppealTotal;
+export function cafeStats(
+  catAppealTotal: number,
+  levels: UpgradeLevels,
+  furnitureAppealTotal = 0,
+  /**
+   * What the average cup on the menu is worth (`systems/menu.ts`). 1 = a café
+   * that only sells filter coffee. This multiplies with the brews upgrade
+   * rather than replacing it: brews is *how well* you make a drink, the menu is
+   * *what* you make.
+   */
+  menuMultiplier = 1,
+  /** Which seats the café actually owns (`availableSeats`). */
+  seats: number[] = Array.from({ length: ECONOMY_CONFIG.baseSeatCount }, (_, i) => i),
+): CafeStats {
+  let appeal = catAppealTotal + furnitureAppealTotal;
   let payMultiplier = 1;
 
   for (const definition of UPGRADE_DEFINITIONS) {
@@ -72,8 +96,9 @@ export function cafeStats(catAppealTotal: number, levels: UpgradeLevels): CafeSt
 
   return {
     appeal,
-    seatCount: ECONOMY_CONFIG.baseSeatCount,
-    payMultiplier,
+    seatCount: seats.length,
+    seats,
+    payMultiplier: payMultiplier * Math.max(1, menuMultiplier),
     dwellDurationMs: Math.max(MIN_DWELL_MS, ECONOMY_CONFIG.dwellDurationMs),
   };
 }

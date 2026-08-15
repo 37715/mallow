@@ -1,36 +1,104 @@
+/* ==========================================================================
+   Mallow — interface
+   ==========================================================================
+
+   The diorama is the hero. Everything here is the café's own signage floating
+   over it, and it takes its vernacular from two things actually in the room:
+   the blackboard on the back wall, and a printed menu.
+
+   Three decisions carry the whole design:
+
+   1. **Signage is dark.** The previous pass put cream panels over a warm,
+      cream-lit café and everything dissolved into everything else — the reason
+      it read as floating text boxes rather than as part of the café. The
+      blackboard hanging in the room is the answer: warm slate, chalk type.
+      Contrast, and it belongs to the building.
+
+   2. **Honey is a verb, not a texture.** Exactly one element in the interface
+      is filled honey — the adopt button, the thing to do next. Everything else
+      earns honey only to signal state (affordable, chosen). The old gradient
+      buttons with inset highlights said "mobile game" in a way nothing else
+      did, and there were five of them competing.
+
+   3. **Prices are set like a menu.** Name, dot leaders, price in monospace.
+      That's café printed matter, and the leaders encode something true — this
+      thing costs that much — rather than decorating the row.
+   ========================================================================== */
+
+/* --- Type -----------------------------------------------------------------
+   One variable superfamily doing three jobs, which is why it's worth 139 kB:
+   Recursive carries a CASL (casual) axis and a MONO axis, so a single file
+   gives a hand-lettered display voice, a clean UI voice, and a receipt-tape
+   numeral voice that are unmistakably related.
+
+   It is bundled rather than requested from a system font on purpose. The
+   previous pass asked for `ui-rounded`, which only Safari implements — in
+   Chrome the whole stack fell through to plain system sans, so the intended
+   design was never actually on screen during development. A packaged iOS app
+   should not be guessing at what the OS will hand it anyway.
+
+   Recursive by Arrow Type, SIL Open Font License 1.1 — see public/fonts/. */
+
+@font-face {
+  font-family: "Recursive";
+  src: url("/fonts/recursive.woff2") format("woff2-variations");
+  font-weight: 300 1000;
+  font-display: swap;
+}
+
 :root {
-  /* Palette drawn from the café itself: paper, honey wood, a blush for the
-     cats, cocoa for ink, sage as the cool counterpoint used only for things
-     that aren't available yet. */
-  --paper: #fbf3e6;
-  --paper-warm: #f4e6d0;
-  --honey: #e0913c;
-  --honey-deep: #c4762a;
-  --blush: #e0808f;
-  --cocoa: #46331f;
-  --cocoa-soft: #8a7256;
-  --sage: #93a184;
+  /* The blackboard, in three depths. Warm — a neutral charcoal next to honey
+     light reads as a hole cut in the screen. */
+  --slate: #2b211a;
+  --slate-raised: #392c22;
+  --slate-line: rgba(246, 237, 221, 0.19);
 
-  --card: rgba(252, 245, 234, 0.97);
-  --ink: var(--cocoa);
-  --warm-brown: var(--cocoa-soft);
-  --accent: var(--honey);
-  --cream: var(--paper);
+  /* Chalk, in two strengths. Never pure white: chalk on slate is warm. */
+  --chalk: #f6eddd;
+  --chalk-dim: #a89684;
 
-  /* Warm shadows. A neutral grey shadow on a cream UI reads as dirt. */
-  --lift-sm: 0 1px 2px rgba(90, 60, 30, 0.1), 0 2px 6px rgba(90, 60, 30, 0.08);
-  --lift-md: 0 2px 4px rgba(90, 60, 30, 0.12), 0 6px 16px rgba(90, 60, 30, 0.12);
-  --lift-lg: 0 4px 10px rgba(90, 60, 30, 0.14), 0 18px 40px rgba(90, 60, 30, 0.18);
+  --honey: #e8a24a;
+  --blush: #e58a99;
+  --sage: #9aa88b;
 
-  /* One family, native and rounded. Contrast comes from weight and tracking
-     rather than a second face — and it costs no download inside the app. */
-  --font: ui-rounded, "SF Pro Rounded", -apple-system, BlinkMacSystemFont,
-    "Segoe UI Variable Display", system-ui, sans-serif;
+  /* One scale. Five sizes, and if a sixth is needed the design is wrong. */
+  --t-display: 22px;
+  --t-lg: 16px;
+  --t-md: 13.5px;
+  --t-sm: 12px;
+  --t-xs: 10.5px;
 
+  /* Three radii. */
   --r-pill: 999px;
-  --r-lg: 22px;
-  --r-md: 16px;
-  --r-sm: 11px;
+  --r-card: 18px;
+  --r-row: 10px;
+
+  /* Shadows exist only on things genuinely floating over the 3D scene, and
+     they're warm-brown, because a grey shadow on a warm scene reads as dirt. */
+  --lift: 0 2px 6px rgba(38, 24, 12, 0.22), 0 12px 32px rgba(38, 24, 12, 0.26);
+  --lift-sm: 0 1px 3px rgba(38, 24, 12, 0.2), 0 4px 12px rgba(38, 24, 12, 0.18);
+}
+
+/* The three voices. Applied by class so the axis settings live in one place. */
+.v-display {
+  font-variation-settings: "CASL" 1, "MONO" 0;
+  font-weight: 800;
+  letter-spacing: -0.015em;
+}
+
+.v-eyebrow {
+  font-variation-settings: "CASL" 0, "MONO" 0;
+  font-weight: 700;
+  font-size: var(--t-xs);
+  letter-spacing: 0.14em;
+  text-transform: lowercase;
+}
+
+.v-num {
+  font-variation-settings: "CASL" 0, "MONO" 1;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
 }
 
 * {
@@ -42,8 +110,9 @@ body {
   margin: 0;
   height: 100%;
   overflow: hidden;
-  font-family: var(--font);
-  color: var(--ink);
+  font-family: "Recursive", ui-rounded, system-ui, sans-serif;
+  font-variation-settings: "CASL" 0, "MONO" 0;
+  color: var(--chalk);
   -webkit-font-smoothing: antialiased;
   -webkit-tap-highlight-color: transparent;
 }
@@ -58,6 +127,16 @@ body {
   position: absolute;
   inset: 0;
   display: block;
+  /* The camera owns every gesture on the canvas. Without `touch-action: none`
+     iOS claims one-finger drags for scrolling and two-finger ones for page
+     zoom, and the pan/pinch controls receive a truncated stream of pointer
+     events — the classic symptom being a drag that works for a few pixels and
+     then dies as the browser takes over. */
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  /* Suppresses the grey tap flash iOS paints over the canvas on touch. */
+  -webkit-tap-highlight-color: transparent;
 }
 
 #ui-root {
@@ -67,48 +146,575 @@ body {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom));
+  padding: max(16px, env(safe-area-inset-top)) 16px max(18px, env(safe-area-inset-bottom));
 }
 
-.hud-top {
+/* Keyboard focus is visible everywhere, without showing a ring on taps. */
+:focus-visible {
+  outline: 2px solid var(--honey);
+  outline-offset: 3px;
+}
+
+/* --- Icons ----------------------------------------------------------------
+   Drawn in `ui/icons.ts`, sized here. They always inherit colour, so one icon
+   works on a slate chip and on the honey button without a variant. */
+
+.icon {
+  display: block;
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+/* ==========================================================================
+   Voice: lowercase throughout
+   ==========================================================================
+   Everything the interface says is set lowercase — labels, titles, buttons,
+   rarities. It's the house voice: quieter and friendlier than sentence case,
+   and it suits a café that would hand-letter its own signs. Capitals are left
+   to the player's own words only — cat names are theirs and are never
+   transformed, which is also what keeps them feeling like names.
+
+   Enforced in CSS as well as written lowercase in the source, so a stray
+   capital in a new string can't break the register. */
+
+.roster-title,
+.reveal-title,
+.reveal-breed,
+.reveal-name-label,
+.reveal-confirm,
+.adopt-button-label,
+.adopt-button-hint,
+.nav-label,
+.dex-title,
+.dex-cell-breed,
+.cafe-stat-label,
+.style-name,
+.style-note,
+.upgrade-name,
+.upgrade-level,
+.upgrade-desc,
+.upgrade-effect,
+.upgrade-buy,
+.rarity-badge,
+.roster-cat-breed,
+.roster-cat-content,
+.roster-capacity,
+.stat-chip-label,
+.hub-card-name,
+.hub-card-hint,
+.hub-card-note,
+.hub-section,
+.setting-name,
+.setting-hint,
+.move-note,
+.move-cancel,
+.move-done {
+  text-transform: lowercase;
+}
+
+/* ==========================================================================
+   The progress corner — level, café, you
+   ==========================================================================
+   The one accumulating number in the game, so it gets a permanent corner. The
+   ring is chalk on slate like everything else; the fill is honey because honey
+   means "this is going somewhere" (§9). Both names are the player's own words
+   and are NOT lowercased — same rule as cat names. */
+
+/* Left cell of the top row. It shares that row with the till and the sound
+   button, so it is sized to *yield*: the till is the signature element and
+   must never be crowded off centre by a long café name. */
+.profile-corner {
+  position: relative;
+  font-family: inherit;
+  border: none;
+  text-align: left;
+  color: var(--chalk);
+  align-self: stretch;
   display: flex;
-  justify-content: center;
-  z-index: 2;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 11px 6px 6px;
+  border-radius: var(--r-pill);
+  background: var(--slate);
+  box-shadow: var(--lift-sm);
+  pointer-events: auto;
+  cursor: pointer;
+  min-width: 0;
+  /* The left column owns the leftover width now (see `.hud-left`); this fills
+     it. Capping it at a fraction kept cutting the café's name off, and the
+     name is something the player typed. */
+  flex: 0 0 auto;
 }
 
-.hud-top-stack {
+.level-ring {
+  position: relative;
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+}
+
+.level-ring svg {
+  width: 100%;
+  height: 100%;
+  /* Start the fill at twelve o'clock rather than three. */
+  transform: rotate(-90deg);
+}
+
+.level-ring circle {
+  fill: none;
+  stroke-width: 3.5;
+}
+
+.level-ring-track {
+  stroke: var(--slate-line);
+}
+
+.level-ring-fill {
+  stroke: var(--honey);
+  stroke-linecap: round;
+  transition: stroke-dashoffset 420ms ease;
+}
+
+.level-number {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-variation-settings: "CASL" 0, "MONO" 1;
+  font-weight: 700;
+  font-size: var(--t-sm);
+  color: var(--chalk);
+  font-variant-numeric: tabular-nums;
+}
+
+.profile-text {
+  min-width: 0;
+}
+
+.profile-cafe {
+  font-variation-settings: "CASL" 1;
+  font-weight: 800;
+  font-size: var(--t-sm);
+  line-height: 1.2;
+  color: var(--chalk);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profile-sub {
+  font-variation-settings: "CASL" 0, "MONO" 1;
+  font-size: var(--t-xs);
+  color: var(--chalk-dim);
+  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The ring nudges when a level lands, under the card that is already
+   celebrating — so when the card is dismissed, the corner has visibly moved on.
+   The card itself is `.level-card`, further down. */
+.profile-corner.levelled {
+  animation: level-pop 900ms ease;
+}
+
+@keyframes level-pop {
+  0% { transform: scale(1); }
+  22% { transform: scale(1.09); }
+  100% { transform: scale(1); }
+}
+
+.profile-corner:active {
+  transform: scale(0.97);
+}
+
+.profile-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.level-ring-big {
+  width: 58px;
+  height: 58px;
+}
+
+.level-ring-big .level-number {
+  font-size: var(--t-lg);
+}
+
+.profile-who-name {
+  font-variation-settings: "CASL" 1;
+  font-weight: 800;
+  font-size: var(--t-display);
+  color: var(--chalk);
+}
+
+.profile-who-sub {
+  margin-top: 2px;
+  font-variation-settings: "CASL" 0, "MONO" 1;
+  font-size: var(--t-sm);
+  text-transform: lowercase;
+  color: var(--chalk-dim);
+}
+
+/* --- The café's vital signs, under the profile ----------------------------
+   Cats, contented hearts, appeal and takings per hour. These lived in a panel
+   until 2026-08-13, which meant the numbers the entire shop exists to move
+   were the only ones you had to go looking for. */
+
+.hud-left {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+/* Lifted over an open panel while a stat is celebrating — see `celebrate` in
+   ui.ts. Pointer events stay off so the chips never steal a tap meant for the
+   panel underneath. */
+.hud-left.celebrating {
+  z-index: 8;
+  pointer-events: none;
+}
+
+.stat-chip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 100%;
+  font-family: inherit;
+  border: none;
+  padding: 5px 12px;
+  border-radius: var(--r-pill);
+  background: var(--slate);
+  color: var(--chalk-dim);
+  box-shadow: var(--lift-sm);
+}
+
+.cat-chip {
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.cat-chip:active {
+  transform: scale(0.96);
+}
+
+.stat-chip-part {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.stat-icon {
+  width: 15px;
+  height: 15px;
+}
+
+.stat-icon.heart {
+  color: var(--slate-line);
+  transition: color 300ms ease;
+}
+
+.cat-chip.has-content .stat-icon.heart {
+  color: var(--blush);
+}
+
+/* The little "+0.4" that lifts off a chip when it grows, and the chip's own
+   squash. Two beats, appeal then takings — see `celebrate` in ui.ts. */
+.stat-chip-part {
+  position: relative;
+}
+
+.stat-chip-part.rising {
+  animation: stat-pop 620ms cubic-bezier(0.2, 1.5, 0.4, 1);
+}
+
+.stat-chip-part.rising .stat-chip-value {
+  color: var(--honey);
+  transition: color 900ms ease;
+}
+
+@keyframes stat-pop {
+  0% { transform: scale(1); }
+  30% { transform: scale(1.22); }
+  100% { transform: scale(1); }
+}
+
+.stat-rise {
+  position: absolute;
+  left: 50%;
+  bottom: 100%;
+  font-variation-settings: "CASL" 0, "MONO" 1;
+  font-weight: 700;
+  font-size: var(--t-xs);
+  color: var(--honey);
+  white-space: nowrap;
+  pointer-events: none;
+  animation: stat-rise-up 1400ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes stat-rise-up {
+  0% { opacity: 0; transform: translate(-50%, 4px) scale(0.7); }
+  18% { opacity: 1; transform: translate(-50%, -2px) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -22px) scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stat-chip-part.rising { animation: none; }
+  .stat-rise { animation-duration: 900ms; }
+}
+
+.stat-chip-value {
+  font-variation-settings: "CASL" 0, "MONO" 1;
+  font-weight: 700;
+  font-size: var(--t-sm);
+  font-variant-numeric: tabular-nums;
+  color: var(--chalk);
+}
+
+.stat-chip-label {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: lowercase;
+  color: var(--chalk-dim);
+}
+
+/* --- Settings ------------------------------------------------------------- */
+
+.swatch-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 12px 0 2px;
+}
+
+.swatch-cell {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
+  gap: 3px;
 }
 
-.money-pill,
-.cat-count-pill {
-  pointer-events: auto;
-  background: rgba(255, 250, 240, 0.85);
-  backdrop-filter: blur(6px);
-  border-radius: 999px;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+.swatch-price {
+  font-variation-settings: "CASL" 0, "MONO" 1;
+  font-weight: 700;
+  font-size: 9.5px;
+  color: var(--honey);
+  min-height: 12px;
+}
+
+.swatch-caption {
+  margin-top: 8px;
+  font-size: var(--t-xs);
+  text-transform: lowercase;
+  color: var(--chalk-dim);
+}
+
+/* Plain discs. The colour *is* the label, so a name beside each one would be
+   noise — and eight of them fit on a phone only without. */
+.backdrop-swatch {
+  width: 38px;
+  height: 38px;
+  border: none;
+  cursor: pointer;
+  border-radius: 50%;
+  box-shadow: inset 0 -3px 8px rgba(0, 0, 0, 0.25), 0 0 0 0 var(--honey);
+  transition: box-shadow 180ms ease, transform 140ms ease;
+}
+
+.backdrop-swatch:active {
+  transform: scale(0.92);
+}
+
+.backdrop-swatch.on {
+  box-shadow: inset 0 -3px 8px rgba(0, 0, 0, 0.25), 0 0 0 2.5px var(--honey);
+}
+
+/* A row whose control is too wide to sit beside its label — the colour discs
+   and the picture chips. Same row, stacked.
+
+   **Written as `.setting-row.setting-row-stacked` on purpose.** As a bare
+   class it has the same specificity as `.setting-row` and lost on source
+   order, so the row stayed `display: flex` and squeezed the label into a
+   one-word-per-line column with the swatches overlapping it. */
+.setting-row.setting-row-stacked {
+  display: block;
+}
+
+.setting-row-stacked .chip-row {
+  margin: 10px 0 2px;
+}
+
+.setting-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--slate-line);
+}
+
+.setting-label {
+  flex: 1;
+  min-width: 0;
+}
+
+.setting-name {
+  font-weight: 700;
+  font-size: var(--t-lg);
+  text-transform: lowercase;
+  color: var(--chalk);
+}
+
+.setting-hint {
+  margin-top: 3px;
+  font-size: var(--t-sm);
+  line-height: 1.4;
+  text-transform: lowercase;
+  color: var(--chalk-dim);
+}
+
+.setting-toggle {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border: none;
+  cursor: pointer;
+  border-radius: 50%;
+  background: var(--slate-raised);
+  color: var(--chalk-dim);
+  transition: background 180ms ease, color 180ms ease;
+}
+
+.setting-toggle.on {
+  background: var(--honey);
+  color: #3a2410;
+}
+
+/* ==========================================================================
+   The till — the signature element
+   ==========================================================================
+   Money is capped (§8), so the badge is a gauge: it fills as the till does and
+   turns blush at the ceiling. It is the only way to see the ceiling coming, so
+   the fill is information and earns its place. Filling a dark badge with warm
+   light reads far better than tinting a pale one, which is a happy consequence
+   of the slate direction rather than the reason for it. */
+
+/* Three cells: who you are, the till, the sound toggle.
+   The till centres in the space that is *left over*, rather than on the screen.
+   Absolute centring was tried and overlapped the profile the moment the café
+   had a name — and a till you cannot read is worse than one a few pixels off
+   centre. */
+.hud-top {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  z-index: 2;
+  /* Room for the absolutely-placed sound button on the right. */
+  padding-right: 46px;
+}
+
+.hud-top-stack {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 7px;
 }
 
 .money-pill {
-  padding: 10px 22px;
-  font-size: 20px;
-  font-weight: 600;
-  transition: transform 120ms ease;
+  position: relative;
+  overflow: hidden;
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* Trimmed from 132/24 on 2026-08-12: the till shares the top row with the
+     café's name now, and it was taking width it did not need — four digits fit
+     comfortably in this. */
+  min-width: 104px;
+  padding: 10px 18px;
+  border-radius: var(--r-pill);
+  background: var(--slate);
+  box-shadow: var(--lift);
+  font-variation-settings: "CASL" 0, "MONO" 1;
+  font-size: var(--t-display);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  transition: transform 200ms cubic-bezier(0.34, 1.4, 0.64, 1);
+}
+
+.money-value {
+  position: relative;
+  z-index: 1;
 }
 
 .money-pill.bump {
-  transform: scale(1.08);
+  transform: scale(1.06);
 }
 
-.cat-count-pill {
-  padding: 6px 14px;
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--warm-brown);
+.till-fill {
+  position: absolute;
+  inset: 0;
+  transform-origin: left center;
+  background: linear-gradient(90deg, rgba(232, 162, 74, 0.3), rgba(232, 162, 74, 0.55));
+  transition: transform 500ms cubic-bezier(0.22, 0.8, 0.3, 1);
 }
+
+.money-pill.till-full .till-fill {
+  background: linear-gradient(90deg, rgba(229, 138, 153, 0.35), rgba(229, 138, 153, 0.6));
+}
+
+
+
+
+.sound-button {
+  position: absolute;
+  top: 0;
+  right: 0;
+  pointer-events: auto;
+  /* Grid-centred: an inline SVG in a plain button sits on the text baseline,
+     which left the cog visibly low and right of centre. */
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border: none;
+  border-radius: 50%;
+  background: var(--slate);
+  /* **Explicit, because a button does not inherit `color`.** Without this the
+     icon's `currentColor` resolves to the UA's `buttontext` — black in Chrome
+     and *system blue on iOS*, which is how the cog shipped blue. */
+  color: var(--chalk);
+  box-shadow: var(--lift-sm);
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+  transition: transform 140ms cubic-bezier(0.34, 1.4, 0.64, 1), opacity 200ms ease;
+}
+
+.sound-button:active {
+  transform: scale(0.9);
+}
+
+.sound-button.muted {
+  opacity: 0.5;
+}
+
+/* --- Cat name labels ------------------------------------------------------
+   These sit *in* the scene rather than over it, so they stay small and quiet
+   and let the cat be the thing you look at. */
 
 .cat-label-layer {
   position: absolute;
@@ -122,16 +728,200 @@ body {
   position: absolute;
   left: 0;
   top: 0;
-  padding: 4px 10px;
-  border-radius: 999px;
-  background: rgba(255, 250, 240, 0.88);
-  color: var(--ink);
-  font-size: 12px;
+  padding: 3px 10px;
+  border-radius: var(--r-pill);
+  background: rgba(43, 33, 26, 0.88);
+  color: var(--chalk);
+  font-size: var(--t-sm);
   font-weight: 600;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
   white-space: nowrap;
   will-change: transform;
 }
+
+/* --- The guide's speech bubble --------------------------------------------
+   A classic bubble with a tail, hanging over the guide's head and projected
+   from world space like the cat labels above. Chalk on slate, because §9's
+   first rule is that signage in this game is dark — a cream bubble over a
+   cream-lit café dissolves into it. */
+
+.speech-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 3;
+}
+
+.speech-bubble {
+  position: absolute;
+  left: 0;
+  top: 0;
+  /* Wide enough to read on a phone, capped so it never spans a tablet — and
+     kept off the full width, because the room behind it is the thing being
+     talked about and a bubble that covers it defeats the point. */
+  width: min(260px, calc(100vw - 40px));
+  margin-bottom: 14px;
+  padding: 11px 14px 9px;
+  border-radius: var(--r-card);
+  background: rgba(43, 33, 26, 0.94);
+  color: var(--chalk);
+  box-shadow: var(--lift);
+  will-change: transform;
+}
+
+/* The tail. A rotated square rather than a border triangle, so it inherits the
+   bubble's exact background and can never drift a shade off it. */
+.speech-bubble::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -6px;
+  width: 16px;
+  height: 16px;
+  transform: translateX(-50%) rotate(45deg);
+  border-radius: 3px;
+  background: inherit;
+}
+
+.speech-text {
+  margin: 0;
+  font-size: var(--t-md);
+  line-height: 1.45;
+  /* The guide's own words, so they keep the sentence case they were written
+     in — the lowercase rule is for the interface's voice, not a person's. */
+  text-transform: none;
+  /* One line's worth, so a short line isn't a mostly-empty box. The bubble is
+     anchored by its *bottom* edge, so growing as it types pushes the box
+     upward and leaves the tail where it is — which is what we want. */
+  min-height: 1.45em;
+}
+
+.speech-hint {
+  display: block;
+  margin-top: 8px;
+  font-size: var(--t-xs);
+  opacity: 0;
+  color: var(--chalk-dim);
+  transition: opacity 220ms ease;
+}
+
+/* While the walkthrough is waiting on the player, the hint stops being an
+   invitation to skip and becomes the instruction — so it takes honey, the one
+   colour this interface uses to mean "do this next" (§9). */
+.speech-hint-task {
+  color: var(--honey);
+  font-weight: 700;
+  text-transform: none;
+}
+
+/* The walkthrough's pointing arrow.
+
+   A ring alone was not enough — it reads as decoration next to everything else
+   in this HUD that pulses, and it says "something about this button" rather
+   than "press this". An arrow has a direction and exactly one meaning. Honey,
+   because honey is the colour this interface uses for "do this next" (§9), and
+   big: 40px, solid, with a shadow, because it has to win against a café. */
+.point-arrow {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 6;
+  width: 40px;
+  height: 40px;
+  pointer-events: none;
+  color: var(--honey);
+  filter: drop-shadow(0 3px 5px rgba(38, 24, 12, 0.45));
+  animation: point-bob 1.05s ease-in-out infinite;
+  will-change: transform;
+}
+
+/* Pointing up instead, for a control too near the top of the screen to have
+   room above it. */
+.point-arrow-up {
+  transform-origin: 50% 50%;
+}
+
+.point-arrow-up svg {
+  transform: rotate(180deg);
+}
+
+.point-arrow svg {
+  width: 100%;
+  height: 100%;
+  fill: currentColor;
+  display: block;
+}
+
+/* The bob is on an inner transform so it can't fight the positioning
+   transform on the element itself. */
+@keyframes point-bob {
+  0%,
+  100% {
+    margin-top: 0;
+  }
+  50% {
+    margin-top: 9px;
+  }
+}
+
+/* The ring stays as well — together they read as "this exact control", where
+   the arrow alone can look like it is pointing between two buttons. */
+.pointed-at {
+  animation: point-at 1.9s ease-in-out infinite;
+}
+
+@keyframes point-at {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(232, 162, 74, 0.55);
+  }
+  50% {
+    box-shadow: 0 0 0 7px rgba(232, 162, 74, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pointed-at {
+    animation: none;
+    box-shadow: 0 0 0 2.5px var(--honey);
+  }
+}
+
+/* Your own name over your own head, for a couple of seconds after you tap
+   yourself. Honey-edged so it reads as *you* rather than as another cat. */
+.name-tag {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 2;
+  padding: 4px 12px;
+  border-radius: var(--r-pill);
+  background: rgba(43, 33, 26, 0.92);
+  box-shadow: inset 0 0 0 1.5px var(--honey);
+  color: var(--chalk);
+  font-size: var(--t-sm);
+  font-weight: 700;
+  white-space: nowrap;
+  pointer-events: none;
+  /* The player typed this, so it keeps their capitals — same rule as cat
+     names (§9). */
+  text-transform: none;
+  opacity: 0;
+  transform-origin: 50% 100%;
+  transition: opacity 600ms ease;
+  will-change: transform;
+}
+
+.name-tag.visible {
+  opacity: 1;
+  transition: opacity 160ms ease;
+}
+
+/* ==========================================================================
+   Actions
+   ==========================================================================
+   Hierarchy is carried by fill, not by size or shadow. Honey is filled exactly
+   once — the adopt button — and everything else is slate. When you can't
+   afford a cat the honey drains away, so the interface stops asking. */
 
 .hud-bottom {
   display: flex;
@@ -144,56 +934,109 @@ body {
 .hud-bottom-row {
   display: flex;
   justify-content: center;
-  align-items: stretch;
-  gap: 10px;
+  gap: 8px;
 }
 
 .adopt-button,
-.roster-button {
-  pointer-events: auto;
+.roster-button,
+.upgrade-buy,
+.reveal-confirm,
+.style-tile,
+.roster-close {
+  font-family: inherit;
   border: none;
-  border-radius: 18px;
-  font-weight: 600;
   cursor: pointer;
-  transition: transform 100ms ease, opacity 150ms ease;
 }
 
 .adopt-button {
+  pointer-events: auto;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 2px;
-  padding: 12px 26px;
-  font-size: 16px;
-  background: var(--accent);
-  color: #fff8f0;
-  box-shadow: 0 6px 16px rgba(217, 123, 79, 0.35);
+  gap: 3px;
+  min-width: 248px;
+  padding: 13px 30px 14px;
+  border-radius: var(--r-pill);
+  background: var(--honey);
+  color: var(--slate);
+  box-shadow: var(--lift);
+  transition: transform 120ms cubic-bezier(0.34, 1.4, 0.64, 1), background 200ms ease,
+    color 200ms ease, box-shadow 200ms ease;
+}
+
+.adopt-button-label {
+  font-variation-settings: "CASL" 1, "MONO" 0;
+  font-size: var(--t-lg);
+  font-weight: 800;
+  letter-spacing: -0.015em;
 }
 
 .adopt-button-hint {
-  font-size: 11px;
-  font-weight: 500;
-  opacity: 0.8;
+  font-weight: 700;
+  font-size: var(--t-xs);
+  letter-spacing: 0.14em;
+  text-transform: lowercase;
+  opacity: 0.62;
 }
 
+.adopt-button:active:not(:disabled) {
+  transform: translateY(1px) scale(0.985);
+  box-shadow: var(--lift-sm);
+}
+
+/* Not "greyed out" — it simply stops being the call to action and rejoins the
+   rest of the signage. Nothing is taken away, so nothing needs to look denied. */
+.adopt-button:disabled,
+.adopt-button.unaffordable {
+  background: var(--slate);
+  color: var(--chalk-dim);
+  cursor: default;
+  box-shadow: var(--lift-sm);
+}
+
+/* Icon above word. The icon is the thing you come to recognise; the word is
+   what teaches it, and it stays for good — a bare icon bar is a guessing game. */
 .roster-button {
   position: relative;
-  padding: 11px 24px;
-  font-size: 15px;
-  background: var(--card);
-  color: var(--warm-brown);
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.1);
+  pointer-events: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  min-width: 68px;
+  padding: 9px 14px 8px;
+  border-radius: var(--r-card);
+  background: var(--slate);
+  color: var(--chalk);
+  box-shadow: var(--lift-sm);
+  transition: transform 120ms cubic-bezier(0.34, 1.4, 0.64, 1), color 200ms ease;
 }
 
-/* Soft "you can afford something" dot — an invitation, not a red badge (§2). */
+.nav-icon {
+  width: 22px;
+  height: 22px;
+}
+
+.nav-label {
+  font-size: var(--t-sm);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1;
+}
+
+.roster-button:active {
+  transform: translateY(1px) scale(0.97);
+}
+
+/* "There's something you can afford" — an invitation, never a red badge (§2). */
 .nudge-dot {
   position: absolute;
-  top: 7px;
-  right: 9px;
-  width: 8px;
-  height: 8px;
+  top: 8px;
+  right: 10px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
-  background: var(--accent);
+  background: var(--honey);
   opacity: 0;
   transform: scale(0.4);
   transition: opacity 260ms ease, transform 260ms cubic-bezier(0.34, 1.4, 0.64, 1);
@@ -204,18 +1047,9 @@ body {
   transform: scale(1);
 }
 
-.adopt-button:active:not(:disabled),
-.roster-button:active {
-  transform: scale(0.96);
-}
-
-.adopt-button:disabled {
-  opacity: 0.45;
-  cursor: default;
-  box-shadow: none;
-}
-
-/* --- Overlays (adoption reveal + roster panel) --------------------------- */
+/* ==========================================================================
+   Panels — a menu card
+   ========================================================================== */
 
 .overlay-layer {
   position: absolute;
@@ -223,9 +1057,11 @@ body {
   display: none;
   align-items: center;
   justify-content: center;
-  background: rgba(74, 56, 38, 0.35);
-  backdrop-filter: blur(3px);
+  padding: 16px;
+  background: rgba(30, 20, 12, 0.5);
+  backdrop-filter: blur(4px);
   z-index: 5;
+  transition: opacity 200ms ease;
 }
 
 .overlay-layer.open {
@@ -233,23 +1069,31 @@ body {
   pointer-events: auto;
 }
 
-.reveal-card {
+/* **The modal layer sits above the panel layer.** They are siblings, so DOM
+   order decided this before — and the panels are appended second, which put
+   the shop *over* the level-up card. A reward that can be hidden behind the
+   screen you happened to be on is not a reward (Ellis, 2026-08-19). */
+.overlay-layer.modal-layer {
+  z-index: 7;
+}
+
+.panel {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 10px;
-  width: min(320px, calc(100vw - 48px));
-  padding: 26px 22px 22px;
-  border-radius: 22px;
-  background: var(--card);
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.22);
-  text-align: center;
-  animation: card-pop 260ms cubic-bezier(0.34, 1.4, 0.64, 1);
+  width: min(400px, 100%);
+  max-height: calc(100vh - 88px);
+  padding: 20px 20px 22px;
+  border-radius: var(--r-card);
+  background: var(--slate);
+  box-shadow: var(--lift);
+  overflow-y: auto;
+  animation: card-pop 240ms cubic-bezier(0.34, 1.3, 0.64, 1);
+  will-change: transform, opacity;
 }
 
 @keyframes card-pop {
   from {
-    transform: scale(0.82);
+    transform: scale(0.9);
     opacity: 0;
   }
   to {
@@ -258,177 +1102,304 @@ body {
   }
 }
 
-.reveal-card.rarity-epic {
-  box-shadow: 0 12px 44px rgba(138, 95, 181, 0.45);
-}
-
-.reveal-card.rarity-legendary {
-  box-shadow: 0 12px 48px rgba(217, 151, 63, 0.55);
-}
-
-.reveal-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--warm-brown);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-
-.welcome-earned {
-  font-size: 34px;
-  font-weight: 800;
-  color: var(--accent);
-}
-
-.reveal-breed {
-  font-size: 21px;
-  font-weight: 700;
-}
-
-.reveal-flavor {
-  font-size: 13px;
-  color: var(--warm-brown);
-  font-style: italic;
-  line-height: 1.4;
-}
-
-.reveal-name-label {
-  margin-top: 6px;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--warm-brown);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-
-.reveal-name-input {
-  width: 100%;
-  padding: 11px 14px;
-  border: 2px solid rgba(138, 106, 82, 0.3);
-  border-radius: 14px;
-  font-size: 17px;
-  font-weight: 600;
-  text-align: center;
-  color: var(--ink);
-  background: #fffdf8;
-  outline: none;
-}
-
-.reveal-name-input:focus {
-  border-color: var(--accent);
-}
-
-.reveal-confirm {
-  width: 100%;
-  padding: 13px;
-  margin-top: 2px;
-  border: none;
-  border-radius: 14px;
-  font-size: 16px;
-  font-weight: 600;
-  background: var(--accent);
-  color: #fff8f0;
-  cursor: pointer;
-  transition: transform 100ms ease;
-}
-
-.reveal-confirm:active {
-  transform: scale(0.97);
-}
-
-/* --- Rarity badge + swatches --------------------------------------------- */
-
-.rarity-badge {
-  display: inline-block;
-  padding: 2px 9px;
-  border-radius: 999px;
-  font-size: 10px;
-  font-weight: 700;
-  color: #fff8f0;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-}
-
-.cat-swatch {
-  position: relative;
-  width: 52px;
-  height: 52px;
-  border-radius: 50%;
-  flex-shrink: 0;
-  box-shadow: inset 0 -3px 6px rgba(0, 0, 0, 0.12);
-}
-
-.cat-swatch-accent {
-  position: absolute;
-  right: 4px;
-  bottom: 4px;
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-}
-
-.cat-swatch.unknown {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(138, 106, 82, 0.18);
-  color: var(--warm-brown);
-  font-size: 20px;
-  font-weight: 700;
-  box-shadow: none;
-}
-
-/* --- Roster panel + cat-dex ---------------------------------------------- */
-
-.roster-panel {
-  display: flex;
-  flex-direction: column;
-  width: min(400px, calc(100vw - 32px));
-  max-height: calc(100vh - 96px);
-  padding: 18px;
-  border-radius: 22px;
-  background: var(--card);
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.22);
-  overflow-y: auto;
-  animation: card-pop 220ms ease-out;
-}
-
 .roster-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 12px;
+  gap: 12px;
+  margin-bottom: 16px;
 }
 
 .roster-title {
-  font-size: 19px;
-  font-weight: 700;
+  font-variation-settings: "CASL" 1, "MONO" 0;
+  font-size: var(--t-display);
+  font-weight: 800;
+  letter-spacing: -0.015em;
 }
 
 .roster-close {
-  border: none;
-  width: 34px;
-  height: 34px;
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
-  background: rgba(138, 106, 82, 0.14);
-  color: var(--warm-brown);
-  font-size: 15px;
+  background: var(--slate-raised);
+  color: var(--chalk-dim);
+  font-size: var(--t-md);
+  font-weight: 700;
+}
+
+/* ==========================================================================
+   The menu line — the structural device
+   ==========================================================================
+   Name, dot leaders, price. The leaders are the reason a printed menu is
+   readable at a glance and they carry real meaning here: they tie a thing to
+   what it costs across whatever gap the layout leaves. Used for upgrades; the
+   style grid and the roster borrow the same slate row and mono price so the
+   whole interface reads as one document. */
+
+
+
+/* Drawn art, not emoji. Sits in a tinted disc so it reads as a thing rather
+   than as a stray glyph in the text column. */
+.upgrade-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* Aligned to the title, not to the row: descriptions run to three lines and
+     a centred icon then floats in the middle of nothing. */
+  align-self: flex-start;
+  margin-top: 1px;
+  flex-shrink: 0;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: rgba(232, 162, 74, 0.14);
+  color: var(--honey);
+}
+
+.upgrade-icon .icon {
+  width: 21px;
+  height: 21px;
+}
+
+
+.upgrade-name {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: var(--t-lg);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+/* The leaders. A flexible rule that eats whatever space is left on the line. */
+
+/* Sits before the leaders, so the dots run from the label group to the price —
+   which is the pairing a menu line is actually asserting. */
+.upgrade-level {
+  flex-shrink: 0;
+  font-variation-settings: "CASL" 0, "MONO" 1;
+  font-size: var(--t-xs);
+  font-weight: 600;
+  color: var(--chalk-dim);
+  white-space: nowrap;
+}
+
+.upgrade-desc {
+  font-size: var(--t-md);
+  line-height: 1.4;
+  color: var(--chalk-dim);
+}
+
+.upgrade-effect {
+  font-size: var(--t-sm);
+  font-weight: 700;
+  color: var(--honey);
+}
+
+.upgrade-effect.inactive {
+  color: var(--chalk-dim);
+  font-weight: 400;
+  font-style: italic;
+  opacity: 0.7;
+}
+
+/* The price *is* the button. A chip of receipt tape you tap. */
+
+
+/* Can't afford it yet: the price stays perfectly readable, it just stops
+   inviting. Hiding or dimming a price to illegibility is a dark pattern in
+   miniature — the player should always be able to see what they're saving for. */
+
+
+/* --- The café panel --------------------------------------------------------
+   One upgrade card and a short list of facts. It used to carry a three-cell
+   stat strip as well, which became a duplicate of the HUD chips the day those
+   arrived — a panel that repeats the screen behind it has no reason to be
+   opened. */
+
+.upgrade-card {
+  padding: 14px 14px 13px;
+  border-radius: var(--r-card);
+  background: var(--slate-raised);
+}
+
+.upgrade-head {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+}
+
+.upgrade-icon {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: rgba(232, 162, 74, 0.16);
+  color: var(--honey);
+}
+
+.upgrade-titles {
+  flex: 1;
+  min-width: 0;
+}
+
+.upgrade-name {
+  font-variation-settings: "CASL" 1;
+  font-weight: 800;
+  font-size: var(--t-lg);
+  line-height: 1.15;
+  color: var(--chalk);
+}
+
+.upgrade-effect {
+  margin-top: 2px;
+  font-variation-settings: "CASL" 0, "MONO" 1;
+  font-size: var(--t-xs);
+  font-weight: 600;
+  color: var(--honey);
+}
+
+.upgrade-effect.inactive {
+  color: var(--chalk-dim);
+  font-style: italic;
+}
+
+.upgrade-level {
+  flex-shrink: 0;
+  font-variation-settings: "CASL" 0, "MONO" 1;
+  font-size: var(--t-xs);
+  font-weight: 700;
+  color: var(--chalk-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.upgrade-desc {
+  margin: 9px 0 12px;
+  font-size: var(--t-md);
+  line-height: 1.45;
+  color: var(--chalk-dim);
+}
+
+/* Full width, like the shop's. A price wedged into a chip beside the text was
+   the "weird shaped button" — an action should look like a bar you press. */
+.upgrade-buy {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  font-family: inherit;
+  font-size: var(--t-lg);
+  font-weight: 700;
+  text-transform: lowercase;
+  border: none;
   cursor: pointer;
+  padding: 12px 18px;
+  border-radius: var(--r-pill);
+  background: var(--honey);
+  color: #3a2410;
+}
+
+.upgrade-buy:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.upgrade-buy:disabled {
+  background: var(--slate);
+  color: var(--chalk-dim);
+  cursor: default;
+}
+
+.upgrade-buy-price {
+  font-variation-settings: "CASL" 0, "MONO" 1;
+  font-weight: 700;
+  font-size: var(--t-md);
+  padding: 3px 10px;
+  border-radius: var(--r-pill);
+  background: rgba(58, 36, 16, 0.22);
+}
+
+.upgrade-buy:disabled .upgrade-buy-price:empty {
+  display: none;
+}
+
+/* Plain label/value rows. Receipt-like, which is the house voice for figures. */
+.fact-list {
+  padding: 2px 2px 0;
+}
+
+.fact-row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--slate-line);
+}
+
+.fact-row:last-child {
+  border-bottom: none;
+}
+
+.fact-label {
+  flex: 1;
+  font-size: var(--t-md);
+  text-transform: lowercase;
+  color: var(--chalk-dim);
+}
+
+.fact-value {
+  font-variation-settings: "CASL" 0, "MONO" 1;
+  font-weight: 700;
+  font-size: var(--t-md);
+  color: var(--chalk);
+  font-variant-numeric: tabular-nums;
+}
+
+
+
+/* An aside, not a heading: says where a number comes from without pretending
+   to be another thing you can buy here. */
+.panel-note {
+  margin-bottom: 18px;
+  font-size: var(--t-md);
+  line-height: 1.5;
+  text-transform: lowercase;
+  color: var(--chalk-dim);
+}
+
+
+
+
+/* ==========================================================================
+   Roster + cat-dex
+   ========================================================================== */
+
+.roster-capacity {
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border-radius: var(--r-row);
+  background: var(--slate-raised);
+  font-size: var(--t-md);
+  line-height: 1.45;
+  color: var(--chalk-dim);
 }
 
 .roster-list {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
 }
 
 .roster-row {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 8px 10px;
-  border-radius: 14px;
-  background: rgba(138, 106, 82, 0.08);
+  padding: 10px 12px;
+  border-radius: var(--r-row);
+  background: var(--slate-raised);
 }
 
 .roster-row-info {
@@ -439,43 +1410,62 @@ body {
 }
 
 .roster-cat-name {
-  font-size: 16px;
-  font-weight: 700;
+  font-variation-settings: "CASL" 1, "MONO" 0;
+  font-size: var(--t-lg);
+  font-weight: 800;
+  letter-spacing: -0.015em;
   cursor: pointer;
 }
 
-.roster-cat-name::after {
-  content: " ✎";
-  font-size: 12px;
-  color: var(--warm-brown);
-  opacity: 0.6;
+/* A dashed underline says "editable" without hanging a pencil glyph off the
+   end of the player's own name. Names keep their capitals — they're the one
+   piece of text in the game the player wrote. */
+.roster-cat-name {
+  align-self: flex-start;
+  border-bottom: 1.5px dashed var(--slate-line);
 }
 
 .roster-rename-input {
-  padding: 6px 10px;
-  border: 2px solid var(--accent);
-  border-radius: 10px;
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--ink);
-  background: #fffdf8;
-  outline: none;
   width: 100%;
+  padding: 6px 10px;
+  border: none;
+  border-radius: 8px;
+  box-shadow: inset 0 0 0 2px var(--honey);
+  font-family: inherit;
+  font-size: var(--t-lg);
+  font-weight: 700;
+  color: var(--chalk);
+  background: var(--slate);
+  outline: none;
 }
 
 .roster-cat-breed {
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  color: var(--warm-brown);
+  gap: 7px;
+  font-size: var(--t-sm);
+  color: var(--chalk-dim);
+}
+
+.roster-cat-content {
+  font-size: var(--t-sm);
+  color: var(--chalk-dim);
+  opacity: 0.75;
+}
+
+.roster-cat-content.content {
+  color: var(--blush);
+  opacity: 1;
+  font-weight: 600;
 }
 
 .dex-title {
-  margin: 18px 0 10px;
-  font-size: 14px;
+  margin: 20px 0 10px;
   font-weight: 700;
-  color: var(--warm-brown);
+  font-size: var(--t-xs);
+  letter-spacing: 0.14em;
+  text-transform: lowercase;
+  color: var(--chalk-dim);
 }
 
 .dex-grid {
@@ -488,172 +1478,300 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 5px;
-  padding: 10px 6px;
-  border-radius: 14px;
-  background: rgba(138, 106, 82, 0.08);
+  gap: 6px;
+  padding: 12px 6px 10px;
+  border-radius: var(--r-row);
+  background: var(--slate-raised);
   text-align: center;
 }
 
 .dex-cell.unknown {
-  opacity: 0.65;
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px var(--slate-line);
+}
+
+.dex-cell-breed {
+  display: flex;
+  align-items: center;
+  min-height: 2.5em;
+  font-size: var(--t-sm);
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.dex-cell.unknown .dex-cell-breed {
+  color: var(--chalk-dim);
+}
+
+/* --- Cat swatches (the placeholder portrait until real cat art lands) ------ */
+
+.cat-swatch {
+  position: relative;
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  box-shadow: inset 0 -3px 7px rgba(0, 0, 0, 0.22);
+}
+
+.cat-swatch-accent {
+  position: absolute;
+  right: 3px;
+  bottom: 3px;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+}
+
+.cat-swatch.unknown {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  box-shadow: inset 0 0 0 2px var(--slate-line);
+  color: var(--chalk-dim);
+  font-size: 19px;
+  font-weight: 700;
 }
 
 .dex-cell .cat-swatch {
-  width: 40px;
-  height: 40px;
+  width: 38px;
+  height: 38px;
 }
 
 .dex-cell .cat-swatch-accent {
   width: 12px;
   height: 12px;
-  right: 3px;
-  bottom: 3px;
 }
 
-.dex-cell-breed {
-  font-size: 11px;
+.rarity-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: var(--r-pill);
+  font-weight: 700;
+  font-size: var(--t-xs);
+  letter-spacing: 0.1em;
+  text-transform: lowercase;
+  color: var(--slate);
+}
+
+/* ==========================================================================
+   Style panel — locked doors you know how to open
+   ==========================================================================
+   A locked option is drained toward sage rather than greyed out, and its note
+   says what to go and do. "Not yet" is an invitation; "denied" is a wall. */
+
+.style-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(88px, 1fr));
+  gap: 8px;
+}
+
+.style-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  padding: 12px 7px 10px;
+  border-radius: var(--r-row);
+  background: var(--slate-raised);
+  color: var(--chalk);
+  box-shadow: inset 0 0 0 1.5px transparent;
+  transition: background 180ms ease, box-shadow 180ms ease, transform 120ms ease;
+}
+
+.style-tile:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
+.style-swatch {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  box-shadow: inset 0 -3px 7px rgba(0, 0, 0, 0.28);
+}
+
+.style-name {
+  font-size: var(--t-sm);
   font-weight: 600;
   line-height: 1.25;
-  min-height: 2.5em;
-  display: flex;
-  align-items: center;
 }
 
-/* --- Café panel: expansion + décor ---------------------------------------- */
-
-.cafe-stats {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
-  margin-bottom: 16px;
-}
-
-.cafe-stat {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-  padding: 10px 4px;
-  border-radius: 14px;
-  background: rgba(138, 106, 82, 0.08);
-}
-
-.cafe-stat-value {
-  font-size: 19px;
-  font-weight: 700;
-}
-
-.cafe-stat-label {
-  font-size: 10px;
+.style-note {
+  font-variation-settings: "CASL" 0, "MONO" 1;
+  font-size: var(--t-xs);
   font-weight: 600;
-  color: var(--warm-brown);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-
-.upgrade-list {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.upgrade-row {
-  display: flex;
-  align-items: center;
-  gap: 11px;
-  padding: 11px 12px;
-  border-radius: 16px;
-  background: rgba(138, 106, 82, 0.08);
-}
-
-.upgrade-icon {
-  flex-shrink: 0;
-  width: 42px;
-  height: 42px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 12px;
-  background: rgba(255, 250, 240, 0.8);
-  font-size: 21px;
-}
-
-.upgrade-info {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-  flex: 1;
-}
-
-.upgrade-name {
-  display: flex;
-  align-items: baseline;
-  gap: 7px;
-  font-size: 15px;
-  font-weight: 700;
-}
-
-.upgrade-level {
-  font-size: 10px;
-  font-weight: 700;
-  color: var(--warm-brown);
-  opacity: 0.75;
-  letter-spacing: 0.04em;
-  white-space: nowrap;
-}
-
-.upgrade-desc {
-  font-size: 11.5px;
   line-height: 1.35;
-  color: var(--warm-brown);
+  color: var(--honey);
+  font-variant-numeric: tabular-nums;
 }
 
-.upgrade-effect {
-  margin-top: 2px;
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--accent);
+.style-tile.chosen {
+  background: rgba(232, 162, 74, 0.14);
+  box-shadow: inset 0 0 0 1.5px var(--honey);
 }
 
-.upgrade-effect.inactive {
-  color: var(--warm-brown);
-  font-weight: 500;
-  font-style: italic;
-  opacity: 0.6;
+/* "In your café" is a status, not a price — receipt-tape numerals are for
+   figures only, so this drops back to the UI voice. */
+.style-tile.chosen .style-note {
+  font-variation-settings: "CASL" 0, "MONO" 0;
 }
 
-.upgrade-buy {
-  flex-shrink: 0;
-  min-width: 66px;
-  padding: 11px 12px;
-  border: none;
-  border-radius: 13px;
-  font-size: 14px;
-  font-weight: 700;
-  background: var(--accent);
-  color: #fff8f0;
-  cursor: pointer;
-  transition: transform 100ms ease, opacity 150ms ease;
-}
-
-.upgrade-buy:active:not(:disabled) {
-  transform: scale(0.95);
-}
-
-.upgrade-buy:disabled {
-  opacity: 0.4;
+.style-tile.locked {
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px rgba(154, 168, 139, 0.28);
   cursor: default;
 }
 
-.upgrade-buy.maxed {
-  background: rgba(138, 106, 82, 0.22);
-  color: var(--warm-brown);
-  opacity: 1;
+/* Locked, but you can still see the colour. Draining it to grey (which is what
+   the old cream-panel version did) made every locked swatch an identical dark
+   blob on slate — and the colour you're working toward is the whole reason to
+   work toward it. Muted, not hidden. */
+.style-tile.locked .style-swatch {
+  filter: saturate(0.5);
+  opacity: 0.62;
 }
 
-/* --- Floaters: coins + hearts (§10) --------------------------------------- */
+.style-tile.locked .style-name {
+  color: var(--chalk-dim);
+}
+
+/* The unlock condition, not a price — so it gets prose, not receipt tape. */
+.style-tile.locked .style-note {
+  font-variation-settings: "CASL" 0, "MONO" 0;
+  color: var(--sage);
+  font-weight: 600;
+}
+
+/* Unlocked but unaffordable: the price still reads clearly. */
+.style-tile:disabled:not(.locked) {
+  cursor: default;
+}
+
+.style-tile:disabled:not(.locked) .style-swatch {
+  opacity: 0.55;
+}
+
+.style-tile:disabled:not(.locked) .style-note {
+  color: var(--chalk-dim);
+}
+
+/* ==========================================================================
+   Adoption reveal — the emotional beat
+   ==========================================================================
+   The one moment the interface is allowed to be theatrical (§8: naming is the
+   hook). It still uses the same slate card; the drama comes from the rarity
+   glow and the pop, not from a different visual language. */
+
+.reveal-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 11px;
+  width: min(320px, 100%);
+  padding: 26px 22px 22px;
+  border-radius: var(--r-card);
+  background: var(--slate);
+  box-shadow: var(--lift);
+  text-align: center;
+  animation: card-pop 260ms cubic-bezier(0.34, 1.4, 0.64, 1);
+  will-change: transform, opacity;
+}
+
+.reveal-card.rarity-epic {
+  box-shadow: var(--lift), 0 0 0 1.5px rgba(168, 130, 210, 0.5),
+    0 10px 46px rgba(138, 95, 181, 0.4);
+}
+
+.reveal-card.rarity-legendary {
+  box-shadow: var(--lift), 0 0 0 1.5px rgba(232, 162, 74, 0.6),
+    0 10px 50px rgba(232, 162, 74, 0.45);
+}
+
+.reveal-title {
+  font-weight: 700;
+  font-size: var(--t-xs);
+  letter-spacing: 0.14em;
+  text-transform: lowercase;
+  color: var(--chalk-dim);
+}
+
+.reveal-breed {
+  font-variation-settings: "CASL" 1, "MONO" 0;
+  font-size: 21px;
+  font-weight: 800;
+  letter-spacing: -0.015em;
+}
+
+.reveal-flavor {
+  font-size: var(--t-md);
+  font-style: italic;
+  line-height: 1.45;
+  color: var(--chalk-dim);
+}
+
+.reveal-name-label {
+  margin-top: 4px;
+  font-weight: 700;
+  font-size: var(--t-xs);
+  letter-spacing: 0.14em;
+  text-transform: lowercase;
+  color: var(--chalk-dim);
+}
+
+.reveal-name-input {
+  width: 100%;
+  padding: 11px 14px;
+  border: none;
+  border-radius: var(--r-row);
+  box-shadow: inset 0 0 0 1.5px var(--slate-line);
+  font-family: inherit;
+  font-variation-settings: "CASL" 1, "MONO" 0;
+  font-size: 17px;
+  font-weight: 700;
+  text-align: center;
+  color: var(--chalk);
+  background: var(--slate-raised);
+  outline: none;
+  transition: box-shadow 180ms ease;
+}
+
+.reveal-name-input:focus {
+  box-shadow: inset 0 0 0 2px var(--honey);
+}
+
+.reveal-confirm {
+  width: 100%;
+  padding: 13px;
+  margin-top: 2px;
+  border-radius: var(--r-row);
+  background: var(--honey);
+  color: var(--slate);
+  font-variation-settings: "CASL" 1, "MONO" 0;
+  font-size: var(--t-lg);
+  font-weight: 800;
+  letter-spacing: -0.015em;
+  transition: transform 120ms cubic-bezier(0.34, 1.4, 0.64, 1);
+}
+
+.reveal-confirm:active {
+  transform: scale(0.97);
+}
+
+/* The welcome-back number: the one place a figure is allowed to be large. */
+.welcome-earned {
+  font-variation-settings: "CASL" 0, "MONO" 1;
+  font-size: 34px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--honey);
+}
+
+/* ==========================================================================
+   Floaters — coins and hearts (§10)
+   ==========================================================================
+   These live over the 3D scene rather than over any panel, so they keep the
+   warm bright treatment and a glow that survives a busy background. */
 
 .floater-layer {
   position: absolute;
@@ -663,26 +1781,47 @@ body {
   overflow: hidden;
 }
 
+/* Small, because a coin pop is punctuation, not an announcement. */
+.floater-coin-icon {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  filter: drop-shadow(0 1px 2px rgba(38, 24, 12, 0.5));
+}
+
 .floater {
   position: absolute;
   left: 0;
   top: 0;
-  font-weight: 800;
+  font-variation-settings: "CASL" 0, "MONO" 1;
+  font-weight: 700;
   white-space: nowrap;
   will-change: transform, opacity;
   animation: floater-rise 1150ms cubic-bezier(0.22, 0.8, 0.3, 1) forwards;
 }
 
 .floater-coin {
+  display: flex;
+  align-items: center;
+  gap: 3px;
   font-size: 17px;
-  color: #e08a3c;
-  text-shadow: 0 2px 5px rgba(120, 70, 20, 0.28), 0 0 1px rgba(255, 255, 255, 0.9);
+  color: #ffd79a;
+  text-shadow: 0 2px 6px rgba(70, 40, 8, 0.75);
 }
 
+/* Drawn, warm, and slightly translucent so a cluster reads as soft rather than
+   as stickers. The gradient is what stops it looking like a flat icon. */
 .floater-heart {
-  font-size: 20px;
-  color: #e8748c;
-  text-shadow: 0 2px 6px rgba(160, 60, 90, 0.3);
+  color: var(--blush);
+}
+
+.floater-heart-icon {
+  width: calc(22px * var(--heart-scale, 1));
+  height: calc(22px * var(--heart-scale, 1));
+  /* A soft bloom rather than a hard shadow — these sit over a warm, lit room. */
+  filter: drop-shadow(0 1px 2px rgba(110, 30, 55, 0.45))
+    drop-shadow(0 0 9px rgba(229, 138, 153, 0.55));
+  opacity: 0.94;
 }
 
 @keyframes floater-rise {
@@ -705,473 +1844,1899 @@ body {
   }
 }
 
-/* --- Sound toggle --------------------------------------------------------- */
-
-.sound-button {
-  position: absolute;
-  top: max(16px, env(safe-area-inset-top));
-  right: 16px;
-  pointer-events: auto;
-  width: 38px;
-  height: 38px;
-  border: none;
-  border-radius: 50%;
-  background: rgba(255, 250, 240, 0.85);
-  backdrop-filter: blur(6px);
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
-  font-size: 16px;
-  line-height: 1;
-  cursor: pointer;
-  transition: transform 140ms cubic-bezier(0.34, 1.4, 0.64, 1), opacity 200ms ease;
-}
-
-.sound-button:active {
-  transform: scale(0.9);
-}
-
-.sound-button.muted {
-  opacity: 0.55;
-}
-
-/* --- Motion polish: nothing snaps (§10) ----------------------------------- */
-
-.overlay-layer {
-  transition: opacity 200ms ease;
-}
-
-.reveal-card,
-.roster-panel {
-  will-change: transform, opacity;
-}
-
-.upgrade-buy,
-.roster-button,
-.adopt-button {
-  transition: transform 120ms cubic-bezier(0.34, 1.4, 0.64, 1), opacity 180ms ease,
-    background-color 180ms ease;
-}
-
-.money-pill {
-  transition: transform 160ms cubic-bezier(0.34, 1.5, 0.64, 1);
-}
-
 /* Respect the OS setting — cosy should never mean nauseating. */
 @media (prefers-reduced-motion: reduce) {
   .floater {
     animation-duration: 700ms;
   }
 
-  .reveal-card,
-  .roster-panel {
+  .panel,
+  .reveal-card {
     animation: none;
   }
 }
 
-/* --- Venue progression ---------------------------------------------------- */
+/* --- The furniture editor -------------------------------------------------
+   Hold a piece of café to recolour it (§8 "The café editor"). Both parts are
+   anchored to the object in world space rather than to a screen corner, so
+   they reuse the same projected-DOM approach as the coin floaters. */
 
-.venue-block {
-  padding: 14px;
-  margin-bottom: 14px;
-  border-radius: 16px;
-  background: linear-gradient(135deg, rgba(217, 123, 79, 0.14), rgba(138, 106, 82, 0.09));
+.furniture-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  /* Above the coin floaters and cat labels (3), below the modal overlay (5) —
+     a name tag rendering on top of the editor looked like a glitch. */
+  z-index: 4;
 }
 
-.venue-name {
-  font-size: 17px;
-  font-weight: 800;
-}
+/* The ring is the affordance that teaches the hold gesture, so it wants to be
+   unmistakable the moment it appears. */
 
-.venue-tagline {
-  margin-top: 2px;
-  font-size: 12px;
-  font-style: italic;
-  line-height: 1.4;
-  color: var(--warm-brown);
-}
 
-.venue-next {
-  margin-top: 12px;
-}
 
-.venue-next-label {
-  font-size: 11.5px;
-  font-weight: 700;
-  color: var(--warm-brown);
-}
 
-.venue-bar {
-  margin: 6px 0 9px;
-  height: 7px;
-  border-radius: 999px;
-  background: rgba(138, 106, 82, 0.18);
-  overflow: hidden;
-}
 
-.venue-bar-fill {
-  height: 100%;
-  border-radius: 999px;
-  background: var(--accent);
-  transition: width 400ms cubic-bezier(0.22, 0.8, 0.3, 1);
-}
 
-.venue-move {
-  width: 100%;
-  padding: 11px;
+/* Docked above the nav rather than floating beside the piece — see the header
+   of ui/furniture-editor.ts for why. Compact on purpose: every row of height
+   here is a row of café you can't see while you recolour it. */
+
+
+
+
+/* Tighter than the Style panel's tiles: this sheet sits over the café, so it
+   earns its size differently. Swatch stays big enough to read as the colour. */
+
+
+
+
+
+
+
+
+/* --- Move mode ------------------------------------------------------------
+   A slim bar rather than a panel: the whole point of move mode is watching the
+   piece slide around the café, so the UI gets out of the way and says only
+   whether the current spot is allowed. */
+
+.furniture-move {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  font-family: inherit;
+  font-size: var(--t-sm);
+  text-transform: lowercase;
   border: none;
-  border-radius: 13px;
-  font-size: 14px;
-  font-weight: 700;
-  background: var(--accent);
-  color: #fff8f0;
   cursor: pointer;
-  transition: transform 100ms ease, opacity 180ms ease;
+  padding: 9px 16px;
+  border-radius: var(--r-row);
+  background: var(--honey);
+  color: #3a2410;
+  font-weight: 700;
 }
 
-.venue-move:active:not(:disabled) {
+.furniture-move:active {
   transform: scale(0.97);
 }
 
-.venue-move:disabled {
-  background: rgba(138, 106, 82, 0.2);
-  color: var(--warm-brown);
+.move-bar {
+  position: absolute;
+  left: 50%;
+  bottom: calc(150px + env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  pointer-events: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  width: min(320px, calc(100vw - 24px));
+  padding: 12px 14px;
+  border-radius: var(--r-card);
+  background: var(--slate);
+  box-shadow: var(--lift);
+  animation: card-pop 200ms cubic-bezier(0.34, 1.3, 0.64, 1);
+}
+
+.move-note {
+  font-size: var(--t-sm);
+  text-align: center;
+  text-transform: lowercase;
+  color: var(--chalk-dim);
+}
+
+.move-bar.invalid .move-note {
+  color: #ffb4a6;
+}
+
+.move-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.move-cancel,
+.move-done {
+  flex: 1;
+  /* Icon and label on one line — as a plain block the icon dropped under the
+     text and the button read as two rows of nothing in particular. */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  font-family: inherit;
+  font-size: var(--t-sm);
+  text-transform: lowercase;
+  border: none;
+  cursor: pointer;
+  padding: 9px 12px;
+  border-radius: var(--r-pill);
+}
+
+.move-done .icon {
+  width: 15px;
+  height: 15px;
+}
+
+.move-rotate {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border: none;
+  cursor: pointer;
+  border-radius: 50%;
+  background: var(--slate-raised);
+  color: var(--chalk);
+}
+
+.move-rotate:active {
+  transform: scale(0.92) rotate(-18deg);
+}
+
+.move-rotate .icon {
+  width: 19px;
+  height: 19px;
+}
+
+.move-cancel {
+  background: var(--slate-raised);
+  color: var(--chalk-dim);
+}
+
+.move-done {
+  background: var(--honey);
+  color: #3a2410;
+  font-weight: 700;
+}
+
+.move-done:disabled {
+  background: var(--slate-raised);
+  color: var(--chalk-dim);
   cursor: default;
 }
 
-/* --- Move confirmation ---------------------------------------------------- */
-
-.move-keeps {
-  width: 100%;
-  margin: 4px 0 2px;
-  padding: 11px 13px;
-  border-radius: 13px;
-  background: rgba(138, 106, 82, 0.09);
-  text-align: left;
+.move-cancel:active,
+.move-done:active:not(:disabled) {
+  transform: scale(0.97);
 }
 
-.move-keep {
-  font-size: 12.5px;
-  font-weight: 700;
-  line-height: 1.6;
-  color: #c25f78;
+/* A refused tap has to *say* something — the adopt button used to do nothing
+   at all when you couldn't afford a cat, which reads as broken, not as a rule. */
+.adopt-button.refused {
+  animation: refuse-shake 400ms ease;
 }
 
-.move-leave {
-  margin-top: 6px;
-  padding-top: 6px;
-  border-top: 1px solid rgba(138, 106, 82, 0.18);
-  font-size: 11.5px;
-  line-height: 1.45;
-  color: var(--warm-brown);
+.adopt-button.refused .adopt-button-hint {
+  color: var(--blush);
 }
 
-.reveal-cancel {
-  width: 100%;
-  padding: 9px;
+@keyframes refuse-shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-6px); }
+  40% { transform: translateX(5px); }
+  60% { transform: translateX(-3px); }
+  80% { transform: translateX(2px); }
+}
+
+/* --- Move mode ------------------------------------------------------------
+   A slim bar rather than a panel: the whole point of move mode is watching the
+   piece slide around the café, so the UI gets out of the way and says only
+   whether the current spot is allowed. */
+
+.furniture-move {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  font-family: inherit;
+  font-size: var(--t-sm);
+  text-transform: lowercase;
   border: none;
-  border-radius: 13px;
-  font-size: 14px;
-  font-weight: 600;
-  background: transparent;
-  color: var(--warm-brown);
   cursor: pointer;
+  padding: 9px 16px;
+  border-radius: var(--r-row);
+  background: var(--honey);
+  color: #3a2410;
+  font-weight: 700;
 }
 
-/* --- Contentment ---------------------------------------------------------- */
-
-.cat-count-pill.has-content {
-  color: #c25f78;
+.furniture-move:active {
+  transform: scale(0.97);
 }
 
-.roster-cat-content {
-  font-size: 11px;
+.move-bar {
+  position: absolute;
+  left: 50%;
+  bottom: calc(150px + env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  pointer-events: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  width: min(320px, calc(100vw - 24px));
+  padding: 12px 14px;
+  border-radius: var(--r-card);
+  background: var(--slate);
+  box-shadow: var(--lift);
+  animation: card-pop 200ms cubic-bezier(0.34, 1.3, 0.64, 1);
+}
+
+.move-note {
+  font-size: var(--t-sm);
+  text-align: center;
+  text-transform: lowercase;
+  color: var(--chalk-dim);
+}
+
+.move-bar.invalid .move-note {
+  color: #ffb4a6;
+}
+
+.move-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.move-cancel,
+.move-done {
+  flex: 1;
+  /* Icon and label on one line — as a plain block the icon dropped under the
+     text and the button read as two rows of nothing in particular. */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  font-family: inherit;
+  font-size: var(--t-sm);
+  text-transform: lowercase;
+  border: none;
+  cursor: pointer;
+  padding: 9px 12px;
+  border-radius: var(--r-pill);
+}
+
+.move-done .icon {
+  width: 15px;
+  height: 15px;
+}
+
+.move-rotate {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border: none;
+  cursor: pointer;
+  border-radius: 50%;
+  background: var(--slate-raised);
+  color: var(--chalk);
+}
+
+.move-rotate:active {
+  transform: scale(0.92) rotate(-18deg);
+}
+
+.move-rotate .icon {
+  width: 19px;
+  height: 19px;
+}
+
+.move-cancel {
+  background: var(--slate-raised);
+  color: var(--chalk-dim);
+}
+
+.move-done {
+  background: var(--honey);
+  color: #3a2410;
+  font-weight: 700;
+}
+
+.move-done:disabled {
+  background: var(--slate-raised);
+  color: var(--chalk-dim);
+  cursor: default;
+}
+
+.move-cancel:active,
+.move-done:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+/* A refused tap has to *say* something — the adopt button used to do nothing
+   at all when you couldn't afford a cat, which reads as broken, not as a rule. */
+.adopt-button.refused {
+  animation: refuse-shake 400ms ease;
+}
+
+.adopt-button.refused .adopt-button-hint {
+  color: var(--blush);
+}
+
+@keyframes refuse-shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-6px); }
+  40% { transform: translateX(5px); }
+  60% { transform: translateX(-3px); }
+  80% { transform: translateX(2px); }
+}
+
+/* --- The shop -------------------------------------------------------------
+   Menu-style rows rather than the Style menu's swatch grid: these are things
+   with names and descriptions, not colours, and a row reads like a price list
+   — which is the same printed-café logic as the upgrade rows (§9). */
+
+.shop-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--slate-line);
+}
+
+.shop-row:last-child {
+  border-bottom: none;
+}
+
+.shop-row-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.shop-name {
+  font-size: var(--t-md);
+  text-transform: lowercase;
+  color: var(--chalk);
+}
+
+.shop-blurb {
+  font-size: var(--t-xs);
+  text-transform: lowercase;
+  color: var(--chalk-dim);
+}
+
+.shop-buy {
+  flex-shrink: 0;
+  min-width: 92px;
+  font-family: inherit;
+  font-variation-settings: "CASL" 0, "MONO" 1;
   font-weight: 600;
-  color: var(--warm-brown);
-  opacity: 0.65;
+  font-size: var(--t-sm);
+  text-transform: lowercase;
+  border: none;
+  cursor: pointer;
+  padding: 8px 12px;
+  border-radius: var(--r-pill);
+  background: var(--honey);
+  color: #3a2410;
 }
 
-.roster-cat-content.content {
-  color: #c25f78;
-  opacity: 1;
+.shop-buy:active:not(:disabled) {
+  transform: scale(0.96);
 }
 
-.roster-capacity {
-  margin-bottom: 10px;
-  padding: 9px 11px;
-  border-radius: 12px;
-  background: rgba(138, 106, 82, 0.1);
-  font-size: 11.5px;
-  line-height: 1.45;
-  color: var(--warm-brown);
+/* Unaffordable keeps the price legible — you should always be able to see what
+   you're saving for. Owned and locked are quieter still. */
+.shop-buy:disabled {
+  background: var(--slate-raised);
+  color: var(--chalk-dim);
+  cursor: default;
+}
+
+.shop-row.owned .shop-name,
+.shop-row.locked .shop-name {
+  color: var(--chalk-dim);
+}
+
+/* --- The shop -------------------------------------------------------------
+   A pager, not a price list. The furniture is what's being sold, so it gets
+   the panel: one big piece at a time, spinning on a lit stage.
+
+   `.shop-stage` is deliberately EMPTY — it's a hole in the interface that the
+   WebGL canvas shows through, and `scene/shop-preview.ts` draws the item into
+   its bounding rect. Give it a background and the item disappears behind it. */
+
+.shop-panel {
+  gap: 2px;
+  text-align: center;
+}
+
+/* --- Hub cards -------------------------------------------------------------
+   Shared by the shop's front page and the café's. A hub is a screen whose only
+   job is to send you somewhere else, and both of them are one, so they look
+   the same: icon badge, name, one line, and a note that says how far through
+   it you are. That note is what makes a grid of cards worth tapping — a name
+   alone is a label, "0 of 3 in your café" is a reason.
+
+   Three tiers: the colours banner, the furniture grid, and arranging what you
+   already own. The strip of text pills this replaced fitted about four and a
+   half of seven on a phone, so the newest department lived off the right-hand
+   edge — the interface hiding its own best feature. Then the first grid put
+   seven cards in two columns, which is four and three and looks like a
+   mistake. Five furniture cards go two-two-one, last one full width. */
+
+.hub-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.hub-section {
+  margin: 18px 2px 8px;
+  font-variation-settings: "CASL" 0, "MONO" 0;
+  font-weight: 700;
+  font-size: var(--t-xs);
+  letter-spacing: 0.16em;
+  text-transform: lowercase;
+  color: var(--chalk-dim);
+}
+
+.hub-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  text-align: left;
+  font-family: inherit;
+  border: none;
+  cursor: pointer;
+  padding: 14px 13px 13px;
+  border-radius: var(--r-card);
+  background: var(--slate-raised);
+  color: var(--chalk);
+  transition: transform 120ms ease;
+}
+
+.hub-card:active {
+  transform: scale(0.97);
+}
+
+/* Full-width variants lay their icon *beside* the text rather than above it —
+   a 38px badge marooned above one line of text in a wide box is most of what
+   makes a stretched card look like a mistake. */
+.hub-card-wide,
+.hub-card-banner {
+  flex-direction: row;
+  align-items: center;
+  gap: 14px;
+  grid-column: 1 / -1;
+}
+
+/* Two full-width cards appended straight to the panel have no grid between
+   them, so they sat flush — "touching each other so too close". */
+.panel > .hub-card + .hub-card {
+  margin-top: 10px;
+}
+
+.hub-card-wide .hub-card-icon,
+.hub-card-banner .hub-card-icon {
+  margin-bottom: 0;
+}
+
+.hub-card-text {
+  min-width: 0;
+}
+
+/* The colours banner. Blush rather than honey, and taller, because it is the
+   one department that changes what you already own instead of selling
+   something — it should not read as another shelf. */
+.hub-card-banner {
+  padding: 16px 16px 15px;
+  background: linear-gradient(
+    100deg,
+    rgba(229, 138, 153, 0.22),
+    rgba(229, 138, 153, 0.07) 72%
+  );
+  box-shadow: inset 0 0 0 1.5px rgba(229, 138, 153, 0.34);
+}
+
+.hub-card-banner .hub-card-icon {
+  width: 46px;
+  height: 46px;
+  background: rgba(229, 138, 153, 0.22);
+  color: var(--blush);
+}
+
+.hub-card-banner .hub-card-name {
+  font-size: var(--t-display);
+}
+
+/* Arranging is a *doing* card, not a buying one: outlined, sage. */
+.hub-card.dept-arrange {
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px var(--slate-line);
+}
+
+.hub-card-icon {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 38px;
+  height: 38px;
+  margin-bottom: 5px;
+  border-radius: 50%;
+  background: rgba(232, 162, 74, 0.16);
+  color: var(--honey);
+}
+
+.hub-card.dept-arrange .hub-card-icon {
+  background: rgba(154, 168, 139, 0.18);
+  color: var(--sage);
+}
+
+.hub-card-name {
+  font-variation-settings: "CASL" 1;
+  font-weight: 800;
+  font-size: var(--t-lg);
+  text-transform: lowercase;
+  line-height: 1.15;
+}
+
+.hub-card-hint {
+  font-size: var(--t-xs);
+  line-height: 1.35;
+  text-transform: lowercase;
+  color: var(--chalk-dim);
+}
+
+.hub-card-note {
+  margin-top: 6px;
+  font-variation-settings: "CASL" 0, "MONO" 1;
+  font-size: var(--t-xs);
+  font-weight: 600;
+  text-transform: lowercase;
+  color: var(--honey);
+}
+
+.hub-card-banner .hub-card-note { color: var(--blush); }
+.hub-card.dept-arrange .hub-card-note { color: var(--sage); }
+
+/* --- Inside a department --------------------------------------------------- */
+
+.shop-back-bar {
+  display: flex;
+  margin-bottom: 2px;
+}
+
+.shop-back {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  font-family: inherit;
+  font-size: var(--t-xs);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: lowercase;
+  border: none;
+  cursor: pointer;
+  padding: 5px 12px 5px 6px;
+  border-radius: var(--r-pill);
+  background: var(--slate-raised);
+  color: var(--chalk-dim);
+}
+
+.shop-back:active {
+  transform: scale(0.96);
+}
+
+.shop-back .icon {
+  width: 16px;
+  height: 16px;
+}
+
+.shop-stage {
+  position: relative;
+  height: 210px;
+  touch-action: pan-y;
+}
+
+/* A pool of warm light under the floating piece, so it reads as *on* something
+   rather than pasted over the panel. Pure CSS — no extra geometry. */
+.shop-stage-glow {
+  position: absolute;
+  left: 50%;
+  bottom: 14px;
+  width: 62%;
+  height: 26px;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background: radial-gradient(ellipse at center, rgba(232, 162, 74, 0.34), transparent 70%);
+}
+
+.shop-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+}
+
+.shop-arrow {
+  font-family: inherit;
+  font-size: 22px;
+  line-height: 1;
+  border: none;
+  cursor: pointer;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--slate-raised);
+  color: var(--chalk);
+}
+
+.shop-arrow:active:not(:disabled) {
+  transform: scale(0.94);
+}
+
+.shop-dots {
+  display: flex;
+  gap: 6px;
+}
+
+.shop-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--slate-line);
+}
+
+.shop-dot.owned {
+  background: var(--sage);
+}
+
+.shop-dot.active {
+  background: var(--honey);
+  transform: scale(1.35);
+}
+
+.shop-item-name {
+  font-variation-settings: "CASL" 1;
+  font-weight: 800;
+  font-size: var(--t-display);
+  text-transform: lowercase;
+  color: var(--chalk);
+  margin-top: 8px;
+}
+
+.shop-item-blurb {
+  font-size: var(--t-sm);
+  text-transform: lowercase;
+  color: var(--chalk-dim);
+  margin-bottom: 14px;
+}
+
+.shop-buy-big {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  font-family: inherit;
+  font-size: var(--t-lg);
+  text-transform: lowercase;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+  padding: 14px 20px;
+  border-radius: var(--r-pill);
+  background: var(--honey);
+  color: #3a2410;
+}
+
+.shop-buy-big:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.shop-buy-big:disabled {
+  background: var(--slate-raised);
+  color: var(--chalk-dim);
+  cursor: default;
+}
+
+/* "move one" — the quiet sibling of the buy button. Honey is a verb and there
+   is only ever one of it on screen (§9), so this stays chalk on slate. */
+.shop-buy-again {
+  width: 100%;
+  margin-top: 8px;
+  font-family: inherit;
+  font-size: var(--t-sm);
+  text-transform: lowercase;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+  padding: 10px 16px;
+  border-radius: var(--r-pill);
+  background: var(--slate-raised);
+  color: var(--chalk);
+}
+
+.shop-buy-again[hidden] {
+  display: none;
+}
+
+.shop-buy-again:active {
+  transform: scale(0.98);
+}
+
+/* The price rides on the button as a little tag — menu pricing (§9), not a
+   separate line of text. */
+.shop-price-tag {
+  font-variation-settings: "CASL" 0, "MONO" 1;
+  font-weight: 700;
+  font-size: var(--t-md);
+  padding: 3px 10px;
+  border-radius: var(--r-pill);
+  background: rgba(58, 36, 16, 0.22);
+}
+
+.shop-buy-big:disabled .shop-price-tag:empty {
+  display: none;
+}
+
+/* The colourway row, where a furniture page has its buy button. Sized so a
+   whole category fits on one line under the piece — a colour picker reads as
+   a strip, and wrapping it onto two rows makes it read as a list again, which
+   is the thing moving Style into the shop was meant to stop. */
+.shop-action .style-row {
+  grid-template-columns: repeat(auto-fit, minmax(58px, 1fr));
+  gap: 6px;
+}
+
+.shop-action .style-tile {
+  gap: 5px;
+  padding: 9px 4px 8px;
+}
+
+.shop-action .style-swatch {
+  width: 30px;
+  height: 30px;
+}
+
+.shop-action .style-name {
+  font-size: var(--t-xs);
+}
+
+.shop-action .style-note {
+  font-size: 9.5px;
+  line-height: 1.25;
+}
+
+/* The shop is the one panel that must NOT paint over the scene: its item is
+   drawn to the WebGL canvas behind this layer, so any background or blur in
+   front of it hides the product. Dropping both is also the nicer design — the
+   piece floats over the actual café you're about to put it in. */
+.overlay-layer.shop-open {
+  background: rgba(30, 20, 12, 0.28);
+  backdrop-filter: none;
+}
+
+.shop-panel {
+  background: transparent;
+  box-shadow: none;
+  padding: 0;
+  overflow: visible;
+}
+
+/* The front page is the exception to the rule above: nothing is spinning
+   behind it, so it is a normal solid panel and it *scrolls*. Declared after
+   `.shop-panel` deliberately — the transparent rule is what lets the pager see
+   the canvas, and it would otherwise win here too and leave the departments
+   floating over the café with no card behind them. */
+.shop-panel.shop-front {
+  background: var(--slate);
+  box-shadow: var(--lift);
+  padding: 18px 16px 20px;
+  overflow-y: auto;
+}
+
+.shop-front .shop-head {
+  padding: 0 2px 12px;
+  background: none;
+  box-shadow: none;
+}
+
+.shop-head,
+.shop-foot {
+  padding: 16px 18px;
+  border-radius: var(--r-card);
+  background: var(--slate);
+  box-shadow: var(--lift);
+}
+
+.shop-head {
+  padding-bottom: 12px;
+}
+
+.shop-foot {
+  padding-top: 12px;
+}
+
+/* Cat name pills and coin floaters live below the panel layer, so they show
+   through the shop's transparent stage and read as debris on the display.
+   Hide them while any panel is open. */
+.overlay-layer.open ~ .cat-label-layer,
+.overlay-layer.open ~ .floater-layer {
+  opacity: 0;
+}
+
+/* **The bubble stays up over panels**, and docks to the top of the screen when
+   one is open. Ellis: *"its telling me to name the cat something daft when im
+   in the cat adoption page and cant even see what mal is typing."* It used to
+   hide with the other overlays, which is right for a coin floater and exactly
+   wrong for the one thing the player is being asked to read — and the guide
+   spends most of the walkthrough asking them to open a panel, so "hidden
+   whenever a panel is open" meant "hidden for most of the tutorial".
+
+   Docked rather than tracking her head, because her head is behind the panel:
+   the same argument that docked the colourway sheet in 2026-08-06. */
+.speech-bubble.docked {
+  /* Opaque, unlike the floating version: it sits over the HUD chips, and a
+     translucent panel over a translucent panel reads as a mistake. */
+  background: var(--slate);
+  position: fixed;
+  left: 50%;
+  top: calc(env(safe-area-inset-top, 0px) + 10px);
+  transform: translateX(-50%) !important;
+  width: min(340px, calc(100vw - 20px));
+  z-index: 40;
+}
+
+/* No tail when docked — it would point at nothing. */
+.speech-bubble.docked::after {
+  display: none;
+}
+
+/* Who is talking, since she is off-screen behind the panel. */
+.speech-bubble.docked::before {
+  content: "mal";
+  display: block;
+  margin-bottom: 3px;
+  font-size: var(--t-xs);
+  font-weight: 700;
+  color: var(--honey);
+}
+
+/* The "adopt a cat?" confirmation. Small and calm — it exists so the answer
+   can be no. */
+.confirm-card .reveal-flavor {
+  margin-bottom: 4px;
+}
+
+.confirm-price {
+  font-variation-settings: "CASL" 0, "MONO" 1;
+  font-weight: 700;
+  font-size: var(--t-display);
+  color: var(--honey);
+  margin: 6px 0 14px;
+}
+
+.confirm-buttons {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+}
+
+.confirm-buttons .reveal-confirm,
+.confirm-no {
+  flex: 1;
+  margin: 0;
+}
+
+.confirm-no {
+  font-family: inherit;
+  font-size: var(--t-md);
+  text-transform: lowercase;
+  border: none;
+  cursor: pointer;
+  padding: 12px 16px;
+  border-radius: var(--r-pill);
+  background: var(--slate-raised);
+  color: var(--chalk-dim);
+}
+
+.confirm-no:active {
+  transform: scale(0.97);
+}
+
+/* --- Character creation ---------------------------------------------------
+   The first thing the game shows. Full-screen and calm: one question at a
+   time, and no keyboard until you tap a field.
+
+   `.onboard-stage` is the same kind of hole as the shop's — the avatar is
+   drawn to the WebGL canvas behind this layer, so nothing may be painted in
+   front of it. */
+
+.onboarding {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  pointer-events: auto;
+  background: rgba(30, 20, 12, 0.42);
+}
+
+.onboard-card {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+  width: min(400px, 100%);
+  max-height: calc(100vh - 64px);
+  padding: 22px 20px;
+  border-radius: var(--r-card);
+  background: var(--slate);
+  box-shadow: var(--lift);
+  text-align: center;
+  animation: card-pop 260ms cubic-bezier(0.34, 1.3, 0.64, 1);
+}
+
+/* The look step keeps its chrome in two blocks so the avatar can show through
+   between them, so this one is transparent. */
+.onboard-look {
+  background: transparent;
+  box-shadow: none;
+  padding: 0;
+  gap: 0;
+}
+
+.onboard-look .onboard-title,
+.onboard-look .onboard-hint {
+  background: var(--slate);
+  box-shadow: var(--lift);
+  padding: 14px 18px 4px;
+  border-radius: var(--r-card) var(--r-card) 0 0;
+  margin: 0;
+}
+
+.onboard-look .onboard-hint {
+  padding: 0 18px 14px;
+  border-radius: 0 0 var(--r-card) var(--r-card);
+}
+
+.onboard-title {
+  font-variation-settings: "CASL" 1;
+  font-weight: 800;
+  font-size: var(--t-display);
+  /* **Not lowercased.** The player's own name goes here, and §9's rule is that
+     the one piece of text the player wrote keeps their capitals — the same
+     reason cat names are left alone. The literals are written lowercase. */
+  color: var(--chalk);
+}
+
+.onboard-hint {
+  font-size: var(--t-sm);
+  text-transform: lowercase;
+  color: var(--chalk-dim);
+}
+
+.onboard-stage {
+  height: 250px;
+  touch-action: pan-y;
+}
+
+.onboard-rows {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  padding: 12px;
+  border-radius: var(--r-card) var(--r-card) 0 0;
+  background: var(--slate);
+}
+
+.onboard-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  padding: 5px 6px;
+  border-radius: var(--r-row);
+  background: var(--slate-raised);
+}
+
+.onboard-row-label {
+  flex: 1;
+  font-size: var(--t-xs);
+  text-transform: lowercase;
+  color: var(--chalk-dim);
+}
+
+.onboard-arrow {
+  font-family: inherit;
+  font-size: 15px;
+  line-height: 1;
+  border: none;
+  cursor: pointer;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--slate);
+  color: var(--chalk);
+}
+
+.onboard-arrow:active {
+  transform: scale(0.92);
+}
+
+.onboard-buttons {
+  display: flex;
+  gap: 8px;
+  padding: 0 12px 14px;
+  border-radius: 0 0 var(--r-card) var(--r-card);
+  background: var(--slate);
+}
+
+.onboard-input {
+  font-family: inherit;
+  font-size: var(--t-lg);
+  text-align: center;
+  border: none;
+  border-radius: var(--r-row);
+  padding: 13px 14px;
+  background: var(--slate-raised);
+  color: var(--chalk);
+}
+
+.onboard-input::placeholder {
+  color: var(--chalk-dim);
+}
+
+.onboard-chips {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+}
+
+.onboard-chip {
+  font-family: inherit;
+  font-size: var(--t-xs);
+  text-transform: lowercase;
+  border: none;
+  cursor: pointer;
+  padding: 6px 12px;
+  border-radius: var(--r-pill);
+  background: var(--slate-raised);
+  color: var(--chalk-dim);
+}
+
+.onboard-next,
+.onboard-shuffle {
+  flex: 1;
+  font-family: inherit;
+  font-size: var(--t-md);
+  font-weight: 700;
+  text-transform: lowercase;
+  border: none;
+  cursor: pointer;
+  padding: 13px 18px;
+  border-radius: var(--r-pill);
+  background: var(--honey);
+  color: #3a2410;
+}
+
+.onboard-shuffle {
+  font-weight: 400;
+  background: var(--slate-raised);
+  color: var(--chalk-dim);
+}
+
+.onboard-next:disabled {
+  background: var(--slate-raised);
+  color: var(--chalk-dim);
+  cursor: default;
+}
+
+.onboard-next:active:not(:disabled),
+.onboard-shuffle:active {
+  transform: scale(0.98);
+}
+
+/* Hearts get their own motion. The coin's arc is a *payment* — it shoots out
+   of the till and reports a number. A heart is affection: it should drift up
+   and sway, slower and softer, and it should never look like it's reporting
+   anything. Same reason they're translucent and bloomed rather than crisp. */
+.floater-heart {
+  animation: heart-drift 1500ms cubic-bezier(0.25, 0.7, 0.35, 1) forwards;
+}
+
+@keyframes heart-drift {
+  0% {
+    transform: translate(-50%, -50%) scale(0.3) rotate(calc(var(--tilt) * -0.6));
+    opacity: 0;
+  }
+  14% {
+    transform: translate(calc(-50% + var(--drift) * 0.2), calc(-50% + var(--rise) * 0.18))
+      scale(1.18) rotate(calc(var(--tilt) * -0.2));
+    opacity: 0.95;
+  }
+  45% {
+    transform: translate(calc(-50% + var(--drift) * 0.75), calc(-50% + var(--rise) * 0.52))
+      scale(1) rotate(calc(var(--tilt) * 0.5));
+  }
+  72% {
+    opacity: 0.9;
+  }
+  100% {
+    transform: translate(calc(-50% + var(--drift) * 0.4), calc(-50% + var(--rise) * 1.15))
+      scale(0.86) rotate(var(--tilt));
+    opacity: 0;
+  }
 }
 
 
 /* ==========================================================================
-   Design pass. The 3D café is the hero; everything here is signage floating
-   over it, so it stays light, warm and out of the way. Two type registers
-   only: heavy tight numerals for values, wide-tracked small caps for labels.
-   ========================================================================== */
+   The level-up card
+   ==========================================================================
+   Loud on purpose. The first attempt was a small chip beside the ring, on the
+   theory that a cosy game never interrupts — but pillar 1 forbids *pressure*,
+   not celebration, and a reward you can miss is not a reward. Ellis: "i need a
+   nice big obvious level up animation that occurs and says congrats with some
+   pretty cats showing".
 
-/* --- The till badge — the signature element -------------------------------
-   Money is capped (§8), so the badge shows how full the till is. The bar is
-   information, not decoration: it's the only way to see the ceiling coming. */
+   The cats are the content. This is a game about a room of cats you named, so
+   the card shows yours by name rather than an abstract badge. */
 
-.money-pill {
+.level-card {
   position: relative;
   overflow: hidden;
+}
+
+.level-badge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  margin: 4px 0 10px;
+  animation: level-badge-in 620ms cubic-bezier(0.2, 1.5, 0.5, 1) both;
+}
+
+.level-badge-word {
+  font-variation-settings: "CASL" 0, "MONO" 0;
+  font-weight: 700;
+  font-size: var(--t-xs);
+  letter-spacing: 0.22em;
+  text-transform: lowercase;
+  color: var(--chalk-dim);
+}
+
+.level-badge-number {
+  font-variation-settings: "CASL" 1;
+  font-weight: 800;
+  font-size: 64px;
+  line-height: 1;
+  color: var(--honey);
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 0 26px rgba(232, 162, 74, 0.45);
+}
+
+@keyframes level-badge-in {
+  0% { transform: scale(0.4) rotate(-8deg); opacity: 0; }
+  100% { transform: scale(1) rotate(0); opacity: 1; }
+}
+
+.level-cats {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+  margin: 14px 0 4px;
+}
+
+.level-cat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  width: 62px;
+  /* Each cat arrives just after the last — a row that pops in one at a time
+     reads as "look who's here", where all-at-once reads as a loading state. */
+  animation: level-cat-in 460ms cubic-bezier(0.2, 1.4, 0.5, 1) both;
+}
+
+.level-cat:nth-child(2) { animation-delay: 90ms; }
+.level-cat:nth-child(3) { animation-delay: 180ms; }
+.level-cat:nth-child(4) { animation-delay: 270ms; }
+.level-cat:nth-child(5) { animation-delay: 360ms; }
+
+.level-cat .cat-swatch {
+  width: 46px;
+  height: 46px;
+}
+
+.level-cat-name {
+  font-size: var(--t-xs);
+  font-weight: 600;
+  color: var(--chalk);
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+@keyframes level-cat-in {
+  0% { transform: translateY(10px) scale(0.7); opacity: 0; }
+  100% { transform: translateY(0) scale(1); opacity: 1; }
+}
+
+/* Drawn confetti — never emoji (§9). Falls *up* out of the card, which reads
+   as celebration where falling down reads as debris. */
+.level-sparkles {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.level-sparkle {
+  position: absolute;
+  bottom: 18%;
+  color: var(--honey);
+  opacity: 0;
+  animation: level-sparkle-up linear both;
+}
+
+.level-sparkle:nth-child(3n) { color: var(--blush); }
+.level-sparkle:nth-child(3n + 1) { color: var(--sage); }
+
+.level-sparkle .icon {
+  width: 15px;
+  height: 15px;
+}
+
+@keyframes level-sparkle-up {
+  0% { transform: translate(0, 20px) scale(0.5); opacity: 0; }
+  18% { opacity: 0.95; }
+  100% { transform: translate(var(--drift, 0), -240px) scale(1.05); opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .level-sparkles { display: none; }
+  .level-badge,
+  .level-cat { animation: none; }
+}
+
+
+/* ==========================================================================
+   The menu — coffees, add-ins, blends, and what's selling
+   ==========================================================================
+   A menu row is the same object three times over: a badge, a name and a line
+   about it, and one action on the right. Keeping coffees, blends and cabinet
+   entries on the same skeleton is what stops the café screen turning into
+   three unrelated interfaces. */
+
+.menu-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 12px;
+  margin-bottom: 8px;
+  border-radius: var(--r-card);
+  background: var(--slate-raised);
+}
+
+/* Owned things are outlined rather than filled — the same language the shop
+   uses for "this is yours, not for sale". */
+.menu-row.owned {
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px var(--slate-line);
+}
+
+.menu-row.locked {
+  opacity: 0.55;
+}
+
+.menu-row-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.menu-row-name {
+  font-variation-settings: "CASL" 1;
+  font-weight: 800;
+  font-size: var(--t-md);
+  text-transform: lowercase;
+  color: var(--chalk);
+}
+
+/* Anything the player typed keeps their capitals (§9) — cat names, café name,
+   and now blends. */
+.menu-row-name.player-written,
+.sales-name.player-written {
+  text-transform: none;
+}
+
+.menu-row-blurb {
+  margin-top: 2px;
+  font-size: var(--t-xs);
+  line-height: 1.35;
+  text-transform: lowercase;
+  color: var(--chalk-dim);
+}
+
+.menu-row-action {
+  flex-shrink: 0;
+  font-family: inherit;
+  font-variation-settings: "CASL" 0, "MONO" 1;
+  font-weight: 700;
+  font-size: var(--t-xs);
+  text-transform: lowercase;
+  border: none;
+  cursor: pointer;
+  padding: 8px 13px;
+  border-radius: var(--r-pill);
+  background: var(--honey);
+  color: #3a2410;
+}
+
+.menu-row-action:active:not(:disabled) {
+  transform: scale(0.95);
+}
+
+.menu-row-action:disabled {
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px var(--slate-line);
+  color: var(--chalk-dim);
+  cursor: default;
+}
+
+/* --- The blend maker ------------------------------------------------------- */
+
+.blend-maker {
+  padding: 12px;
+  border-radius: var(--r-card);
+  background: var(--slate-raised);
+}
+
+/* A refusal pinned under the control that refused. Blush rather than red:
+   this is "not yet", not an error. */
+.inline-refusal {
+  margin-top: 10px;
+  font-size: var(--t-sm);
+  font-weight: 600;
+  text-transform: lowercase;
+  color: var(--blush);
+  animation: refusal-in 220ms ease;
+}
+
+@keyframes refusal-in {
+  from { opacity: 0; transform: translateY(-3px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.blend-made-icon {
+  width: 54px;
+  height: 54px;
+  margin: 2px auto 10px;
+}
+
+.blend-made-icon .icon {
+  width: 26px;
+  height: 26px;
+}
+
+.maker-label {
+  margin: 2px 2px 7px;
+  font-weight: 700;
+  font-size: 9.5px;
+  letter-spacing: 0.16em;
+  text-transform: lowercase;
+  color: var(--chalk-dim);
+}
+
+.chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-bottom: 10px;
+}
+
+.pick-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: inherit;
+  font-size: var(--t-xs);
+  font-weight: 600;
+  text-transform: lowercase;
+  border: none;
+  cursor: pointer;
+  padding: 7px 12px 7px 9px;
+  border-radius: var(--r-pill);
+  background: var(--slate);
+  color: var(--chalk-dim);
+  box-shadow: inset 0 0 0 1.5px transparent;
+  transition: box-shadow 160ms ease, color 160ms ease, transform 120ms ease;
+}
+
+.pick-chip .icon {
+  width: 17px;
+  height: 17px;
+}
+
+.pick-chip:active:not(:disabled) {
+  transform: scale(0.95);
+}
+
+/* Chosen, or owned in the cabinet. Honey outline rather than fill: several of
+   these can be on at once, and filled honey is reserved for the one thing to
+   do next (§9). */
+.pick-chip.on {
+  box-shadow: inset 0 0 0 1.5px var(--honey);
+  color: var(--chalk);
+}
+
+.pick-chip.locked {
+  opacity: 0.5;
+}
+
+.pick-chip-note {
+  font-variation-settings: "CASL" 0, "MONO" 1;
+  font-weight: 700;
+  color: var(--honey);
+}
+
+.pick-chip.on .pick-chip-note {
+  font-variation-settings: "CASL" 0, "MONO" 0;
+  font-weight: 500;
+  color: var(--chalk-dim);
+}
+
+.cabinet .pick-chip {
+  background: var(--slate-raised);
+}
+
+/* --- What's selling -------------------------------------------------------- */
+
+.sales-row {
+  margin-bottom: 12px;
+}
+
+.sales-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 5px;
+}
+
+.sales-icon {
+  width: 17px;
+  height: 17px;
+  flex-shrink: 0;
+  color: var(--honey);
+}
+
+.sales-made {
+  margin: -2px 0 5px 27px;
+  font-size: var(--t-xs);
+  text-transform: lowercase;
+  color: var(--chalk-dim);
+}
+
+.sales-name {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--t-md);
+  font-weight: 600;
+  text-transform: lowercase;
+  color: var(--chalk);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sales-cups {
+  font-variation-settings: "CASL" 0, "MONO" 1;
+  font-weight: 700;
+  font-size: var(--t-sm);
+  color: var(--chalk-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.sales-track {
+  height: 9px;
+  border-radius: var(--r-pill);
+  background: var(--slate-raised);
+  overflow: hidden;
+}
+
+.sales-bar {
+  height: 100%;
+  border-radius: var(--r-pill);
+  background: var(--honey);
+  transition: width 500ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Your own blends stand out on the chart, because "my drink is the best
+   seller" is the whole reward for inventing one. */
+.sales-bar.own {
+  background: var(--blush);
+}
+
+.hub-card-blends .hub-card-icon {
+  background: rgba(229, 138, 153, 0.18);
+  color: var(--blush);
+}
+
+.hub-card-sales .hub-card-icon {
+  background: rgba(154, 168, 139, 0.18);
+  color: var(--sage);
+}
+
+
+/* ==========================================================================
+   Extending the café
+   ==========================================================================
+   The "+ £600" markers that sit on each buyable floor tile. DOM projected onto
+   world positions (§10's floater trick) rather than 3D: crisp at any pixel
+   ratio, no draw calls, and a real button with a real pressed state instead of
+   a raycast against a quad. */
+
+.expansion-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 4;
+}
+
+.expansion-marker {
+  position: absolute;
+  top: 0;
+  left: 0;
+  will-change: transform;
+}
+
+.expansion-plus {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  pointer-events: auto;
+  font-family: inherit;
+  border: none;
+  cursor: pointer;
+  padding: 8px 14px 8px 10px;
+  border-radius: var(--r-pill);
+  background: var(--honey);
+  color: #3a2410;
+  box-shadow: var(--lift);
+  animation: expansion-bob 2.4s ease-in-out infinite;
+}
+
+.expansion-plus:active:not(:disabled) {
+  transform: scale(0.94);
+}
+
+/* Taking a window out is a reversal, not a purchase — slate, not honey. */
+.expansion-undo {
+  background: var(--slate-raised);
+  color: var(--chalk);
+}
+
+.expansion-plus:disabled {
+  background: var(--slate);
+  color: var(--chalk-dim);
+  cursor: default;
+  animation: none;
+}
+
+.expansion-sign {
+  font-variation-settings: "CASL" 1;
+  font-weight: 800;
+  font-size: 21px;
+  line-height: 1;
+}
+
+.expansion-price {
+  font-variation-settings: "CASL" 0, "MONO" 1;
+  font-weight: 700;
+  font-size: var(--t-sm);
+  text-transform: lowercase;
+  font-variant-numeric: tabular-nums;
+}
+
+/* A small lift, so a marker on a flat floor reads as something to press
+   rather than as a label printed on the boards. */
+@keyframes expansion-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .expansion-plus { animation: none; }
+}
+
+.hub-card-extend .hub-card-icon {
+  background: rgba(232, 162, 74, 0.18);
+  color: var(--honey);
+}
+
+.hub-card:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+
+/* ==========================================================================
+   Builder mode
+   ==========================================================================
+   Three tools in one bar — extend, floor, walls — anchored where the placement
+   bar sits, because they are the same kind of thing: a mode you are currently
+   in, with the way out in a fixed place.
+
+   The walls and floor live *here* rather than only on the shop's Colours page
+   because they change the whole room at once, and the only useful preview of
+   that is the room. Same tiles, same rules, different vantage point. */
+
+.builder-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 6;
+}
+
+.builder-bar {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: max(96px, calc(env(safe-area-inset-bottom) + 96px));
+  pointer-events: auto;
+  padding: 10px 12px 12px;
+  border-radius: var(--r-card);
+  background: var(--slate);
+  box-shadow: var(--lift);
+}
+
+.builder-tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.builder-tab {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  font-family: inherit;
+  font-size: var(--t-xs);
+  font-weight: 700;
+  text-transform: lowercase;
+  border: none;
+  cursor: pointer;
+  padding: 8px 4px 7px;
+  border-radius: var(--r-row);
+  background: transparent;
+  color: var(--chalk-dim);
+  transition: background 160ms ease, color 160ms ease;
+}
+
+.builder-tab .icon {
+  width: 19px;
+  height: 19px;
+}
+
+.builder-tab.on {
+  background: var(--slate-raised);
+  color: var(--honey);
+}
+
+/* Scrolls sideways rather than wrapping: a style strip that grows a second row
+   pushes the café off the top of the screen, and the café is the preview. */
+.builder-strip {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  scrollbar-width: none;
+}
+
+.builder-strip::-webkit-scrollbar {
+  display: none;
+}
+
+.builder-tile {
+  flex: 0 0 auto;
+  width: 96px;
+}
+
+.builder-body:empty {
+  display: none;
+}
+
+.builder-foot {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.expansion-note {
+  flex: 1;
+  font-size: var(--t-sm);
+  line-height: 1.35;
+  text-transform: lowercase;
+  color: var(--chalk-dim);
+}
+
+.expansion-done {
+  flex-shrink: 0;
+  font-family: inherit;
+  font-size: var(--t-sm);
+  font-weight: 700;
+  text-transform: lowercase;
+  border: none;
+  cursor: pointer;
+  padding: 10px 22px;
+  border-radius: var(--r-pill);
+  background: var(--honey);
+  color: #3a2410;
+}
+
+.expansion-done:active {
+  transform: scale(0.96);
+}
+
+
+/* ==========================================================================
+   Press and hold: the ring, and the little tab
+   ==========================================================================
+   Reinstated 2026-08-13, once the shop existed as the one clear place to buy
+   and arrange things — at which point holding a piece is a *shortcut* to the
+   thing under your finger rather than a competing interface. It only charges
+   on furniture and décor, because the ring appearing is the affordance and it
+   must not appear over something that does nothing. */
+
+.hold-ring {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 44px;
+  height: 44px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease;
+}
+
+.hold-ring.visible {
+  opacity: 1;
+}
+
+.hold-ring svg {
+  width: 100%;
+  height: 100%;
+  /* Fill from twelve o'clock. */
+  transform: rotate(-90deg);
+}
+
+.hold-ring circle {
+  fill: none;
+  stroke-width: 3;
+}
+
+.hold-ring-track {
+  stroke: rgba(43, 33, 26, 0.4);
+}
+
+.hold-ring-fill {
+  stroke: var(--honey);
+  stroke-linecap: round;
+}
+
+/* Docked at the bottom, never beside the piece: on a phone the café *is* the
+   middle of the screen, so a floating panel covers the thing being edited. */
+.furniture-menu {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: max(96px, calc(env(safe-area-inset-bottom) + 96px));
+  pointer-events: auto;
+  padding: 14px;
+  border-radius: var(--r-card);
+  background: var(--slate);
+  box-shadow: var(--lift);
+  animation: card-pop 200ms cubic-bezier(0.34, 1.3, 0.64, 1);
+}
+
+.furniture-menu-head {
+  margin-bottom: 10px;
+}
+
+.furniture-menu-title {
+  font-variation-settings: "CASL" 1;
+  font-weight: 800;
+  font-size: var(--t-lg);
+  color: var(--chalk);
+}
+
+/* Tighter than the shop's tiles: this sheet sits over the café, so it earns
+   its size differently. */
+.furniture-menu .style-row {
+  grid-template-columns: repeat(auto-fit, minmax(62px, 1fr));
+  gap: 6px;
+}
+
+.furniture-menu .style-tile {
+  gap: 4px;
+  padding: 8px 4px 7px;
+}
+
+.furniture-menu .style-swatch {
+  width: 28px;
+  height: 28px;
+}
+
+.furniture-menu .style-name {
+  font-size: var(--t-xs);
+}
+
+.furniture-menu .style-note {
+  font-size: 9.5px;
+  line-height: 1.25;
+}
+
+.furniture-move {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-width: 124px;
-  padding: 11px 24px;
-  border-radius: var(--r-pill);
-  background: var(--card);
-  box-shadow: var(--lift-md), inset 0 1px 0 rgba(255, 255, 255, 0.9);
-  font-size: 22px;
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  font-variant-numeric: tabular-nums;
-  transition: transform 200ms cubic-bezier(0.34, 1.4, 0.64, 1);
-}
-
-.money-value {
-  position: relative;
-  z-index: 1;
-}
-
-.till-fill {
-  position: absolute;
-  inset: 0;
-  transform-origin: left center;
-  background: linear-gradient(90deg, rgba(224, 145, 60, 0.16), rgba(224, 145, 60, 0.3));
-  transition: transform 500ms cubic-bezier(0.22, 0.8, 0.3, 1);
-}
-
-.money-pill.till-full .till-fill {
-  background: linear-gradient(90deg, rgba(224, 128, 143, 0.22), rgba(224, 128, 143, 0.38));
-}
-
-.cat-count-pill {
-  padding: 5px 15px;
-  border-radius: var(--r-pill);
-  background: rgba(252, 245, 234, 0.9);
-  box-shadow: var(--lift-sm);
-  font-size: 11.5px;
+  gap: 8px;
+  width: 100%;
+  margin-top: 10px;
+  font-family: inherit;
+  font-size: var(--t-md);
   font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--cocoa-soft);
-}
-
-.cat-count-pill.has-content { color: var(--blush); }
-
-/* --- Buttons: pressed enamel, not glass ----------------------------------- */
-
-.adopt-button,
-.roster-button,
-.upgrade-buy,
-.reveal-confirm,
-.style-tile {
-  font-family: var(--font);
+  text-transform: lowercase;
   border: none;
   cursor: pointer;
-}
-
-.adopt-button {
-  min-width: 260px;
-  padding: 15px 30px 16px;
+  padding: 11px 16px;
   border-radius: var(--r-pill);
-  background: linear-gradient(180deg, #eda busy 0%, var(--honey) 40%, var(--honey-deep) 100%);
-  background: linear-gradient(180deg, #eea45a 0%, var(--honey) 45%, var(--honey-deep) 100%);
-  color: #fffaf2;
-  box-shadow: var(--lift-md), inset 0 1px 0 rgba(255, 255, 255, 0.45),
-    inset 0 -2px 0 rgba(120, 65, 10, 0.28);
-  transition: transform 120ms cubic-bezier(0.34, 1.4, 0.64, 1), filter 180ms ease,
-    opacity 180ms ease;
+  background: var(--honey);
+  color: #3a2410;
 }
 
-.adopt-button-label {
-  font-size: 16.5px;
-  font-weight: 800;
-  letter-spacing: -0.01em;
+.furniture-move:active {
+  transform: scale(0.98);
 }
 
-.adopt-button-hint {
-  font-size: 10.5px;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  opacity: 0.78;
+.furniture-move .icon {
+  width: 16px;
+  height: 16px;
 }
 
-.adopt-button:active:not(:disabled) {
-  transform: translateY(2px) scale(0.985);
-  box-shadow: var(--lift-sm), inset 0 -1px 0 rgba(120, 65, 10, 0.3);
-}
-
-.adopt-button:disabled {
-  filter: saturate(0.45);
-  opacity: 0.5;
-  box-shadow: var(--lift-sm);
-}
-
-.roster-button {
-  position: relative;
-  padding: 11px 22px;
+.furniture-menu-close {
+  display: block;
+  margin: 10px auto 0;
+  font-family: inherit;
+  font-size: var(--t-xs);
+  text-transform: lowercase;
+  border: none;
+  cursor: pointer;
+  padding: 6px 18px;
   border-radius: var(--r-pill);
-  background: var(--card);
-  color: var(--cocoa-soft);
-  font-size: 12.5px;
-  font-weight: 800;
-  letter-spacing: 0.05em;
-  box-shadow: var(--lift-sm), inset 0 1px 0 rgba(255, 255, 255, 0.9);
-  transition: transform 120ms cubic-bezier(0.34, 1.4, 0.64, 1), color 180ms ease;
+  background: transparent;
+  color: var(--chalk-dim);
 }
-
-.roster-button:active { transform: translateY(1px) scale(0.97); }
-
-.sound-button {
-  background: var(--card);
-  box-shadow: var(--lift-sm), inset 0 1px 0 rgba(255, 255, 255, 0.9);
-}
-
-.nudge-dot { background: var(--blush); }
-
-/* --- Panels: a paper menu card ------------------------------------------- */
-
-.panel,
-.roster-panel {
-  display: flex;
-  flex-direction: column;
-  width: min(400px, calc(100vw - 28px));
-  max-height: calc(100vh - 88px);
-  padding: 20px;
-  border-radius: var(--r-lg);
-  background: var(--card);
-  box-shadow: var(--lift-lg);
-  overflow-y: auto;
-  animation: card-pop 240ms cubic-bezier(0.34, 1.3, 0.64, 1);
-}
-
-.roster-title {
-  font-size: 20px;
-  font-weight: 800;
-  letter-spacing: -0.02em;
-}
-
-.roster-close {
-  background: rgba(138, 114, 86, 0.12);
-  color: var(--cocoa-soft);
-  font-weight: 700;
-}
-
-/* --- Style panel: locked doors you know how to open ----------------------- */
-
-.style-section { margin-bottom: 20px; }
-
-.style-section-name {
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--cocoa-soft);
-}
-
-.style-section-hint {
-  margin: 3px 0 11px;
-  font-size: 12.5px;
-  line-height: 1.4;
-  color: var(--cocoa-soft);
-  opacity: 0.85;
-}
-
-.style-row {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(88px, 1fr));
-  gap: 9px;
-}
-
-.style-tile {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  padding: 11px 7px 9px;
-  border-radius: var(--r-md);
-  background: rgba(138, 114, 86, 0.07);
-  box-shadow: inset 0 0 0 2px transparent;
-  transition: background 180ms ease, box-shadow 180ms ease, transform 120ms ease;
-}
-
-.style-tile:active:not(:disabled) { transform: scale(0.96); }
-
-.style-swatch {
-  width: 42px;
-  height: 42px;
-  border-radius: 50%;
-  box-shadow: inset 0 -3px 6px rgba(0, 0, 0, 0.16), 0 1px 3px rgba(90, 60, 30, 0.18);
-}
-
-.style-name {
-  font-size: 11.5px;
-  font-weight: 700;
-  line-height: 1.25;
-  color: var(--cocoa);
-}
-
-.style-note {
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  line-height: 1.3;
-  color: var(--honey-deep);
-  font-variant-numeric: tabular-nums;
-}
-
-.style-tile.chosen {
-  background: rgba(224, 145, 60, 0.14);
-  box-shadow: inset 0 0 0 2px var(--honey);
-}
-
-.style-tile.chosen .style-note { color: var(--honey-deep); }
-
-/* Locked reads as "not yet", never as "denied": the swatch is drained to sage
-   rather than greyed out, and the note says what to go and do. */
-.style-tile.locked { background: rgba(147, 161, 132, 0.12); cursor: default; }
-.style-tile.locked .style-swatch { filter: grayscale(0.85) brightness(1.06); opacity: 0.5; }
-.style-tile.locked .style-name { color: var(--cocoa-soft); opacity: 0.75; }
-.style-tile.locked .style-note { color: var(--sage); }
-
-.style-tile:disabled:not(.locked) { opacity: 0.55; cursor: default; }
-
-/* --- Upgrade rows --------------------------------------------------------- */
-
-.upgrade-buy {
-  border-radius: var(--r-sm);
-  background: linear-gradient(180deg, #eea45a 0%, var(--honey) 45%, var(--honey-deep) 100%);
-  box-shadow: var(--lift-sm), inset 0 1px 0 rgba(255, 255, 255, 0.4);
-  font-weight: 800;
-  font-variant-numeric: tabular-nums;
-}
-
-.upgrade-buy:disabled { filter: saturate(0.4); opacity: 0.5; box-shadow: none; }
-.upgrade-buy.maxed { background: rgba(138, 114, 86, 0.16); color: var(--cocoa-soft); filter: none; }
-
-.upgrade-name { letter-spacing: -0.01em; }
-.upgrade-level { letter-spacing: 0.06em; text-transform: uppercase; }
-.upgrade-effect { color: var(--honey-deep); }
-
-.cafe-stat-value { font-weight: 800; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
-.cafe-stat-label { letter-spacing: 0.1em; }
-
-.reveal-confirm {
-  border-radius: var(--r-md);
-  background: linear-gradient(180deg, #eea45a 0%, var(--honey) 45%, var(--honey-deep) 100%);
-  box-shadow: var(--lift-sm), inset 0 1px 0 rgba(255, 255, 255, 0.4);
-  font-weight: 800;
-}
-
-.reveal-breed { letter-spacing: -0.02em; font-weight: 800; }
-.reveal-title { letter-spacing: 0.12em; }
-.welcome-earned { color: var(--honey-deep); letter-spacing: -0.03em; }
-
-.hud-bottom-row { gap: 8px; }

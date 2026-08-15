@@ -36,9 +36,9 @@ export function phaseOf(visitor: Visitor, now: number): VisitorPhase {
   return "walkingOut";
 }
 
-function freeSeatIndex(visitors: Visitor[], seatCount: number): number | null {
+function freeSeatIndex(visitors: Visitor[], seats: number[]): number | null {
   const occupied = new Set(visitors.map((v) => v.seatIndex));
-  for (let i = 0; i < seatCount; i++) {
+  for (const i of seats) {
     if (!occupied.has(i)) return i;
   }
   return null;
@@ -88,7 +88,7 @@ export function tickVisitors(
 
   const readyToSpawn = now - lastSpawnAt >= visitorIntervalMs(stats.appeal);
   if (readyToSpawn) {
-    const seat = freeSeatIndex(next, stats.seatCount);
+    const seat = freeSeatIndex(next, stats.seats);
     if (seat !== null) {
       next.push(spawnVisitor(now, seat, stats.dwellDurationMs));
       spawnedThisTick = true;

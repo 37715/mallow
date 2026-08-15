@@ -1,0 +1,7 @@
+Cozy Characters - Lip Sync and Expressions  V0.1
+
+What's New:
+
+- Added .glTF exported version
+- Included nude body base model
+- Animation cleanup

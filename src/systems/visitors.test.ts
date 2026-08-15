@@ -81,7 +81,7 @@ describe("tickVisitors", () => {
 
   it("earns more from a better-appointed café over the same window", () => {
     const plain = simulate(120_000, 50, cafeStats(500, {})).earned;
-    const nice = simulate(120_000, 50, cafeStats(500, { decor: 8, brews: 8 })).earned;
+    const nice = simulate(120_000, 50, cafeStats(500, { brews: 8 }, 4)).earned;
     expect(nice).toBeGreaterThan(plain);
   });
 

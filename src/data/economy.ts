@@ -9,7 +9,11 @@ export const ECONOMY_CONFIG = {
    * café is one small room now, so seating grows by *arranging furniture*, not
    * by buying an abstract upgrade level.
    */
-  baseSeatCount: 6,
+  // **Must not exceed the number of `seat: true` entries in the layout.** It
+  // was 6 against 5 real seats, so a guest could be assigned seat index 5 —
+  // which has no position, so they stood in the doorway and their coin floater
+  // was skipped entirely. `cafe-room.test.ts` pins this now.
+  baseSeatCount: 5,
 
   /**
    * The till only holds so much. Money stops accruing at this ceiling.
@@ -61,15 +65,24 @@ export const ECONOMY_CONFIG = {
   /** Extra fractional pay per point of appeal beyond the first (cuter café → bigger tips). */
   visitorPayBonusPerAppeal: 0.06,
 
-  /** How long a visitor takes to walk from the door to their seat. */
-  walkInDurationMs: 1200,
+  /**
+   * How long a visitor takes to walk from the door to their seat.
+   *
+   * Doubled from 1200 on 2026-08-12 — Ellis: *"people also walk way too fast
+   * through the cafe its like 2x speed almost."* Exactly right, and it was
+   * never a considered number: the route is a short polyline covered at a
+   * constant rate, so this *is* the walking speed. Slower also costs less than
+   * it looks, because a guest who takes longer to sit is a guest you get to
+   * watch, which is the point (§2).
+   */
+  walkInDurationMs: 2400,
 
   /** How long a guest lingers before paying and leaving. Long on purpose —
    * watching someone settle in with a coffee is the point. */
   dwellDurationMs: 6000,
 
   /** How long a visitor takes to walk from their seat back out the door. */
-  walkOutDurationMs: 1200,
+  walkOutDurationMs: 2400,
 
   /**
    * Maximum cats living in the café. A hard cap, not a soft one.

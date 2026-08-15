@@ -32,7 +32,21 @@ export type AnalyticsEvent =
   | { name: "cafe_opened"; seats: number; upgradeLevels: number }
   // Presence + long-game progression.
   | { name: "cat_petted"; breed: string }
-  | { name: "customisation_bought"; category: string; option: string; cost: number };
+  | { name: "furniture_moved"; piece: string }
+  | { name: "shop_item_bought"; item: string; cost: number }
+  | { name: "player_created" }
+  | { name: "customisation_bought"; category: string; option: string; cost: number }
+  | { name: "level_up"; level: number }
+  | { name: "drink_unlocked"; drink: string; cost: number }
+  | { name: "ingredient_unlocked"; ingredient: string; cost: number }
+  | { name: "blend_created"; ingredients: number }
+  | { name: "tile_bought"; tiles: number; cost: number }
+  | { name: "backdrop_bought"; backdrop: string; cost: number }
+  | { name: "bed_bought"; beds: number; cost: number }
+  | { name: "window_bought"; cost: number }
+  // The first thing the funnel can ask (§11): did they sit through the intro,
+  // or bail out of it? A guide people skip is a guide that needs rewriting.
+  | { name: "tutorial_finished" };
 
 /** The one numeric per event TelemetryDeck can average/sum (floatValue). */
 function primaryValue(event: AnalyticsEvent): number | undefined {

@@ -9,13 +9,19 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "test": "vitest run",
-    "balance": "vite-node src/tools/balance.ts"
+    "balance": "vite-node src/tools/balance.ts",
+    "ios:test": "VITE_TEST_TOOLS=1 npm run build && npx cap sync ios && npx cap open ios",
+    "ios": "npm run build && npx cap sync ios && npx cap open ios",
+    "ios:sync": "npm run build && npx cap sync ios"
   },
   "dependencies": {
+    "@capacitor/core": "^8.5.0",
+    "@capacitor/ios": "^8.5.0",
     "three": "^0.169.0",
     "zustand": "^5.0.1"
   },
   "devDependencies": {
+    "@capacitor/cli": "^8.5.0",
     "@types/node": "^26.1.2",
     "@types/three": "^0.169.0",
     "jsdom": "^30.0.1",

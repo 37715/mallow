@@ -1,0 +1,9 @@
+UPDATE v1.2 Log
+
+Sitting Animations Update:
+
+Updated are all chair interaction animations as well as drinking, eating, picking up items.
+They now all animate at World 0,0,0.
+
+For the sitting animations that feature some displacement onto TallChair, Sofa and Floor, there is now a Root Motion
+animation clip if you prefer to use that.

@@ -21,11 +21,11 @@ export interface RarityConfig {
 export const RARITY_ORDER: Rarity[] = ["common", "uncommon", "rare", "epic", "legendary"];
 
 export const RARITY_CONFIG: Record<Rarity, RarityConfig> = {
-  common: { label: "Common", weight: 52, appeal: 1, badgeColor: "#8a6a52" },
-  uncommon: { label: "Uncommon", weight: 27, appeal: 1.5, badgeColor: "#5a8a5e" },
-  rare: { label: "Rare", weight: 13, appeal: 2.2, badgeColor: "#4a7ab5" },
-  epic: { label: "Epic", weight: 6, appeal: 3.2, badgeColor: "#8a5fb5" },
-  legendary: { label: "Legendary", weight: 2, appeal: 5, badgeColor: "#d9973f" },
+  common: { label: "common", weight: 52, appeal: 1, badgeColor: "#8a6a52" },
+  uncommon: { label: "uncommon", weight: 27, appeal: 1.5, badgeColor: "#5a8a5e" },
+  rare: { label: "rare", weight: 13, appeal: 2.2, badgeColor: "#4a7ab5" },
+  epic: { label: "epic", weight: 6, appeal: 3.2, badgeColor: "#8a5fb5" },
+  legendary: { label: "legendary", weight: 2, appeal: 5, badgeColor: "#d9973f" },
 };
 
 export interface CatDefinition {
@@ -86,10 +86,19 @@ export function totalAppeal(definitionIds: string[]): number {
 }
 
 /** Cosy default names offered in the naming flow — the player can always type their own. */
+/**
+ * **Lowercase, like everything else the game writes** (Ellis, 2026-08-14).
+ *
+ * §9's exception is for names the *player* types — those keep their capitals
+ * untouched, and that rule is unchanged. These are not that: they are the
+ * game's own suggestions, so they speak in the game's own voice. A capitalised
+ * default also quietly implies capitals are expected, which is the opposite of
+ * the register the rest of the interface sets.
+ */
 export const NAME_SUGGESTIONS = [
-  "Biscuit", "Mochi", "Clover", "Ember", "Pepper", "Hazel",
-  "Waffles", "Maple", "Poppy", "Olive", "Toast", "Juniper",
-  "Pudding", "Nutmeg", "Willow", "Crumpet", "Fig", "Marble",
+  "biscuit", "mochi", "clover", "ember", "pepper", "hazel",
+  "waffles", "maple", "poppy", "olive", "toast", "juniper",
+  "pudding", "nutmeg", "willow", "crumpet", "fig", "marble",
 ];
 
 /** First suggestion not already used by an owned cat (wraps around if all taken). */

@@ -3,6 +3,7 @@ import { cafeStats, catAppeal, contentCatCount } from "@/systems/cafe";
 import { ECONOMY_CONFIG } from "@/data/economy";
 import { UPGRADE_DEFINITIONS } from "@/data/upgrades";
 import { RARITY_CONFIG } from "@/data/cats";
+import { SHOP_ITEMS, furnitureAppeal } from "@/data/shop";
 
 describe("cafeStats", () => {
   it("matches the pre-upgrade café when nothing has been bought", () => {
@@ -13,11 +14,28 @@ describe("cafeStats", () => {
     expect(stats.dwellDurationMs).toBe(ECONOMY_CONFIG.dwellDurationMs);
   });
 
-  it("adds appeal, tips and speed from their upgrades", () => {
-    const stats = cafeStats(2, { decor: 2, brews: 4 });
+  it("adds tips from the brews upgrade", () => {
+    const stats = cafeStats(2, { brews: 4 });
     expect(stats.seatCount).toBe(ECONOMY_CONFIG.baseSeatCount);
-    expect(stats.appeal).toBeCloseTo(2 + 2 * 0.5);
+    expect(stats.appeal).toBeCloseTo(2);
     expect(stats.payMultiplier).toBeCloseTo(1 + 4 * 0.12);
+  });
+
+  // Appeal used to come from a "cosy touches" upgrade level; it comes from the
+  // furniture the player has actually put in the room now (§8).
+  it("adds the appeal of everything furnished", () => {
+    expect(cafeStats(2, {}, 1.4).appeal).toBeCloseTo(3.4);
+  });
+
+  it("values a fully furnished café well above a bare one", () => {
+    const bare = cafeStats(1, {}, furnitureAppeal([]));
+    const furnished = cafeStats(1, {}, furnitureAppeal(SHOP_ITEMS.map((i) => i.id)));
+    expect(bare.appeal).toBe(1);
+    expect(furnished.appeal).toBeGreaterThan(bare.appeal * 3);
+  });
+
+  it("ignores shop ids that are no longer in the catalogue", () => {
+    expect(furnitureAppeal(["not-a-real-item"])).toBe(0);
   });
 
   it("ignores upgrade ids that are no longer in the catalog", () => {

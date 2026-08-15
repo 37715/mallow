@@ -15,18 +15,43 @@ import * as THREE from "three";
  */
 
 /**
- * The world-space box the camera guarantees to keep in frame: the floor plan
- * corner to corner, and most of the wall height.
+ * The world-space box the camera guarantees to keep in frame.
  *
- * The vertical extent stops short of the 4-unit wall tops on purpose. Framing
- * the full walls pushes the camera back far enough that the café stops feeling
- * like somewhere you're sitting in and starts looking like a model on a shelf —
- * and the top of a blank wall is the least interesting thing on screen.
+ * Asymmetric, and every edge of it is doing a job:
+ *
+ * - **−x, −z** clear the two walls, which stand at −2.25 and −2.29.
+ * - **+y 3.6** takes in the wall tops, including the big sweeping arch over
+ *   the window. An earlier version stopped at 2.7 on the argument that framing
+ *   full walls makes the café "a model on a shelf" — but the reference render
+ *   (`graphics/K9gvnT.png`) frames them, and that arch is the room's whole
+ *   silhouette. Cropping it throws away the best thing in the composition.
+ * - **+x, +z** take in what stands outside the door on the ground: the A-frame
+ *   sign at the front and the stray cushion to the right. They read as *this
+ *   café sits somewhere*, and half a sign is worse than no sign.
+ *
+ * The far +x/+z corner is empty, but it costs almost nothing on screen: the two
+ * axes pull in opposite horizontal directions from this camera angle, so that
+ * corner projects near the middle rather than off the side.
  */
-const FRAME_BOX = new THREE.Box3(
-  new THREE.Vector3(-2.4, 0, -2.4),
-  new THREE.Vector3(2.4, 2.7, 2.4),
+/**
+ * What must stay on screen.
+ *
+ * Asymmetric on purpose: it reaches to y=3.6 for the swept arch over the
+ * window, and past the floor plan on +x/+z for the A-frame sign and the
+ * cushion that stand *outside* the door. From a 45° azimuth that far corner
+ * projects near the middle of the screen, so it costs almost nothing.
+ *
+ * **It is a `let`, because the café can grow** (§8 step 6). Every extra floor
+ * tile widens this, the solved camera distance follows, and that is precisely
+ * how §9's framing rule survives expansion: the rule was never "the camera
+ * sits here", it was "this box is always visible".
+ */
+const HOME_FRAME = new THREE.Box3(
+  new THREE.Vector3(-2.35, 0, -2.35),
+  new THREE.Vector3(2.95, 3.6, 3.2),
 );
+
+export let FRAME_BOX = HOME_FRAME.clone();
 
 /** Vertical FOV. Kept modest so the café reads as a room, not a fisheye. */
 export const CAMERA_FOV = 45;
@@ -44,16 +69,41 @@ const VIEW_AZIMUTH_DEG = 45;
 /** A little breathing room so nothing sits flush against the screen edge. */
 const MARGIN = 1.06;
 
-const FRAME_CENTER = FRAME_BOX.getCenter(new THREE.Vector3());
-
+export const FRAME_CENTER = new THREE.Vector3();
 const FRAME_CORNERS: THREE.Vector3[] = [];
-for (const x of [FRAME_BOX.min.x, FRAME_BOX.max.x]) {
-  for (const y of [FRAME_BOX.min.y, FRAME_BOX.max.y]) {
-    for (const z of [FRAME_BOX.min.z, FRAME_BOX.max.z]) {
-      FRAME_CORNERS.push(new THREE.Vector3(x, y, z));
+
+/**
+ * Widen the framing to take in a bigger floor.
+ *
+ * Mutates the exported `FRAME_CENTER` in place rather than replacing it: the
+ * camera controls hold a reference from construction, and swapping the object
+ * would leave them steering toward where the café *used* to be.
+ */
+export function setFloorExtent(bounds: {
+  minX: number;
+  maxX: number;
+  minZ: number;
+  maxZ: number;
+}): void {
+  FRAME_BOX = new THREE.Box3(
+    new THREE.Vector3(Math.min(HOME_FRAME.min.x, bounds.minX - 0.35), HOME_FRAME.min.y, Math.min(HOME_FRAME.min.z, bounds.minZ - 0.35)),
+    new THREE.Vector3(Math.max(HOME_FRAME.max.x, bounds.maxX + 0.95), HOME_FRAME.max.y, Math.max(HOME_FRAME.max.z, bounds.maxZ + 1.2)),
+  );
+  refreshFrame();
+}
+
+function refreshFrame(): void {
+  FRAME_BOX.getCenter(FRAME_CENTER);
+  FRAME_CORNERS.length = 0;
+  for (const x of [FRAME_BOX.min.x, FRAME_BOX.max.x]) {
+    for (const y of [FRAME_BOX.min.y, FRAME_BOX.max.y]) {
+      for (const z of [FRAME_BOX.min.z, FRAME_BOX.max.z]) {
+        FRAME_CORNERS.push(new THREE.Vector3(x, y, z));
+      }
     }
   }
 }
+refreshFrame();
 
 const elevation = THREE.MathUtils.degToRad(VIEW_ANGLE_DEG);
 const azimuth = THREE.MathUtils.degToRad(VIEW_AZIMUTH_DEG);
@@ -80,13 +130,16 @@ function framesEverything(camera: THREE.PerspectiveCamera, tanH: number, tanV: n
 }
 
 /**
- * Point `camera` at the café and pull it back just far enough that the frame
- * box fits at this aspect ratio. Call on every resize.
+ * The smallest distance from FRAME_CENTER that still frames the whole café at
+ * this aspect ratio.
+ *
+ * This is the number §9's framing rule is really about, and the free camera
+ * (`scene/camera-controls.ts`) leans on it twice: it is the **default** framing
+ * on launch and after a reset, and it is the **zoom-out limit**, so no amount
+ * of pinching can pull back past a correctly-framed café into empty space.
+ * Solving it per aspect is what stops a phone cropping the room off the sides.
  */
-export function fitCameraToCafe(camera: THREE.PerspectiveCamera, aspect: number): void {
-  camera.aspect = aspect;
-  camera.fov = CAMERA_FOV;
-
+export function solveFitDistance(camera: THREE.PerspectiveCamera, aspect: number): number {
   const tanV = Math.tan(THREE.MathUtils.degToRad(CAMERA_FOV) / 2) / MARGIN;
   const tanH = tanV * aspect;
 
@@ -102,12 +155,41 @@ export function fitCameraToCafe(camera: THREE.PerspectiveCamera, aspect: number)
     if (framesEverything(camera, tanH, tanV)) far = mid;
     else near = mid;
   }
+  return far;
+}
 
-  camera.position.copy(FRAME_CENTER).addScaledVector(VIEW_OFFSET, far);
-  camera.lookAt(FRAME_CENTER);
-  camera.far = far + 40;
+/**
+ * Place the camera looking at `target` from `distance` along the fixed view
+ * offset. The *angle* never changes — only where we look and how close.
+ * See camera-controls.ts for why orbiting is not on offer.
+ */
+export function applyCameraPose(
+  camera: THREE.PerspectiveCamera,
+  target: THREE.Vector3,
+  distance: number,
+): void {
+  camera.position.copy(target).addScaledVector(VIEW_OFFSET, distance);
+  camera.lookAt(target);
+  camera.updateMatrixWorld(true);
+}
+
+/**
+ * Point `camera` at the café and pull it back just far enough that the frame
+ * box fits at this aspect ratio. Call on every resize.
+ */
+export function fitCameraToCafe(camera: THREE.PerspectiveCamera, aspect: number): number {
+  camera.aspect = aspect;
+  camera.fov = CAMERA_FOV;
+
+  const distance = solveFitDistance(camera, aspect);
+
+  applyCameraPose(camera, FRAME_CENTER, distance);
+  // Generous, because the camera can now be panned toward one side of the room
+  // while the far corner stays in shot.
+  camera.far = distance + 60;
   camera.updateProjectionMatrix();
   camera.updateMatrixWorld(true);
+  return distance;
 }
 
 /** Distance the camera settles at for a given aspect — used by tests. */
@@ -117,4 +199,4 @@ export function cameraDistanceFor(aspect: number): number {
   return camera.position.distanceTo(FRAME_CENTER);
 }
 
-export { FRAME_BOX, FRAME_CENTER };
+export { VIEW_OFFSET };

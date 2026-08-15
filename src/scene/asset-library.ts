@@ -93,6 +93,26 @@ export function loadCafeAssets(): Promise<CafeAssets> {
   return cached;
 }
 
+/**
+ * Anisotropic filter taps for the atlas, set by the renderer before the first
+ * load (it is the only thing that knows the GPU's limit).
+ *
+ * **This is why the café was sharp zoomed in and mush zoomed out.** Ellis,
+ * 2026-08-13: *"it looks ok zoomed in but its soo blurry when zoomed out."*
+ * With anisotropy at 1, a surface seen at a slant is sampled from a mip level
+ * chosen for its *worst* axis — so the floorboards, which recede from a 45°
+ * camera, were being drawn from a mip several levels too coarse. Raising the
+ * pixel ratio could never have fixed that; it is a sampling problem, not a
+ * resolution one. The magnified case looked fine all along because
+ * `magFilter` never touches mipmaps.
+ */
+let maxAnisotropy = 1;
+
+/** Called once by `createScene`, before any asset is loaded. */
+export function configureAssetQuality(anisotropy: number): void {
+  maxAnisotropy = Math.max(1, anisotropy);
+}
+
 async function loadOnce(): Promise<CafeAssets> {
   const textureLoader = new THREE.TextureLoader();
   const atlas = await textureLoader.loadAsync(`${ASSET_BASE}/T_CatCafe_Atlas.png`);
@@ -103,6 +123,7 @@ async function loadOnce(): Promise<CafeAssets> {
   atlas.magFilter = THREE.NearestFilter; // atlas cells are flat colour; keeps edges crisp
   atlas.minFilter = THREE.LinearMipmapLinearFilter;
   atlas.generateMipmaps = true;
+  atlas.anisotropy = maxAnisotropy;
 
   const material = new THREE.MeshStandardMaterial({
     map: atlas,
@@ -115,6 +136,7 @@ async function loadOnce(): Promise<CafeAssets> {
   const glassMap = await textureLoader.loadAsync(`${ASSET_BASE}/T_CatCafe_Glass.png`);
   glassMap.colorSpace = THREE.SRGBColorSpace;
   glassMap.flipY = false;
+  glassMap.anisotropy = maxAnisotropy;
   // Unlit and untone-mapped on purpose: the window should read as bright
   // daylight, near-white, not as a lit surface sitting in a dim room. Lighting
   // it made the one window in the café the darkest thing on screen.

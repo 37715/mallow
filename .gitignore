@@ -3,8 +3,11 @@ dist
 dist-ssr
 *.local
 
-# Capacitor / iOS (added when we get to §5 packaging)
-ios/
+# Capacitor / iOS. The native project is TRACKED, not ignored: it holds real
+# hand-made configuration (the portrait lock in Info.plist, signing team, app
+# icons) that would be silently lost if anyone re-ran `cap add ios`. Capacitor
+# writes its own ios/.gitignore covering the generated parts — build output,
+# the copied web assets in App/App/public, and capacitor.config.json.
 .DS_Store
 
 # Editor

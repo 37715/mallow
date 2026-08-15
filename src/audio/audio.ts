@@ -16,6 +16,8 @@ const MUTE_KEY = "mallow-muted";
 
 let ctx: AudioContext | null = null;
 let master: GainNode | null = null;
+/** The ambient bed's own gain, so music mutes without muting the sfx. */
+let musicGain: GainNode | null = null;
 let ambientGain: GainNode | null = null;
 let muted = readMuted();
 
@@ -45,6 +47,33 @@ export function setMuted(next: boolean): void {
 }
 
 /**
+ * The ambient bed, muted independently of the sound effects.
+ *
+ * **Two switches, because they are two different annoyances.** Ellis, on the
+ * settings panel: *"i want option to mute yes the sound but also music."* A
+ * player who wants their own music playing wants the room tone gone and the
+ * purr kept; a player in company wants the opposite. One switch cannot serve
+ * both, and a game whose ambience you cannot silence separately is one people
+ * silence entirely.
+ *
+ * The bed is currently synthesised (§10). When a composed loop lands it should
+ * hang off this same gain node and this same switch.
+ */
+let musicMuted = false;
+
+export function isMusicMuted(): boolean {
+  return musicMuted;
+}
+
+export function setMusicMuted(next: boolean): void {
+  musicMuted = next;
+  if (musicGain && ctx) {
+    musicGain.gain.cancelScheduledValues(ctx.currentTime);
+    musicGain.gain.setTargetAtTime(next ? 0 : 1, ctx.currentTime, 0.25);
+  }
+}
+
+/**
  * Browsers refuse to start audio until the user interacts, so this is called
  * from the first tap rather than at boot. Safe to call repeatedly.
  */
@@ -62,6 +91,12 @@ export function initAudio(): void {
   master = ctx.createGain();
   master.gain.value = muted ? 0 : MASTER_VOLUME;
   master.connect(ctx.destination);
+
+  // The bed goes through its own gain so it can be silenced without touching
+  // the coin chimes and purrs.
+  musicGain = ctx.createGain();
+  musicGain.gain.value = musicMuted ? 0 : 1;
+  musicGain.connect(master);
 
   startAmbient();
 }
@@ -138,7 +173,7 @@ function startAmbient(): void {
 
   ambientGain = ctx.createGain();
   ambientGain.gain.value = 0.16;
-  ambientGain.connect(master);
+  ambientGain.connect(musicGain ?? master);
 
   const warmth = ctx.createBiquadFilter();
   warmth.type = "lowpass";
@@ -256,6 +291,32 @@ export function playPurr(): void {
 /** Generic soft UI tap. */
 export function playTap(): void {
   tone(520, { duration: 0.1, gain: 0.09, type: "sine", glideTo: 660 });
+}
+
+/**
+ * One character of the guide's dialogue appearing.
+ *
+ * **Deliberately tiny, and deliberately not one sound.** This fires ~20 times
+ * a second while a line types out, so anything with a recognisable pitch turns
+ * into a melody nobody wrote, and anything longer than a few milliseconds
+ * turns into a drone. It is a very short, very quiet click whose pitch wobbles
+ * a little each time — enough to read as speech, quiet enough to sit under the
+ * ambient bed rather than on top of it.
+ *
+ * The rate limit matters as much as the sound: at 46 ms per character every
+ * keystroke would be a click, which is a typewriter, not a voice. Every third
+ * one, with the vowels skipped by the caller, lands around syllable rate.
+ */
+export function playType(): void {
+  if (!ctx) return;
+  const pitch = 1180 + Math.random() * 260;
+  // **0.022 was inaudible without the phone at full volume.** It was set by
+  // reasoning — "it fires 20 times a second, so it must be tiny" — rather than
+  // by listening, and the reasoning was wrong twice over: it fires on every
+  // third *consonant*, not every character, and a 28 ms click has almost no
+  // energy in it whatever its peak. Compare it to `playTap` (0.09) rather than
+  // to the ambient bed; it is a tap, not a drone.
+  tone(pitch, { duration: 0.032, gain: 0.13, type: "triangle", attack: 0.002 });
 }
 
 /** A purchase went through. */

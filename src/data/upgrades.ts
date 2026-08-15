@@ -1,16 +1,24 @@
 /**
- * Café upgrade catalog (§8 — expansion + décor). Every tunable number lives
- * here; systems/ only reads it, so balancing is a data change, never a code one.
+ * Café upgrade catalog. Every tunable number lives here; systems/ only reads
+ * it, so balancing is a data change, never a code one.
  *
- * Three levers, deliberately non-overlapping so each purchase reads clearly.
- * Seating is deliberately *not* one of them: the café is one small room, and
- * seats come from arranging furniture, not from an abstract upgrade level.
- *   decor   → raises appeal (guests arrive sooner AND tip more)
- *   brews   → raises pay per guest
- *   hands   → shortens each visit, so every seat serves more guests
+ * **There is one lever left, and that is the point.** Seating went when the
+ * café became one small room — seats come from arranging furniture, not from
+ * an abstract level. "Cosy touches" went on 2026-08-10, for the stronger
+ * reason: it was *competing with the shop*. Ellis: *"the little touches cafe
+ * upgrade seems to be stupid and takes away from the cafe builder aspect we
+ * provide from the shop option."* Buying appeal from a menu and buying
+ * furniture that grants appeal are the same purchase wearing two faces, and
+ * only one of them shows up in the room. Appeal now lives on shop furniture
+ * (`ShopItem.appeal`); this list keeps the one lever that genuinely isn't a
+ * thing you place:
+ *   brews → raises pay per guest
+ *
+ * Before adding another, check it isn't better expressed as something the
+ * player can put down and look at.
  */
 
-export type UpgradeId = "decor" | "brews";
+export type UpgradeId = "brews";
 
 export interface UpgradeEffect {
   /** Flat café appeal per level — a charming room pulls guests in like a cute cat does. */
@@ -25,6 +33,7 @@ export interface UpgradeDefinition {
   /** Warm, plain-language description of what the player is buying. */
   description: string;
   /** Cheap cosy iconography until real art lands in M4. */
+  /** Key into the icon set in `ui/icons.ts` — never an emoji. */
   icon: string;
   maxLevel: number;
   baseCost: number;
@@ -36,21 +45,10 @@ export interface UpgradeDefinition {
 
 export const UPGRADE_DEFINITIONS: UpgradeDefinition[] = [
   {
-    id: "decor",
-    name: "Cosy touches",
-    description: "Plants, lamps, little paintings. The room gets lovelier and busier.",
-    icon: "🪴",
-    maxLevel: 8,
-    baseCost: 40,
-    costGrowth: 1.55,
-    perLevel: { appeal: 0.5 },
-    summary: (level) => `+${(level * 0.6).toFixed(1)} appeal`,
-  },
-  {
     id: "brews",
-    name: "Better brews",
-    description: "Nicer beans, warmer mugs. Guests happily leave a little more.",
-    icon: "☕",
+    name: "better brews",
+    description: "nicer beans, warmer mugs. guests happily leave a little more.",
+    icon: "bean",
     maxLevel: 8,
     baseCost: 120,
     costGrowth: 1.6,
@@ -69,6 +67,3 @@ export function upgradeDefinition(id: UpgradeId): UpgradeDefinition | undefined 
 export function upgradeCost(definition: UpgradeDefinition, currentLevel: number): number {
   return Math.round(definition.baseCost * Math.pow(definition.costGrowth, currentLevel));
 }
-
-/** Number of décor props the scene needs to be able to reveal. */
-export const MAX_DECOR_LEVEL = UPGRADE_DEFINITIONS.find((d) => d.id === "decor")!.maxLevel;

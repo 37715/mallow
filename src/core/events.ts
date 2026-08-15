@@ -7,6 +7,8 @@
 export interface GameEvents {
   /** A visitor finished their visit and paid. One event per visitor. */
   visitorPaid: { seatIndex: number };
+  /** Lifetime XP crossed into a new level. Fired once per level gained. */
+  levelUp: { level: number };
 }
 
 type Handler<K extends keyof GameEvents> = (payload: GameEvents[K]) => void;

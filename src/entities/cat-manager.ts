@@ -44,6 +44,12 @@ export class CatManager {
   private readonly group = new THREE.Group();
   private readonly tracked = new Map<string, TrackedCat>();
   private readonly raycaster = new THREE.Raycaster();
+  /**
+   * Where cats may sit. Starts at the authored spots and is replaced when the
+   * player moves cat furniture — three of the four movable pieces are cat
+   * spots, so a moved bed has to take its cat with it.
+   */
+  private spots: THREE.Vector3[] = CAT_DISPLAY_POSITIONS;
 
   constructor(scene: THREE.Scene) {
     this.group.name = "cats";
@@ -58,13 +64,13 @@ export class CatManager {
       // roster — they just aren't rendered. Nudging them backwards instead,
       // as an earlier version did, stacked them into a pyramid that clipped
       // through the back wall.
-      if (this.tracked.size >= CAT_DISPLAY_POSITIONS.length) break;
+      if (this.tracked.size >= this.spots.length) break;
 
       const mesh = buildCatMesh(catDefinition(cat.definitionId));
       // buildCatMesh already scales; we animate from near-zero on spawn.
       mesh.scale.setScalar(0.01);
 
-      const pos = CAT_DISPLAY_POSITIONS[this.tracked.size].clone();
+      const pos = this.spots[this.tracked.size].clone();
       mesh.position.copy(pos);
       // Sitting cats face the door/camera, angled gently toward the aisle.
       mesh.rotation.y = pos.x < 0 ? Math.PI * 0.12 : -Math.PI * 0.12;
@@ -126,6 +132,20 @@ export class CatManager {
   worldPositionOf(id: string): THREE.Vector3 | null {
     const tracked = this.tracked.get(id);
     return tracked ? tracked.mesh.position.clone().setY(0.5) : null;
+  }
+
+  /** Re-seat the cats after furniture moved. */
+  setSpots(spots: THREE.Vector3[]): void {
+    this.spots = spots;
+    let index = 0;
+    for (const cat of this.tracked.values()) {
+      const spot = spots[index++];
+      if (!spot) continue;
+      // `basePosition` is what the idle animation offsets from, so both have
+      // to move or the cat springs back to its old spot on the next frame.
+      cat.basePosition.copy(spot);
+      cat.mesh.position.copy(spot);
+    }
   }
 
   /** Trigger the happy pet wiggle. */

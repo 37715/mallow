@@ -212,7 +212,7 @@ const probe: Player = {
   money: 0,
   cats: 6,
   catAppealBase: 6 * AVG_CAT_APPEAL,
-  upgrades: { decor: 4, brews: 3 },
+  upgrades: { brews: 3 },
   contentFor: 0,
 };
 const activeRate = liveIncomePerSecond(statsFor(probe, true));

@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Mallow — character pack inspector</title>
+    <style>
+      :root { --ink:#4a3826; --brown:#8a6a52; --cream:#f7ecd9; }
+      * { box-sizing: border-box; }
+      body {
+        margin:0; padding:24px; background:var(--cream); color:var(--ink);
+        font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+        display:grid; grid-template-columns: 1fr 460px; gap:24px; align-items:start;
+      }
+      h1 { margin:0 0 4px; font-size:21px; }
+      #status { font-size:13px; color:var(--brown); margin-bottom:14px; }
+      #report {
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size:11.5px; line-height:1.55; white-space:pre; overflow-x:auto;
+        background:#fffdf8; border-radius:14px; padding:14px;
+        box-shadow:0 2px 8px rgba(0,0,0,.06); max-height:78vh; overflow-y:auto;
+      }
+      #report .head { font-weight:700; margin:12px 0 4px; color:#d97b4f; }
+      #report .dim { color:var(--brown); opacity:.75; }
+      #stage { width:100%; aspect-ratio:1; border-radius:14px; box-shadow:0 2px 8px rgba(0,0,0,.08); }
+      #hair { width:100%; aspect-ratio:1.55; border-radius:14px; box-shadow:0 2px 8px rgba(0,0,0,.08); margin-top:14px; background:#3b3a46; }
+      #guests { width:100%; aspect-ratio:2.2; border-radius:14px; box-shadow:0 2px 8px rgba(0,0,0,.08); margin-top:14px; background:#3b3a46; }
+      #faces { width:100%; aspect-ratio:1.9; border-radius:14px; box-shadow:0 2px 8px rgba(0,0,0,.08); margin-top:14px; background:#3b3a46; }
+      .caption { font-size:12px; color:var(--brown); margin:10px 0 4px; }
+    </style>
+  </head>
+  <body>
+    <div>
+      <h1>Character pack inspector</h1>
+      <div id="status">Loading…</div>
+      <div id="report"></div>
+    </div>
+    <div>
+      <canvas id="stage"></canvas>
+      <div class="caption">Assembled guests — exactly what the game builds, one per seat kind.</div>
+      <canvas id="guests"></canvas>
+      <div class="caption">Every expression, and the twelve visemes the lip
+        sync can ask for. Top two rows are moods; the rest is the mouth set —
+        a face stuck on one shape means the UV window isn't moving.</div>
+      <canvas id="faces"></canvas>
+      <div class="caption">Every hairstyle, front and back. Each head must be
+        solid — a face you can see through, or hair floating with no head under
+        it, is the alphaMode trap in §9.</div>
+      <canvas id="hair"></canvas>
+    </div>
+    <script type="module" src="/src/tools/characters.ts"></script>
+  </body>
+</html>

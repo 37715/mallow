@@ -3,14 +3,136 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
-    <title>Mallow</title>
+    <title>mallow</title>
+    <!-- The UI type is bundled, not a system font, so preload it: without this
+         the first paint is fallback sans and the HUD visibly reflows. -->
+    <link
+      rel="preload"
+      href="/fonts/recursive.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <link rel="apple-touch-icon" href="/favicon.png" />
+    <meta name="theme-color" content="#8b7748" />
     <link rel="stylesheet" href="/src/ui/styles.css" />
+
+    <!--
+      The loading screen lives here, inline, and that is the whole point of it.
+
+      Everything else the game draws is behind an 800 kB module graph, a 4 MB
+      character GLB and a Draco decode — several seconds on a phone, during
+      which a linked stylesheet has not necessarily applied and `main.ts` has
+      certainly not run. Anything defined in those files therefore cannot be
+      what the player sees first. This can, because it is in the first packet.
+
+      It is the backdrop olive of the café, so the hand-over from the native
+      launch screen to the web view to the game is one continuous colour.
+    -->
+    <style>
+      #boot {
+        position: fixed;
+        inset: 0;
+        z-index: 50;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 22px;
+        background: #8b7748;
+        /* Set before the font has loaded, so the wordmark doesn't reflow when
+           Recursive arrives — it simply sharpens. */
+        font-family: "Recursive", ui-rounded, system-ui, sans-serif;
+        color: #f6eddd;
+        transition: opacity 520ms ease;
+      }
+      #boot.done {
+        opacity: 0;
+        pointer-events: none;
+      }
+      /* The saucer, breathing. Two nested circles rather than the full mark:
+         at this size the cat's face would be detail nobody has time to read,
+         and a slow pulse says "warming up" better than a spinner, which says
+         "waiting". */
+      #boot-cup {
+        width: 96px;
+        height: 96px;
+        border-radius: 50%;
+        background: #f6eddd;
+        display: grid;
+        place-items: center;
+        animation: boot-breathe 2.6s ease-in-out infinite;
+      }
+      #boot-cup::after {
+        content: "";
+        width: 74px;
+        height: 74px;
+        border-radius: 50%;
+        background: #deba8f;
+      }
+      #boot-word {
+        font-size: 26px;
+        font-weight: 800;
+        letter-spacing: 0.02em;
+        font-variation-settings: "CASL" 1;
+      }
+      #boot-sub {
+        margin-top: -14px;
+        font-size: 12px;
+        opacity: 0.72;
+      }
+      @keyframes boot-breathe {
+        0%,
+        100% {
+          transform: scale(1);
+        }
+        50% {
+          transform: scale(1.07);
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        #boot-cup {
+          animation: none;
+        }
+      }
+    </style>
   </head>
   <body>
     <div id="app">
       <canvas id="scene"></canvas>
       <div id="ui-root"></div>
     </div>
+    <div id="boot">
+      <div id="boot-cup"></div>
+      <div id="boot-word">mallow</div>
+      <div id="boot-sub">putting the kettle on…</div>
+    </div>
+    <!--
+      Failsafe, and it lives here rather than in main.ts on purpose.
+
+      `dismissBootScreen` is at the end of `bootstrap()`, so anything that
+      throws on the way there — a bad build, a WebGL context that won't create,
+      an asset that 404s — leaves this screen up for ever. A full-screen cover
+      that never lifts is a worse failure than the black screen it replaced,
+      because it looks like the game is still working.
+
+      This is an ordinary script, not a module: it runs even if the module
+      graph fails to parse.
+    -->
+    <script>
+      setTimeout(function () {
+        var boot = document.getElementById("boot");
+        if (!boot || boot.classList.contains("done")) return;
+        boot.querySelector("#boot-sub").textContent = "something went wrong — try reopening";
+        setTimeout(function () {
+          boot.classList.add("done");
+          setTimeout(function () {
+            boot.remove();
+          }, 600);
+        }, 2500);
+      }, 20000);
+    </script>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

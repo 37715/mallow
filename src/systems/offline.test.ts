@@ -59,7 +59,7 @@ describe("liveIncomePerSecond", () => {
 
   it("pays out more for an upgraded café over the same absence", () => {
     const bare = computeOfflineEarnings(cafeStats(3, {}), HOUR_MS);
-    const upgraded = computeOfflineEarnings(cafeStats(3, { decor: 5, brews: 5 }), HOUR_MS);
+    const upgraded = computeOfflineEarnings(cafeStats(3, { brews: 5 }, 2.5), HOUR_MS);
     expect(upgraded).toBeGreaterThan(bare);
   });
 });

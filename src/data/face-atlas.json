@@ -1,0 +1,52 @@
+{
+  "eyes": {
+    "texture": "/assets/characters/textures/T_Face_Eyes.png",
+    "cols": 4,
+    "rows": 4,
+    "frames": [
+      "Default",
+      "Angry",
+      "Blink1",
+      "Blink2",
+      "Blink3",
+      "Closed",
+      "Flat",
+      "Frustrated",
+      "Hearts1",
+      "Hearts2",
+      "Hearts3",
+      "Hearts4",
+      "Kawaii",
+      "Sad Cry",
+      "Starry1",
+      "Starry2"
+    ]
+  },
+  "mouths": {
+    "texture": "/assets/characters/textures/T_Face_Mouths.png",
+    "cols": 4,
+    "rows": 5,
+    "frames": [
+      "Default",
+      "sh-ch",
+      "a-i",
+      "ah-i",
+      "th",
+      "e-k-r",
+      "s-z",
+      "m-b-p",
+      "f-v",
+      "L",
+      "oh",
+      "o-u-w",
+      "Upset",
+      "Sad",
+      "Angry",
+      "Thinking",
+      "Cheeky",
+      "Cute",
+      "Surprised",
+      "Confused"
+    ]
+  }
+}
