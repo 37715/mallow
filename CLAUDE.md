@@ -16,7 +16,7 @@ This file is the shared brain for the project. **Read it before starting work in
 > not finished. Nobody should have to re-derive the state of the project by
 > reading the whole codebase.
 
-**Last updated:** 2026-08-26 (Mal leans in beside the panel that was hiding her)
+**Last updated:** 2026-08-26 (chores — the answer to the post-tutorial hole)
 
 **Built and working:**
 - **M1 — playable core loop** ✅ visitors arrive → sit → pay → money accrues.
@@ -48,6 +48,15 @@ This file is the shared brain for the project. **Read it before starting work in
   of whatever panel is covering her** (2026-08-26) — a head-and-shoulders
   render of the same character, lip-syncing to the same clock, in a notch cut
   out of the panel's dim (`scene/guide-portrait.ts`).
+- **Chores ✅** (2026-08-26) — `data/chores.ts` + `systems/chores.ts`, the
+  answer to *"i finish the tutorial and now im out of cash with literally
+  nothing to do"*. Little jobs that come due **on a clock rather than a price**,
+  which is what makes them reachable by a player with no money. Doing one
+  restores its appeal until it comes round again; **never doing one costs
+  nothing** (the floor is the café's base rate — same rule as contentment).
+  The window is due the moment the walkthrough ends, on purpose. One minigame
+  so far — `wipe`, a full-screen sheet of muck you drag off to reveal your own
+  café underneath (`ui/chore-wipe.ts`).
 - **The café is real art ✅** — hand-placed diorama in `data/cafe-layout.ts`,
   built by `scene/cafe-room.ts`. All procedural greybox is deleted.
 - **The room *is* `graphics/K9gvnT.png` ✅** (2026-08-01) — counter, blackboard
@@ -112,7 +121,7 @@ This file is the shared brain for the project. **Read it before starting work in
   tracked Xcode project, portrait-locked, and it **compiles** (verified with
   `xcodebuild` against a simulator destination). `npm run ios` does
   build → sync → open Xcode. Signing is Ellis's to do; see §16.
-- `npm test` — 233 tests over the pure systems, save migrations, café geometry,
+- `npm test` — 241 tests over the pure systems, save migrations, café geometry,
   the visitor loop, contentment maths, the camera controls (pan/zoom clamps,
   tap-vs-drag, press-and-hold), the placement rules the authored café itself
   has to pass, the lip-sync viseme mapping, the merged pack's clips and face
@@ -357,6 +366,48 @@ holds, and the editor is now how that week gets built.</summary>
   injection time out every time.
 
 **Session log:**
+- *2026-08-26, later* — **Chores, and three bugs found by playing it.**
+  - **The post-tutorial hole is the real problem, and a *price* cannot fix it.**
+    Ellis: *"i finish the tutorial and now im out of cash with literally nothing
+    to do."* Everything the game offers at that moment costs money, and the
+    walkthrough deliberately leaves the till at £3.31 (2026-08-25) — so the
+    only thing that can fill the gap is something gated on **time and
+    attention** instead. That is the whole design of `data/chores.ts`, and it
+    is why the window's first due date is zero.
+  - **They only ever add.** A fresh chore contributes appeal; a due one
+    contributes nothing. A café that never does one earns exactly what it would
+    have earned had the system never shipped. Anything else is a decay
+    mechanic, and pillar 1 forbids those — the same line already drawn for
+    petting and for feeding (2026-08-06).
+  - **The satisfying part is that you are wiping your own café.** The grime is
+    a canvas over the whole screen and the 3D shows through wherever it has
+    been cleared, so a stroke is rewarded with a stripe of your own room in
+    full colour. It completes at **88%**, not 100 — chasing the last specks of
+    a soft brush is where satisfying turns into fiddly.
+  - **The picture setting genuinely did nothing on most phones, and the code
+    was right.** Measured at DPR 3 the three levels solve to 2.186 / 2.677 /
+    3.000, matching the arithmetic to three decimals. The fault is that a
+    budget is an **absolute** number: on a DPR-2 phone every level solves above
+    2 and they all clamp to the device ratio. Each level now carries a `scale`
+    as well, and the ratio is the smaller of the two — measured 1.24 / 1.60 /
+    2.00 at DPR 2 afterwards. **A budget bounds memory; only a fraction of
+    native bounds *perceived* sharpness. Neither can do the other's job.**
+  - **Seated guests did not turn with their chair.** `SEAT_FACINGS` is a module
+    constant baked from the layout, and it stayed one when seat *positions*
+    went live in August — so a guest followed their chair across the room but
+    never rotated with it. Two halves: `seatFacings(placements)` adds the
+    player's rotation delta, and the mesh is aimed **every frame** rather than
+    once on sitting down. The conditional was the actual bug; a single
+    assignment had no reason to be inside the "just sat down" branch, and
+    putting it there is what let the two drift.
+  - **Mal's portrait was cropped and had mismatched corners.** The crop was a
+    framing number; the corners were the element being rounded while the notch
+    cut in the dim was a plain rectangle, so the same corner read curved on one
+    layer and square on the other. The notch polygon now carries a five-point
+    quarter-arc at the same radius.
+  - `tools/shot.mjs` takes **`--dpr`** now. It was pinned at 2, and the entire
+    resolution budget is solved from that number — which is exactly why the
+    quality setting looked fine in every screenshot ever taken of it.
 - *2026-08-26* — **Mal leans in round the side of the panel — and the docking
   that was supposed to fix this had never worked.**
   - **The bubble had been docking *behind* the panels the whole time.**
@@ -2347,7 +2398,9 @@ Single source of truth = the Zustand store, serialised to storage. Autosave on e
 > passes, because the data that never arrived is indistinguishable from a new
 > game. Test that writes *happen*, not just that they round-trip.
 
-**Currently at v22.** Migrations are a chain in `state/save.ts`: each entry bumps exactly one version, and `loadSave` walks a save forward from whatever version it's on. Adding a version means appending one migration and one test case to `state/save.test.ts` — which every version must have, because this is the one place a bug costs a player their cats. (v1→v2 added `savedAt`; v2→v3 added `upgrades`; v3→v4 added `venueIndex` plus an optional `contentUntil` per cat; v4→v5 **removed** `venueIndex` with the venue ladder and clamped old billion-pound balances into the new readable range; v5→v6 is the deliberate one-time break described in §0; v6→v7 rehomes an *untouched* sofa/rug choice onto the new free default without touching a bought one; v7→v8 split the floor out of the wall style; v8→v9 added `placements`; v9→v10 granted an existing café the whole shop catalogue; v10→v11 marked existing players as having finished character creation; v11→v12 dropped the retired `decor` upgrade and **refunded** it; v12→v17 added the coffee menu, expansion tiles, purchasable backdrops and cat beds (v16→v17 grants every existing cat a free bed, since capacity became bed count); v17→v18 seeds `windows` with the café's own back window, which had been hard-coded in the layout — miss it and the café wakes up bricked in; v18→v19 grants the floor cushions, which moved into the shop; v19→v20 marks an existing café as having already seen the guide, so a finished café is never shown a tutorial; v20→v21 withdraws the floor cushions the v19 grant handed out — the only migration that *removes* anything, and safe only because it can never take back something that was bought. Cats and names always survive.)
+**Currently at v23.** Migrations are a chain in `state/save.ts`: each entry bumps exactly one version, and `loadSave` walks a save forward from whatever version it's on. Adding a version means appending one migration and one test case to `state/save.test.ts` — which every version must have, because this is the one place a bug costs a player their cats. (v1→v2 added `savedAt`; v2→v3 added `upgrades`; v3→v4 added `venueIndex` plus an optional `contentUntil` per cat; v4→v5 **removed** `venueIndex` with the venue ladder and clamped old billion-pound balances into the new readable range; v5→v6 is the deliberate one-time break described in §0; v6→v7 rehomes an *untouched* sofa/rug choice onto the new free default without touching a bought one; v7→v8 split the floor out of the wall style; v8→v9 added `placements`; v9→v10 granted an existing café the whole shop catalogue; v10→v11 marked existing players as having finished character creation; v11→v12 dropped the retired `decor` upgrade and **refunded** it; v12→v17 added the coffee menu, expansion tiles, purchasable backdrops and cat beds (v16→v17 grants every existing cat a free bed, since capacity became bed count); v17→v18 seeds `windows` with the café's own back window, which had been hard-coded in the layout — miss it and the café wakes up bricked in; v18→v19 grants the floor cushions, which moved into the shop; v19→v20 marks an existing café as having already seen the guide, so a finished café is never shown a tutorial; v22→v23 adds chores and stamps `openedAt` at *migration time* rather than
+zero — a zero would make every chore overdue by decades and greet a returning
+player with three jobs at once; v20→v21 withdraws the floor cushions the v19 grant handed out — the only migration that *removes* anything, and safe only because it can never take back something that was bought. Cats and names always survive.)
 
 ### The small-café economy (rebalanced 2026-07-31)
 

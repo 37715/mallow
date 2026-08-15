@@ -112,6 +112,20 @@ const ICONS: Record<string, string> = {
     <path d="M12 20.4S3.6 15.2 3.6 9.5A4.6 4.6 0 0 1 12 6.9a4.6 4.6 0 0 1 8.4 2.6c0 5.7-8.4 10.9-8.4 10.9z"/>
   `,
 
+  /**
+   * A four-point sparkle, for the chore prompt — "this would be nicer if you
+   * gave it a wipe". Concave sides rather than a straight-edged star: a star
+   * reads as a rating or a reward, and this is neither.
+   *
+   * The small companion is what stops one lonely shape looking like a
+   * compass point, and it is placed off the diagonal so the pair does not
+   * read as a single squashed symbol.
+   */
+  sparkle: `
+    <path d="M11 2.4c.5 4.6 3.6 7.7 8.2 8.2-4.6.5-7.7 3.6-8.2 8.2-.5-4.6-3.6-7.7-8.2-8.2 4.6-.5 7.7-3.6 8.2-8.2z"/>
+    <path d="M18.2 15.2c.24 2.1 1.66 3.5 3.76 3.75-2.1.25-3.52 1.65-3.76 3.75-.24-2.1-1.66-3.5-3.76-3.75 2.1-.25 3.52-1.65 3.76-3.75z"/>
+  `,
+
   sound: `
     <path d="M4 9.4h3.4L12 5.2a1 1 0 0 1 1.7.75v12.1a1 1 0 0 1-1.7.75L7.4 14.6H4a1 1 0 0 1-1-1v-3.2a1 1 0 0 1 1-1z"/>
     <path d="M16.6 9.2a4 4 0 0 1 0 5.6" fill="none" stroke-width="1.8" stroke-linecap="round"/>

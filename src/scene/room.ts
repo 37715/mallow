@@ -107,6 +107,33 @@ export const SEAT_FACINGS: number[] = SEATS.map((s) =>
 );
 
 /**
+ * The same, but **turned with the chair**.
+ *
+ * `SEAT_FACINGS` is a module constant baked from the authored layout, and it
+ * stayed that way when seat *positions* went live in August — so a guest
+ * followed their chair across the room but never turned with it. Ellis,
+ * 2026-08-26: *"when i rotate furniture the people sat in it dont rotate so
+ * they are sat in the chair the wrong way."*
+ *
+ * The player's rotation is a **delta added to the layout's own angle** (see
+ * `placedRotation`), which is exactly what has to be added here too — the
+ * authored facing already accounts for where the chair was pointing when the
+ * layout was drawn, so adding the delta turns the guest by the amount the
+ * chair turned and no more.
+ *
+ * Note this is deliberately *not* re-derived from the door: a chair the player
+ * has deliberately turned to face the window should seat somebody facing the
+ * window. The door rule decides the *authored* facing, not a rule the room
+ * keeps enforcing over the top of the player.
+ */
+export function seatFacings(placements: Placements): number[] {
+  return SEATS.map((s, i) => {
+    const moved = s.id ? placements[s.id] : undefined;
+    return (SEAT_FACINGS[i] ?? 0) + (moved?.rot ?? 0);
+  });
+}
+
+/**
  * What a guest is sitting *on*, which decides which animation they play. The
  * character pack has a clip set per furniture type and they are posed for that
  * furniture's real height, so this has to match the actual seat asset.

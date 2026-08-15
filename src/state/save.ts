@@ -13,6 +13,7 @@ import { levelOf, type UpgradeLevels } from "@/systems/upgrades";
 import { MOVABLE, type Placements } from "@/data/cafe-layout";
 import { SHOP_ITEMS, shopItem } from "@/data/shop";
 import { DEFAULT_PLAYER, sanitizePlayer, type PlayerProfile } from "@/data/player";
+import { sanitizeChores, type ChoreLog } from "@/systems/chores";
 import { HOME_TILE, HOME_WINDOW, ownedTiles, tileKey, type TileKey } from "@/data/expansion";
 import {
   MAX_CUSTOM_DRINKS,
@@ -86,13 +87,13 @@ import {
  */
 
 const SAVE_KEY = "mallow-save";
-const SAVE_VERSION = 22;
+const SAVE_VERSION = 23;
 
 /** Inlined so a migration can't be broken by a rebalance of the live config. */
 const TILL_CAPACITY = 9999;
 
 interface SaveDataCurrent {
-  version: 22;
+  version: 23;
   money: number;
   nextCatId: number;
   cats: CatInstance[];
@@ -113,6 +114,8 @@ interface SaveDataCurrent {
   tiles: TileKey[];
   backdropsOwned: string[];
   windows: string[];
+  chores: ChoreLog;
+  openedAt: number;
   instances: Instance[];
   nextInstanceId: number;
 }
@@ -138,6 +141,8 @@ export interface LoadedSave
     | "tiles"
     | "backdropsOwned"
     | "windows"
+    | "chores"
+    | "openedAt"
     | "instances"
     | "nextInstanceId"
   > {
@@ -438,6 +443,17 @@ const MIGRATIONS: Record<number, (data: RawSave) => RawSave> = {
     const granted = ["armchair", "bar-stools"].filter((id) => !purchased.includes(id));
     return { ...data, version: 22, purchased: [...purchased, ...granted] };
   },
+  /**
+   * Chores (`data/chores.ts`).
+   *
+   * **An existing café opens "now", not at the epoch.** `openedAt` is what a
+   * chore's first due date counts from, and a save written before this field
+   * existed has no honest answer — defaulting it to 0 would make every chore
+   * overdue by decades on the first launch, which is three jobs shouting at
+   * somebody who did not ask for any. Stamping it at migration time gives them
+   * the same gentle opening rhythm a new café gets.
+   */
+  22: (data) => ({ ...data, version: 23, chores: {}, openedAt: Date.now() }),
 };
 
 /** Keep only blends that still make sense: a real base, real add-ins, a name. */
@@ -638,6 +654,13 @@ export function loadSave(): LoadedSave | null {
       windows: Array.isArray(data.windows)
         ? data.windows.filter((v): v is string => typeof v === "string")
         : [HOME_WINDOW],
+      chores: sanitizeChores(data.chores),
+      // A café with no recorded opening time is opening now. Never 0 — see the
+      // v22→v23 migration for why a zero here shouts at the player.
+      openedAt:
+        typeof data.openedAt === "number" && Number.isFinite(data.openedAt) && data.openedAt > 0
+          ? data.openedAt
+          : Date.now(),
       backdropsOwned: Array.isArray(data.backdropsOwned)
         ? data.backdropsOwned.filter((v): v is string => typeof v === "string")
         : [],
@@ -672,6 +695,8 @@ function persist(state: GameState): void {
     tiles: state.tiles,
     backdropsOwned: state.backdropsOwned,
     windows: state.windows,
+    chores: state.chores,
+    openedAt: state.openedAt,
     instances: state.instances,
     nextInstanceId: state.nextInstanceId,
   };

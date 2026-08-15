@@ -46,7 +46,10 @@ export type AnalyticsEvent =
   | { name: "window_bought"; cost: number }
   // The first thing the funnel can ask (§11): did they sit through the intro,
   // or bail out of it? A guide people skip is a guide that needs rewriting.
-  | { name: "tutorial_finished" };
+  | { name: "tutorial_finished" }
+  // Chores are the post-tutorial pacing bet (§8). Which ones actually get done
+  // is the thing to look at: one nobody touches is one that isn't fun.
+  | { name: "chore_done"; chore: string };
 
 /** The one numeric per event TelemetryDeck can average/sum (floatValue). */
 function primaryValue(event: AnalyticsEvent): number | undefined {

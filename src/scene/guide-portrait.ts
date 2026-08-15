@@ -56,18 +56,21 @@ export interface GuidePortrait extends GuideMirror {
  * Eye level is therefore ~1.15, and the look-at sits a shade under it: looking
  * fractionally up at someone reads as friendly, looking down at them does not.
  */
-const LOOK_AT = new THREE.Vector3(0, 1.06, 0);
+const LOOK_AT = new THREE.Vector3(0, 1.04, 0);
 /**
  * **The framing is bound by her width, not her height.** A chibi head is 0.65
  * units across against a 0.53-unit face, so on a portrait-shaped slot the
  * horizontal extent runs out first — fitting the height would crop her ears.
- * At this distance a 30° vertical fov covers 0.82 units tall and 0.75 across,
- * which is her head, her shoulders and a little chest.
+ * At this distance a 30° vertical fov covers 0.98 units tall and 0.90 across,
+ * which is her head, her shoulders and a little chest — with about 0.17 of
+ * headroom above her hair. **The headroom is the point of the last change**:
+ * framed tighter, the top of her head sat exactly on the edge of the notch and
+ * read as cropped rather than close.
  *
  * The x offset is what makes it a three-quarter view: the pack's characters
  * face +Z, so a camera straight out in front of one is a passport photo.
  */
-const CAMERA_AT = new THREE.Vector3(0.53, 1.14, 1.58);
+const CAMERA_AT = new THREE.Vector3(0.58, 1.15, 1.74);
 
 export function createGuidePortrait(environment: THREE.Texture | null): GuidePortrait {
   const scene = new THREE.Scene();

@@ -51,6 +51,14 @@ const height = flag("h", 852);
 const waitMs = flag("wait", 7000);
 const script = text("js");
 const settleMs = flag("settle", 900);
+/**
+ * Device pixel ratio. **Default 2, but Ellis's phone is 3** — and the whole
+ * resolution budget in `data/graphics.ts` is solved from this number, so a
+ * quality setting that visibly does nothing at DPR 2 can be working perfectly
+ * at DPR 3 (and vice versa). Pass `--dpr 3` before concluding anything about
+ * sharpness.
+ */
+const dpr = flag("dpr", 2);
 
 const CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 const PORT = 9222 + Math.floor(Math.random() * 500);
@@ -130,7 +138,7 @@ await send("Page.enable", {}, sessionId);
 await send("Emulation.setDeviceMetricsOverride", {
   width,
   height,
-  deviceScaleFactor: 2,
+  deviceScaleFactor: dpr,
   mobile: true,
 }, sessionId);
 
@@ -167,7 +175,7 @@ const probe = await send(
   sessionId,
 );
 
-console.log(`saved ${out}  (${width}x${height} @2x, waited ${waitMs}ms)`);
+console.log(`saved ${out}  (${width}x${height} @${dpr}x, waited ${waitMs}ms)`);
 console.log("page:", probe.result?.value ?? "(no result)");
 if (consoleLogs.length) console.log("console:\n  " + consoleLogs.slice(-15).join("\n  "));
 if (consoleErrors.length) {

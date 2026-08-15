@@ -2747,7 +2747,13 @@ body {
   width: calc(var(--peek-w) + env(safe-area-inset-left, 0px));
   height: calc(var(--peek-h) + env(safe-area-inset-top, 0px));
   display: none;
-  border-radius: 0 0 var(--r-card) 0;
+  /* Only the inner corner is rounded — the other three are against the screen
+     edge, where a radius would just show a bite of café. **The dim's notch
+     below is cut to the same radius**, and it has to be: when the element was
+     rounded and the notch was a plain rectangle, the corner read as curved on
+     one layer and square on the other, which is exactly the "sometimes 90
+     degree sometimes curved" Ellis saw. */
+  border-radius: 0 0 var(--peek-r) 0;
   /* Not a border — a border would be drawn over the portrait's own edge
      pixels. An inset shadow sits inside the hole and reads as the rim of it. */
   box-shadow: inset -1px -1px 0 0 rgba(255, 236, 209, 0.16);
@@ -2764,10 +2770,13 @@ body {
    it read as a person arriving rather than a panel appearing. */
 @keyframes peek-in {
   from {
-    transform: translateX(calc(-100% - 12px)) rotate(-7deg);
+    /* Slide only. A rotation was tried and swings her corners outside the
+       notch mid-animation, where the dim catches them — the entrance flickers
+       darker at its own edges. */
+    transform: translateX(calc(-100% - 12px));
   }
   to {
-    transform: translateX(0) rotate(0deg);
+    transform: translateX(0);
   }
 }
 
@@ -2783,6 +2792,11 @@ body {
    her. Clipping the layer itself — rather than moving the dim to a pseudo
    element — is safe only because the padding below keeps the panel card out of
    the notch, and the panel is a child that would be clipped with it. */
+   The five points along the bottom-right are a quarter circle of radius
+   `--peek-r`, sampled every 22.5°, so the hole's inner corner matches the
+   portrait's `border-radius` instead of contradicting it. A polygon cannot
+   express an arc, and this is close enough that the two layers read as one
+   shape — which they must, because the player sees them overlapping. */
 .guide-peek .overlay-layer {
   clip-path: polygon(
     var(--peek-notch-w) 0,
@@ -2790,7 +2804,11 @@ body {
     100% 100%,
     0 100%,
     0 var(--peek-notch-h),
-    var(--peek-notch-w) var(--peek-notch-h)
+    calc(var(--peek-notch-w) - var(--peek-r)) var(--peek-notch-h),
+    calc(var(--peek-notch-w) - var(--peek-r) * 0.617) calc(var(--peek-notch-h) - var(--peek-r) * 0.076),
+    calc(var(--peek-notch-w) - var(--peek-r) * 0.293) calc(var(--peek-notch-h) - var(--peek-r) * 0.293),
+    calc(var(--peek-notch-w) - var(--peek-r) * 0.076) calc(var(--peek-notch-h) - var(--peek-r) * 0.617),
+    var(--peek-notch-w) calc(var(--peek-notch-h) - var(--peek-r))
   );
   padding-top: var(--peek-notch-h);
 }
@@ -2801,6 +2819,13 @@ body {
 .guide-peek {
   --peek-notch-w: calc(env(safe-area-inset-left, 0px) + 92px);
   --peek-notch-h: calc(env(safe-area-inset-top, 0px) + 100px);
+}
+
+/* Shared by the portrait's own corner and the notch cut for it. One number, or
+   the two shapes disagree — see `.speech-portrait`. */
+.speech-layer,
+.guide-peek {
+  --peek-r: 18px;
 }
 
 /* Panels are centred, so a tall one reaches the top of the screen and would be
@@ -3847,4 +3872,147 @@ body {
   border-radius: var(--r-pill);
   background: transparent;
   color: var(--chalk-dim);
+}
+
+/* ==========================================================================
+   Chores — the little jobs (§8, data/chores.ts)
+   ========================================================================== */
+
+/* The prompt. It sits above the adopt button because it is the thing to do
+   when you cannot afford a cat, which is most of the first hour. Deliberately
+   quiet — a chore is an invitation, and a café with nothing due should look
+   finished rather than nagging, so this element simply is not there. */
+.chore-prompt {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 14px;
+  margin-bottom: 8px;
+  border: none;
+  border-radius: var(--r-card);
+  background: var(--slate);
+  color: var(--chalk);
+  text-align: left;
+  box-shadow: var(--lift);
+  animation: chore-arrive 320ms cubic-bezier(0.34, 1.3, 0.64, 1);
+}
+
+@keyframes chore-arrive {
+  from {
+    transform: translateY(8px);
+    opacity: 0;
+  }
+}
+
+.chore-prompt-text {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.chore-prompt-name {
+  font-size: var(--t-sm);
+}
+
+.chore-prompt-action {
+  font-size: var(--t-xs);
+  font-weight: 700;
+  color: var(--honey);
+}
+
+.chore-prompt-icon {
+  flex: 0 0 auto;
+  display: flex;
+  width: 28px;
+  height: 28px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: rgba(255, 236, 209, 0.1);
+  color: var(--honey);
+}
+
+/* --- The wipe minigame ---------------------------------------------------
+   The canvas covers the screen and the café shows through wherever it has
+   been cleared, so there is no backdrop here on purpose: the thing being
+   revealed *is* the game. */
+.wipe-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  touch-action: none;
+}
+
+.wipe-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.wipe-card {
+  position: absolute;
+  left: 50%;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 26px);
+  transform: translateX(-50%);
+  width: min(320px, calc(100vw - 32px));
+  padding: 13px 16px 14px;
+  border-radius: var(--r-card);
+  background: var(--slate);
+  box-shadow: var(--lift);
+  text-align: center;
+  /* The card must not eat the strokes: the whole screen is the play area, and
+     a dead zone at the bottom is exactly where a thumb wipes. Only the button
+     inside it takes pointer events. */
+  pointer-events: none;
+}
+
+.wipe-title {
+  font-variation-settings: "CASL" 1;
+  font-weight: 800;
+  font-size: var(--t-md);
+  color: var(--chalk);
+}
+
+.wipe-hint {
+  margin-top: 2px;
+  font-size: var(--t-xs);
+  color: var(--chalk-dim);
+}
+
+.wipe-bar {
+  margin: 10px 0 4px;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(255, 236, 209, 0.14);
+  overflow: hidden;
+}
+
+.wipe-bar-fill {
+  height: 100%;
+  width: 0;
+  border-radius: 999px;
+  background: var(--honey);
+  transition: width 120ms linear;
+}
+
+.wipe-quit {
+  margin-top: 8px;
+  padding: 4px 10px;
+  border: none;
+  border-radius: 999px;
+  background: none;
+  color: var(--chalk-dim);
+  font-size: var(--t-xs);
+  pointer-events: auto;
+}
+
+/* The HUD stands back while a chore is being done — see `ui/chore-wipe.ts`.
+   The wipe layer's own card is outside this, so "later" is always reachable. */
+.wiping .hud-top,
+.wiping .hud-bottom,
+.wiping .speech-layer {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 180ms ease;
 }

@@ -110,9 +110,17 @@ export class VisitorManager {
    */
   private seats: THREE.Vector3[] = SEAT_STAND_POSITIONS;
 
-  /** Re-aim guests after furniture moved. */
-  setSeats(seats: THREE.Vector3[]): void {
+  /**
+   * Which way each seat's occupant faces. Live for the same reason the
+   * positions are: a chair the player turns has to take its guest round with
+   * it, or they end up sitting sideways in it (`seatFacings`).
+   */
+  private facings: number[] = SEAT_FACINGS;
+
+  /** Re-aim guests after furniture moved *or turned*. */
+  setSeats(seats: THREE.Vector3[], facings: number[]): void {
     this.seats = seats;
+    this.facings = facings;
   }
 
   constructor(scene: THREE.Scene) {
@@ -167,6 +175,14 @@ export class VisitorManager {
       faceTravel(mesh, before);
     } else if (now < visitor.leavingAt) {
       mesh.position.copy(seatPos);
+      // **Aimed every frame, not once on sitting down.** The position is
+      // already re-read every frame, so a chair dragged across the room takes
+      // its guest with it — but the facing used to be set only on the
+      // transition into the chair, which meant turning a chair under somebody
+      // left them sitting sideways in it until they got up and a new guest
+      // arrived. It is one assignment; there is no reason for it to be
+      // conditional, and making it conditional is what let the two drift.
+      mesh.rotation.set(0, this.facings[visitor.seatIndex] ?? 0, 0);
       if (!this.seated.has(visitor.id)) {
         this.seated.add(visitor.id);
         character.sit(SEAT_KINDS[visitor.seatIndex] ?? "floor");
@@ -175,10 +191,6 @@ export class VisitorManager {
         // for their whole visit rather than re-rolling on every sync.
         const seed = Math.abs(Math.round(visitor.seatedAt + visitor.seatIndex));
         character.express(SEATED_MOODS[seed % SEATED_MOODS.length]);
-        // Faces the door, so the camera sees a face rather than the back of a
-        // head — see SEAT_FACINGS. The character model's forward is +Z, which
-        // is what `rotation.y` measures from.
-        mesh.rotation.set(0, SEAT_FACINGS[visitor.seatIndex] ?? 0, 0);
       }
     } else {
       if (this.seated.delete(visitor.id)) {

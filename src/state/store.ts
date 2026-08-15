@@ -32,6 +32,8 @@ import {
   type TileKey,
 } from "@/data/expansion";
 import { DEFAULT_PLAYER, type PlayerProfile } from "@/data/player";
+import { CHORES_BY_ID } from "@/data/chores";
+import { choreAppeal, completeChore, isDue, type ChoreLog } from "@/systems/chores";
 import type { GraphicsLevel } from "@/data/graphics";
 import { backdrop, backdropAppeal, sanitizeBackdrop } from "@/data/backdrops";
 
@@ -146,6 +148,14 @@ export interface GameState {
    * while the ghost was still in your hand.
    */
   placementsMade: number;
+  /** When each chore was last done (`systems/chores.ts`). */
+  chores: ChoreLog;
+  /**
+   * When this café opened, which is what a chore's *first* due date counts
+   * from. Stored rather than derived: it has to survive a reload or the
+   * window would come due again on every launch.
+   */
+  openedAt: number;
   /** Furniture the player created rather than the layout authored. */
   instances: Instance[];
   /** Counter so instance ids never collide. */
@@ -181,6 +191,8 @@ export interface GameState {
   /** Drop a movable piece at a new spot and angle. Validity is checked by the
    *  caller, which is the only place that knows the meshes' real footprints. */
   movePiece: (id: string, x: number, z: number, rot?: number) => void;
+  /** Mark a chore done — pays, grants xp, restores its appeal. */
+  finishChore: (id: string) => void;
   /** Buy a piece of furniture. False if locked, already owned, or unaffordable. */
   buyShopItem: (id: string) => boolean;
   /** Finish character creation. */
@@ -269,6 +281,8 @@ export type StatsInput = Pick<
   | "backdropsOwned"
   | "windows"
   | "instances"
+  | "chores"
+  | "openedAt"
 >;
 
 /**
@@ -317,7 +331,9 @@ export function currentCafeStats(state: StatsInput, now = Date.now()): CafeStats
   return cafeStats(
     catAppeal(state.cats, now),
     state.upgrades,
-    spentAppeal(state),
+    // A well-kept café is a lovelier one. Fresh chores only, and never
+    // negative — `systems/chores.ts` explains why the floor matters.
+    spentAppeal(state) + choreAppeal(state.chores, state.openedAt, now),
     menuPayMultiplier(currentMenu(state)),
     availableSeats(state.purchased),
   );
@@ -331,7 +347,11 @@ export function idleCafeStats(state: StatsInput): CafeStats {
   return cafeStats(
     catAppeal(state.cats, Number.POSITIVE_INFINITY),
     state.upgrades,
-    spentAppeal(state),
+    // Chores keep paying while the café is shut, the same way contentment
+    // does: they were done before you left, and nothing expires *because* you
+    // left. `Date.now()` rather than the caller's clock, since offline income
+    // is measured from wall time.
+    spentAppeal(state) + choreAppeal(state.chores, state.openedAt, Date.now()),
     menuPayMultiplier(currentMenu(state)),
     availableSeats(state.purchased),
   );
@@ -357,6 +377,8 @@ type PersistedState = Pick<
   | "tiles"
   | "backdropsOwned"
   | "windows"
+  | "chores"
+  | "openedAt"
   | "instances"
   | "nextInstanceId"
 >;
@@ -396,6 +418,8 @@ function freshState(): PersistedState {
     tiles: [HOME_TILE],
     backdropsOwned: [],
     windows: [HOME_WINDOW],
+    chores: {},
+    openedAt: Date.now(),
     instances: [],
     nextInstanceId: 1,
   };
@@ -466,6 +490,8 @@ export const gameStore = createStore<GameState>((set, get) => ({
         tiles: saved.tiles,
         backdropsOwned: saved.backdropsOwned,
         windows: saved.windows,
+        chores: saved.chores,
+        openedAt: saved.openedAt,
         instances: saved.instances,
         nextInstanceId: saved.nextInstanceId,
       }
@@ -608,6 +634,27 @@ export const gameStore = createStore<GameState>((set, get) => ({
     }
   },
 
+
+  /**
+   * Mark a chore done: it pays a few coins, grants xp, and its appeal starts
+   * counting again until it comes round (`systems/chores.ts`).
+   */
+  finishChore: (id) => {
+    const state = get();
+    const chore = CHORES_BY_ID.get(id);
+    if (!chore) return;
+    const now = Date.now();
+    // Guard against being called twice for one wipe — the minigame completes
+    // on a pointer move crossing a threshold, and a fast drag can cross it on
+    // two consecutive frames before the overlay closes.
+    if (!isDue(chore, state.chores, state.openedAt, now)) return;
+    set({
+      chores: completeChore(state.chores, id, now),
+      money: Math.min(ECONOMY_CONFIG.tillCapacity, state.money + chore.pay),
+      xp: state.xp + chore.xp,
+    });
+    logEvent({ name: "chore_done", chore: id });
+  },
 
   movePiece: (id, x, z, rot = 0) => {
     const state = get();

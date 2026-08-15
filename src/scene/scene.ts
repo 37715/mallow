@@ -4,7 +4,7 @@ import { createPostChain } from "@/scene/post";
 import { DEFAULT_BACKDROP, backdrop } from "@/data/backdrops";
 import type { Instance } from "@/state/store";
 import { HOME_WINDOW, PATCH, floorBounds, type TileKey } from "@/data/expansion";
-import { DEFAULT_PIXEL_BUDGET, pixelBudget, type GraphicsLevel } from "@/data/graphics";
+import { DEFAULT_LEVEL, pixelRatioFor, type GraphicsLevel } from "@/data/graphics";
 import { buildCafeRoom } from "@/scene/cafe-room";
 import { configureAssetQuality } from "@/scene/asset-library";
 import type { Customisation } from "@/data/customisation";
@@ -956,13 +956,21 @@ export async function createScene(
    * So the knob is a **pixel budget**, and the ratio is solved from it. A
    * budget bounds memory on every screen size; a ratio cap only bounds it on
    * the screen you happened to test.
+   *
+   * The solving now lives in `data/graphics.ts`, because a budget on its own
+   * turned out to leave the setting inert on any screen whose native
+   * resolution already fits inside it — read the note there before touching
+   * either number.
    */
-  const pixelRatioFor = (budget: number): number => {
-    const cssPixels = Math.max(1, window.innerWidth * window.innerHeight);
-    return Math.min(window.devicePixelRatio, Math.sqrt(budget / cssPixels));
-  };
-  let qualityBudget = DEFAULT_PIXEL_BUDGET;
+  let qualityLevel: GraphicsLevel = DEFAULT_LEVEL;
   let sharp = false;
+  const currentRatio = (): number => {
+    const cssPixels = window.innerWidth * window.innerHeight;
+    const ratio = pixelRatioFor(qualityLevel, window.devicePixelRatio, cssPixels);
+    // A preview panel gets a little extra, because it is a small region the
+    // player is looking at closely — still bounded by the device's own ratio.
+    return sharp ? Math.min(window.devicePixelRatio, ratio * 1.3) : ratio;
+  };
 
   function resize() {
     const width = window.innerWidth;
@@ -970,9 +978,7 @@ export async function createScene(
     const aspect = width / height;
     fitCameraToCafe(camera, aspect);
     controls?.onResize(aspect);
-    // A preview panel gets a little extra, because it is a small region the
-    // player is looking at closely — but it is still inside the budget.
-    renderer.setPixelRatio(pixelRatioFor(sharp ? qualityBudget * 1.3 : qualityBudget));
+    renderer.setPixelRatio(currentRatio());
     renderer.setSize(width, height);
     post.setSize(width, height, renderer.getPixelRatio());
   }
@@ -1014,9 +1020,8 @@ export async function createScene(
       paintBackdrop(id);
     },
     setQuality(level) {
-      const next = pixelBudget(level);
-      if (next === qualityBudget) return;
-      qualityBudget = next;
+      if (level === qualityLevel) return;
+      qualityLevel = level;
       resize();
     },
     environment: scene.environment,

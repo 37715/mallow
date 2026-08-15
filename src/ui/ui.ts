@@ -32,6 +32,8 @@ import {
   ownedTiles,
 } from "@/data/expansion";
 import { GRAPHICS_LEVELS, type GraphicsLevel } from "@/data/graphics";
+import type { Chore } from "@/data/chores";
+import { dueChores } from "@/systems/chores";
 import { BACKDROPS } from "@/data/backdrops";
 import type { CustomDrink } from "@/data/drinks";
 import {
@@ -141,6 +143,8 @@ export interface MountedUI {
   attachBackdrop: (apply: (id: string) => void) => void;
   /** Hand the HUD a way to start the walkthrough again from settings. */
   attachTutorial: (replay: () => void) => void;
+  /** Hand the HUD the thing that runs a chore's minigame (`ui/chore-wipe.ts`). */
+  attachChores: (start: (chore: Chore) => void) => void;
   /** Leave expansion mode — the "done" button calls back into this. */
   closeExpander: () => void;
   /** The colour picker, so character creation can offer the same control. */
@@ -378,6 +382,26 @@ export function mountUI(root: HTMLElement): MountedUI {
   secondaryRow.appendChild(cafeButton);
   secondaryRow.appendChild(shopButton);
 
+  /**
+   * "Something needs doing" — the chore prompt (`data/chores.ts`).
+   *
+   * **Above the adopt button, because it is what there is to do when you
+   * cannot afford a cat**, which is most of the first hour and was exactly
+   * Ellis's complaint about the hole after the walkthrough. It is absent, not
+   * disabled, when nothing is due: a café with nothing to do should read as
+   * finished rather than as a list of unticked boxes.
+   */
+  const chorePrompt = el("button", "chore-prompt") as HTMLButtonElement;
+  const choreIcon = el("span", "chore-prompt-icon");
+  choreIcon.appendChild(icon("sparkle"));
+  const choreText = el("span", "chore-prompt-text");
+  const choreName = el("span", "chore-prompt-name");
+  const choreAction = el("span", "chore-prompt-action");
+  choreText.append(choreName, document.createElement("br"), choreAction);
+  chorePrompt.append(choreIcon, choreText);
+  chorePrompt.style.display = "none";
+
+  bottom.appendChild(chorePrompt);
   bottom.appendChild(adoptButton);
   bottom.appendChild(secondaryRow);
 
@@ -1376,6 +1400,7 @@ export function mountUI(root: HTMLElement): MountedUI {
   let setExpanding: ((on: boolean) => void) | null = null;
   let applyGraphics: ((level: GraphicsLevel) => void) | null = null;
   let applyBackdrop: ((id: string) => void) | null = null;
+  let startChore: ((chore: Chore) => void) | null = null;
   let replayTutorial: (() => void) | null = null;
   /** The walkthrough task the arrow is currently guiding, or null. */
   let pointedTask: string | null = null;
@@ -2474,7 +2499,41 @@ export function mountUI(root: HTMLElement): MountedUI {
   // --- HUD render loop -----------------------------------------------------
   let lastMoney = gameStore.getState().money;
 
+  /**
+   * Show the longest-overdue job, or nothing at all.
+   *
+   * Called from `render` (so it follows every state change) *and* on a slow
+   * timer, because a chore comes due by the clock rather than by anything the
+   * player did — without the timer the prompt would only appear the next time
+   * something else happened to change.
+   */
+  function syncChores(): void {
+    const state = gameStore.getState();
+    const due = dueChores(state.chores, state.openedAt, Date.now())[0];
+    if (!due) {
+      chorePrompt.style.display = "none";
+      currentChore = null;
+      return;
+    }
+    if (currentChore?.id === due.id && chorePrompt.style.display !== "none") return;
+    currentChore = due;
+    choreName.textContent = due.name;
+    choreAction.textContent = due.action;
+    chorePrompt.style.display = "";
+  }
+  let currentChore: Chore | null = null;
+  chorePrompt.addEventListener("click", () => {
+    if (!currentChore) return;
+    playTap();
+    closePanel();
+    startChore?.(currentChore);
+  });
+  // A minute is fine: chores come due hours apart, and this only decides how
+  // promptly the prompt notices.
+  window.setInterval(syncChores, 60_000);
+
   function render() {
+    syncChores();
     const state = gameStore.getState();
     const { money, cats, upgrades } = state;
     moneyValue.textContent = formatMoney(money);
@@ -2563,6 +2622,10 @@ export function mountUI(root: HTMLElement): MountedUI {
     },
     attachTutorial(replay) {
       replayTutorial = replay;
+    },
+    attachChores(start) {
+      startChore = start;
+      syncChores();
     },
     backdropPicker: backdropSwatches,
     closeExpander() {

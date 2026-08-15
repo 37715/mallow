@@ -18,9 +18,11 @@ import { CatManager } from "@/entities/cat-manager";
 import { Barista } from "@/entities/barista";
 import { VisitorManager } from "@/entities/visitor-manager";
 import { DustMotes } from "@/scene/dust";
-import { seatPositions, seatStandPositions } from "@/scene/room";
+import { seatFacings, seatPositions, seatStandPositions } from "@/scene/room";
 import { catHomes } from "@/scene/cat-homes";
 import { visitorPayAmount } from "@/data/economy";
+import { SILL } from "@/data/cafe-layout";
+import { createChoreWipe } from "@/ui/chore-wipe";
 import { mountUI } from "@/ui/ui";
 import { CatLabelLayer, NameTag } from "@/ui/cat-labels";
 import { beds } from "@/data/beds";
@@ -30,7 +32,7 @@ import { SPEECH_MS_PER_CHAR, TutorialGuide } from "@/entities/tutorial-guide";
 import { FloaterLayer } from "@/ui/floaters";
 import { initAnalytics } from "@/analytics/analytics";
 import { onGameEvent } from "@/core/events";
-import { initAudio, playCoin, playPurr, playTap, setMusicMuted } from "@/audio/audio";
+import { initAudio, playCoin, playPurchase, playPurr, playTap, setMusicMuted } from "@/audio/audio";
 
 async function bootstrap(): Promise<void> {
   const canvas = document.getElementById("scene") as HTMLCanvasElement;
@@ -99,7 +101,9 @@ async function bootstrap(): Promise<void> {
       // Cat spots depend on *both*: where furniture is, and whether it has
       // been bought at all.
       catManager.setSpots(catHomes(gameStore.getState()));
-      if (movedFurniture) visitorManager.setSeats(seatStandPositions(placements));
+      if (movedFurniture) {
+        visitorManager.setSeats(seatStandPositions(placements), seatFacings(placements));
+      }
     });
   });
   const catManager = new CatManager(scene);
@@ -531,6 +535,40 @@ async function bootstrap(): Promise<void> {
     guide.setMirror(guidePortrait);
   }
   if (!onboarding) startTutorial();
+
+  /**
+   * The chores (§8, `data/chores.ts`) — the answer to "the walkthrough ended
+   * and there is nothing to do".
+   *
+   * The camera goes to the café's window first and the muck goes over the
+   * whole screen, so what the player wipes clear is their own room. Focusing
+   * is what makes "clean the window" read as cleaning *the* window rather than
+   * cleaning the screen.
+   */
+  const choreWipe = createChoreWipe(uiRoot, (chore) => {
+    gameStore.getState().finishChore(chore.id);
+    // Appeal announces itself: `render` already pops the chip when the number
+    // rises, and finishing a chore raises it. Nothing to trigger here.
+    controls.reset();
+    const seat = seatPositions(gameStore.getState().placements)[0];
+    if (seat) {
+      floaters.spawn(
+        new THREE.Vector3(seat.x, seat.y + 0.9, seat.z),
+        camera,
+        "coin",
+        `+$${chore.pay}`,
+      );
+    }
+    playPurchase();
+  });
+  ui.attachChores((chore) => {
+    playTap();
+    // The window is in the back wall (`SILL` is its ledge), so this looks at
+    // the glass rather than the middle of the room. A shallow screen bias, so
+    // the pane sits above the card at the bottom rather than behind it.
+    controls.focusOn(new THREE.Vector3(0, SILL.yMax + 0.8, SILL.innerZ), 0.1, 0.55);
+    choreWipe.start(chore);
+  });
 
   setOverlay((renderer, now) => {
     if (onboarding) {
