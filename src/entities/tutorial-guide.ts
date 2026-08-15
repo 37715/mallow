@@ -9,6 +9,7 @@ import {
 import { MOUTH_REST, frameAt, visemeTrack, type VisemeStep } from "@/systems/lipsync";
 import { taskDone, topUp, type TutorialSnapshot } from "@/systems/tutorial";
 import { DOOR_POSITION, DOOR_THRESHOLD_POSITION } from "@/scene/room";
+import type { GuideMirror } from "@/scene/guide-portrait";
 
 /**
  * The guide who walks in on your first morning and talks you through the café.
@@ -75,6 +76,16 @@ export class TutorialGuide {
   private taskBaseline: TutorialSnapshot | null = null;
   private readonly script: TutorialLine[];
   private readonly names: { name: string; cafe: string };
+  /**
+   * A head-and-shoulders copy of her, shown beside the docked bubble while a
+   * panel hides the real one (`scene/guide-portrait.ts`).
+   *
+   * Every call this class makes on `character` it makes on the mirror too, in
+   * the same place and the same order. That is deliberately dull: the mirror
+   * holds no state of its own to fall out of step, and adding a line to the
+   * script can never leave the portrait doing something the guide is not.
+   */
+  private mirror: GuideMirror | null = null;
 
   constructor(
     scene: THREE.Scene,
@@ -94,6 +105,19 @@ export class TutorialGuide {
       this.character.express("happy");
       this.group.add(this.character.group);
     });
+  }
+
+  /**
+   * Attach (or drop) the portrait that stands in for her while a panel is open.
+   *
+   * It is given the resting state on the way in rather than waiting for the
+   * next line, because the mirror is attached *after* the guide is built and
+   * the first line's expression would otherwise have already been and gone.
+   */
+  setMirror(mirror: GuideMirror | null): void {
+    this.mirror = mirror;
+    mirror?.idle();
+    mirror?.express("happy");
   }
 
   /** Where the speech bubble should hang. */
@@ -167,7 +191,11 @@ export class TutorialGuide {
       }
       case "talking": {
         // The mouth reads the bubble's own clock, so text and lips cannot drift.
-        character.say(frameAt(this.track, bubbleElapsed));
+        // The portrait is handed the *same frame*, not its own lookup, so the
+        // two mouths cannot disagree either.
+        const viseme = frameAt(this.track, bubbleElapsed);
+        character.say(viseme);
+        this.mirror?.say(viseme);
         const line = this.script[this.index];
         if (!line) break;
         const spoken = fillLine(line.text, this.names).length * SPEECH_MS_PER_CHAR;
@@ -232,10 +260,16 @@ export class TutorialGuide {
     this.lineStartedAt = now;
     this.track = visemeTrack(text, { msPerChar: SPEECH_MS_PER_CHAR });
     this.hooks.say(text, now);
-    if (line.expression) this.character?.express(line.expression);
+    if (line.expression) {
+      this.character?.express(line.expression);
+      this.mirror?.express(line.expression);
+    }
     // A gesture is best-effort: a clip renamed upstream should cost a still
     // moment, not a frozen guide. `gesture` reports that itself.
-    if (line.gesture) this.character?.gesture(line.gesture);
+    if (line.gesture) {
+      this.character?.gesture(line.gesture);
+      this.mirror?.gesture(line.gesture);
+    }
 
     if (line.task) {
       // **Grant before baselining.** The top-up moves `money`, and the
@@ -265,6 +299,11 @@ export class TutorialGuide {
     this.character?.say(MOUTH_REST);
     this.character?.express("happy");
     this.character?.walk();
+    // The portrait stays on its feet rather than walking: a walk cycle cropped
+    // to head and shoulders is a head bobbing in a box.
+    this.mirror?.say(MOUTH_REST);
+    this.mirror?.express("happy");
+    this.mirror?.idle();
     this.group.rotation.set(0, 0, 0);
   }
 

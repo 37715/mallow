@@ -25,6 +25,7 @@ export interface SpeechBubbleOptions {
 export class SpeechBubble {
   private readonly layer: HTMLElement;
   private readonly bubble: HTMLElement;
+  private readonly portrait: HTMLElement;
   private readonly textNode: HTMLElement;
   private readonly hint: HTMLElement;
   private readonly ndc = new THREE.Vector3();
@@ -47,6 +48,13 @@ export class SpeechBubble {
     // exactly how the coin floaters were silently dead for weeks.
     this.layer.dataset.overlay = "";
 
+    // A hole for the 3D portrait, not a picture of one: it carries no
+    // background, because the café canvas sits *behind* the whole UI and
+    // anything opaque here would paint over the thing it is meant to frame.
+    // Same arrangement as the shop's stage — see `scene/preview-stage.ts`.
+    this.portrait = document.createElement("div");
+    this.portrait.className = "speech-portrait";
+
     this.bubble = document.createElement("div");
     this.bubble.className = "speech-bubble";
     this.textNode = document.createElement("p");
@@ -55,7 +63,7 @@ export class SpeechBubble {
     this.hint.className = "speech-hint";
     this.hint.textContent = "tap to continue";
     this.bubble.append(this.textNode, this.hint);
-    this.layer.appendChild(this.bubble);
+    this.layer.append(this.portrait, this.bubble);
     root.appendChild(this.layer);
     this.hide();
   }
@@ -85,6 +93,10 @@ export class SpeechBubble {
   hide(): void {
     this.visible = false;
     this.layer.style.display = "none";
+    // Undock on the way out, or the notch stays cut in the panel's dim with
+    // nobody standing in it — a hole in the interface that no later action
+    // clears, because nothing else ever sets this.
+    this.setDocked(false);
   }
 
   /** True once every character is on screen. */
@@ -119,8 +131,35 @@ export class SpeechBubble {
    * to it covers it.
    */
   setDocked(docked: boolean): void {
+    if (docked === this.docked) return;
     this.bubble.classList.toggle("docked", docked);
+    // **The layer, not the bubble.** `.speech-layer` is positioned with a
+    // z-index of its own, which makes it a stacking context — so the docked
+    // bubble's `z-index: 40` was being resolved *inside* a layer sitting at 3,
+    // below the panel layer at 5. The docking has therefore never actually put
+    // her over anything: every line she said with the shop open was rendered
+    // behind the panel and blurred by its backdrop filter. Raising the layer
+    // is the only thing that can lift her out.
+    this.layer.classList.toggle("speech-layer-docked", docked);
+    // Nothing else in the app knows a walkthrough is running, and the panel
+    // layer needs to stop covering the café where the portrait is drawn. A
+    // class on the root is how it finds out.
+    this.layer.parentElement?.classList.toggle("guide-peek", docked);
     this.docked = docked;
+  }
+
+  /**
+   * Where the 3D portrait should be drawn, or null when she is on screen for
+   * real and does not need standing in for.
+   *
+   * Measured rather than computed: the slot slides in on a CSS animation, so
+   * its rect is different on every frame of the entrance and the only honest
+   * answer is the one the layout engine gives.
+   */
+  portraitRect(): DOMRect | null {
+    if (!this.visible || !this.docked) return null;
+    const rect = this.portrait.getBoundingClientRect();
+    return rect.width < 4 || rect.height < 4 ? null : rect;
   }
 
   update(anchor: THREE.Vector3, camera: THREE.Camera, now: number): void {
@@ -170,6 +209,7 @@ export class SpeechBubble {
   }
 
   dispose(): void {
+    this.setDocked(false);
     this.layer.remove();
   }
 }

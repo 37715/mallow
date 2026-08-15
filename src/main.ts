@@ -9,6 +9,7 @@ import { createExpansionPreview } from "@/scene/expansion-preview";
 import { createBuilder } from "@/ui/builder";
 import { occupiedWalls, wallSegments } from "@/scene/cafe-tiles";
 import { createCharacterPreview } from "@/scene/character-preview";
+import { createGuidePortrait } from "@/scene/guide-portrait";
 import { mountOnboarding, type Onboarding } from "@/ui/onboarding";
 import { INTERACTIVE_FPS, TARGET_FPS, startLoop, type GameLoop } from "@/core/loop";
 import { gameStore, bootAwayMs, currentCafeStats, setSandbox } from "@/state/store";
@@ -484,6 +485,13 @@ async function bootstrap(): Promise<void> {
   }
   ui.attachTutorial(replayTutorial);
 
+  /**
+   * Built once and reused, not per playthrough: it holds an assembled
+   * character, and "show me round again" from settings would otherwise clone a
+   * skinned rig every time it was pressed.
+   */
+  const guidePortrait = createGuidePortrait(environment);
+
   function startTutorial(): void {
     const player = gameStore.getState().player;
     if (player.tutorialDone || guide) return;
@@ -520,6 +528,7 @@ async function bootstrap(): Promise<void> {
         waiting: (hint) => speech.setWaitHint(hint),
       },
     );
+    guide.setMirror(guidePortrait);
   }
   if (!onboarding) startTutorial();
 
@@ -538,6 +547,12 @@ async function bootstrap(): Promise<void> {
     // preview can only ever be as sharp as the canvas it lands in (§9).
     setPreviewSharpness(rect !== null);
     if (rect) shopPreview.render(renderer, rect, now);
+    // After the shop's own stage, and not instead of it: both are on screen
+    // together for most of the walkthrough — she is the one asking them to open
+    // the shop. The two rects never overlap, so the order only decides which
+    // wins if that ever stops being true.
+    const peek = speech.portraitRect();
+    if (peek) guidePortrait.render(renderer, peek, now);
   });
 
   // §17 wants debug affordances for anything spatial, and this scene is only
@@ -569,6 +584,10 @@ async function bootstrap(): Promise<void> {
       // driven from a script without opening a panel first.
       replayTutorial,
       guide: () => guide,
+      // The portrait is only on screen while a panel is open, which makes it
+      // exactly the sort of thing §17 wants a handle on: wrapping `say` here is
+      // how the lip sync reaching it was verified.
+      guidePortrait,
       seatPositions: () => seatPositions(gameStore.getState().placements),
     };
   }

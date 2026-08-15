@@ -16,7 +16,7 @@ This file is the shared brain for the project. **Read it before starting work in
 > not finished. Nobody should have to re-derive the state of the project by
 > reading the whole codebase.
 
-**Last updated:** 2026-08-25 (faces, lip sync, and Mal the guide)
+**Last updated:** 2026-08-26 (Mal leans in beside the panel that was hiding her)
 
 **Built and working:**
 - **M1 — playable core loop** ✅ visitors arrive → sit → pay → money accrues.
@@ -44,7 +44,10 @@ This file is the shared brain for the project. **Read it before starting work in
   step and topping the till up to exactly what that step costs
   (`systems/tutorial.ts`, pure and tested). No fail state; **settings has
   "show me round again"**, which is the only way an existing café ever meets
-  her. Script is data (`data/tutorial.ts`).
+  her. Script is data (`data/tutorial.ts`). **And she leans in round the side
+  of whatever panel is covering her** (2026-08-26) — a head-and-shoulders
+  render of the same character, lip-syncing to the same clock, in a notch cut
+  out of the panel's dim (`scene/guide-portrait.ts`).
 - **The café is real art ✅** — hand-placed diorama in `data/cafe-layout.ts`,
   built by `scene/cafe-room.ts`. All procedural greybox is deleted.
 - **The room *is* `graphics/K9gvnT.png` ✅** (2026-08-01) — counter, blackboard
@@ -109,7 +112,7 @@ This file is the shared brain for the project. **Read it before starting work in
   tracked Xcode project, portrait-locked, and it **compiles** (verified with
   `xcodebuild` against a simulator destination). `npm run ios` does
   build → sync → open Xcode. Signing is Ellis's to do; see §16.
-- `npm test` — 234 tests over the pure systems, save migrations, café geometry,
+- `npm test` — 233 tests over the pure systems, save migrations, café geometry,
   the visitor loop, contentment maths, the camera controls (pan/zoom clamps,
   tap-vs-drag, press-and-hold), the placement rules the authored café itself
   has to pass, the lip-sync viseme mapping, the merged pack's clips and face
@@ -354,6 +357,45 @@ holds, and the editor is now how that week gets built.</summary>
   injection time out every time.
 
 **Session log:**
+- *2026-08-26* — **Mal leans in round the side of the panel — and the docking
+  that was supposed to fix this had never worked.**
+  - **The bubble had been docking *behind* the panels the whole time.**
+    `.speech-layer` is positioned with a z-index of its own, which makes it a
+    stacking context, so `.speech-bubble.docked { z-index: 40 }` was being
+    resolved *inside* a layer sitting at 3 — below the panel layer at 5. Every
+    line she said with the shop open was rendered behind the card and blurred
+    by its `backdrop-filter`. Screenshotting it settled in one shot what
+    reading the CSS only suspected. **A z-index is meaningless without knowing
+    which stacking context it lands in**, and "I set it high" is not a check.
+    The class goes on the *layer* now.
+  - **She is a second `Character`, not a second camera on the first.** The
+    obvious version renders the main scene through a close-up camera, which
+    traverses and draws the whole café twice a frame — ~535 meshes late game
+    (§13) against six for a person. The copy costs one `SkeletonUtils.clone`,
+    built **lazily on first use**, since almost every session is somebody who
+    finished the walkthrough long ago. The price is that it has to be *told*
+    what the real one is doing, so `TutorialGuide` forwards every
+    `say`/`express`/`gesture` to a mirror — including the same viseme frame,
+    so the two mouths cannot drift.
+  - **The framing numbers are measured, and the obvious one was wrong.** The
+    first pass put the camera at y=1.58 because `HEAD_HEIGHT` is 1.62 — but
+    that constant is where the *bubble* hangs, which is deliberately above her
+    head, so it photographed the empty air over her fringe. Rendering her full
+    figure and reading the pixels off gives the real shape: these characters
+    are **chibi, about 1.32 units tall, head 0.83 → 1.36, shoulders 0.75**, and
+    a head 0.65 wide against a 0.53 face — so **the crop is bound by her width,
+    not her height**. §9's "quantise it" again, in a third place.
+  - **A 3D portrait can only live where no DOM does**, because the canvas is
+    under every scrap of interface — which is why this could not simply be
+    raised over the panel like the bubble was. The panel's dim is clipped away
+    from her corner with a `clip-path` notch, the panel is padded below it, and
+    **`.hud-left` steps aside**, because measuring showed the stat chips
+    (16,16 → 219,123) sit exactly where the only free corner is. The notch is
+    cut to *exactly* the portrait's box: any larger and the surplus is a strip
+    of bright café with nobody in it.
+  - Verified by driving the real thing: **10 distinct mouth shapes** reaching
+    the portrait across two lines, the gesture and expression forwarded, and
+    the notch/HUD/clip round-tripping cleanly on panel open and close.
 - *2026-08-25, after that* — **The arrow follows you in, and nothing advances
   on a timer.**
   - **The arrow points at a *task*, not a control.** Ellis: *"i press shop

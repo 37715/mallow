@@ -374,6 +374,8 @@ body {
   gap: 6px;
   min-width: 0;
   flex: 1 1 auto;
+  /* Fades out to make room for the guide's portrait — see `.guide-peek`. */
+  transition: opacity 220ms ease;
 }
 
 /* Lifted over an open panel while a stat is celebrating — see `celebrate` in
@@ -749,6 +751,12 @@ body {
   inset: 0;
   pointer-events: none;
   z-index: 3;
+  /* How much room Mal's portrait takes while the bubble is docked. Read by the
+     bubble's own offset as well as the portrait, so it is one number. Close to
+     square on purpose — the slot holds a face, and the camera that fills it is
+     solved against this aspect (`scene/guide-portrait.ts`). */
+  --peek-w: 92px;
+  --peek-h: 100px;
 }
 
 .speech-bubble {
@@ -2695,10 +2703,12 @@ body {
      translucent panel over a translucent panel reads as a mistake. */
   background: var(--slate);
   position: fixed;
-  left: 50%;
+  left: calc(50% + var(--peek-w) / 2);
   top: calc(env(safe-area-inset-top, 0px) + 10px);
   transform: translateX(-50%) !important;
-  width: min(340px, calc(100vw - 20px));
+  /* Narrowed by the portrait's width and nudged the same distance right, so
+     the pair of them together stays centred. */
+  width: min(340px, calc(100vw - 20px - var(--peek-w)));
   z-index: 40;
 }
 
@@ -2707,14 +2717,112 @@ body {
   display: none;
 }
 
-/* Who is talking, since she is off-screen behind the panel. */
-.speech-bubble.docked::before {
-  content: "mal";
+/* ==========================================================================
+   Mal, leaning in beside her own bubble
+   ========================================================================== */
+
+/* **The layer, not the bubble.** `.speech-layer` is positioned with its own
+   z-index, which makes it a stacking context, so the docked bubble's z-index
+   was being resolved *inside* a layer sitting below the panels — she was
+   docking behind the very thing she was docking to get in front of. Above the
+   modal layer (7) and the celebrating HUD (8). */
+.speech-layer-docked {
+  z-index: 9;
+}
+
+/* A window onto the café, cut out of the panel's dim, with the 3D portrait
+   drawn into it. No background of its own: the canvas is behind the whole UI,
+   so anything painted here paints over her. */
+.speech-portrait {
+  position: fixed;
+  /* **Flush into the corner, and the notch below is cut to exactly this box.**
+     Insetting it by a margin instead leaves a band of undimmed café around her
+     — the hole has to reach the screen edge, because a clip-path polygon can
+     only cut a hole that touches one, and a gap between the hole and the
+     portrait is just a strip of bright room with nothing in it. The safe-area
+     insets are added to the *size* rather than the offset for the same reason:
+     they push her clear of the status bar without opening a gap. */
+  left: 0;
+  top: 0;
+  width: calc(var(--peek-w) + env(safe-area-inset-left, 0px));
+  height: calc(var(--peek-h) + env(safe-area-inset-top, 0px));
+  display: none;
+  border-radius: 0 0 var(--r-card) 0;
+  /* Not a border — a border would be drawn over the portrait's own edge
+     pixels. An inset shadow sits inside the hole and reads as the rim of it. */
+  box-shadow: inset -1px -1px 0 0 rgba(255, 236, 209, 0.16);
+  pointer-events: none;
+}
+
+.speech-layer-docked .speech-portrait {
   display: block;
-  margin-bottom: 3px;
-  font-size: var(--t-xs);
-  font-weight: 700;
-  color: var(--honey);
+  animation: peek-in 420ms cubic-bezier(0.34, 1.42, 0.64, 1);
+}
+
+/* She comes round the edge rather than fading up. The overshoot in the easing
+   is the "pop" — she leans a little too far and settles, which is what makes
+   it read as a person arriving rather than a panel appearing. */
+@keyframes peek-in {
+  from {
+    transform: translateX(calc(-100% - 12px)) rotate(-7deg);
+  }
+  to {
+    transform: translateX(0) rotate(0deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .speech-layer-docked .speech-portrait {
+    animation: none;
+  }
+}
+
+/* **Cut the dim away from where she is drawn.** The portrait is 3D: it lands
+   on the café canvas, which sits under every scrap of UI, so the panel layer's
+   half-opaque backdrop and its 4px blur would be sitting directly on top of
+   her. Clipping the layer itself — rather than moving the dim to a pseudo
+   element — is safe only because the padding below keeps the panel card out of
+   the notch, and the panel is a child that would be clipped with it. */
+.guide-peek .overlay-layer {
+  clip-path: polygon(
+    var(--peek-notch-w) 0,
+    100% 0,
+    100% 100%,
+    0 100%,
+    0 var(--peek-notch-h),
+    var(--peek-notch-w) var(--peek-notch-h)
+  );
+  padding-top: var(--peek-notch-h);
+}
+
+/* Exactly the portrait's box — see the note there. Any larger and the surplus
+   is a bright strip of café with nobody in it; any smaller and the dim's edge
+   crops her. */
+.guide-peek {
+  --peek-notch-w: calc(env(safe-area-inset-left, 0px) + 92px);
+  --peek-notch-h: calc(env(safe-area-inset-top, 0px) + 100px);
+}
+
+/* Panels are centred, so a tall one reaches the top of the screen and would be
+   clipped by the notch. Shorten it by exactly what the padding above added. */
+.guide-peek .panel {
+  max-height: calc(100vh - 88px - var(--peek-notch-h));
+}
+
+/* **The stat column stands aside, because there is nowhere else for her to
+   go.** The portrait is drawn on the café canvas, which sits under every scrap
+   of DOM — so unlike the bubble it cannot simply be raised above the HUD, and
+   the top-left corner is the only part of a phone screen not already spoken
+   for by a panel. Measured: the chips occupy 16,16 → 219,123 and the notch is
+   0,0 → 104,124.
+
+   The till and the settings cog on the right are deliberately left alone: this
+   hides the numbers that are decoration for the next few seconds, not the ones
+   the walkthrough is about to change. And it is only ever true while a panel
+   is open, which is exactly when the dim had made these unreadable anyway. */
+.guide-peek .hud-left {
+  opacity: 0;
+  pointer-events: none;
 }
 
 /* The "adopt a cat?" confirmation. Small and calm — it exists so the answer
