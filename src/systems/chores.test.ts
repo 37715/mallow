@@ -13,19 +13,28 @@ const OPENED = 1_000_000;
 const window = CHORES_BY_ID.get("window")!;
 
 describe("chores", () => {
-  it("has the window waiting the moment the café opens", () => {
+  it("has the window waiting a few seconds after the café opens", () => {
     // The whole point of the feature: the walkthrough ends, the player has no
-    // money, and there is something to do. If this ever goes non-zero the
-    // post-tutorial hole is back.
-    expect(FIRST_DUE_MS.window).toBe(0);
-    expect(isDue(window, {}, OPENED, OPENED)).toBe(true);
+    // money, and within moments there is something to do. `openedAt` is
+    // stamped when the guide leaves, so this delay is measured from *her*
+    // walking out — long enough not to tread on her last line, short enough
+    // that the player is never left with an empty screen.
+    expect(FIRST_DUE_MS.window).toBeGreaterThan(0);
+    expect(FIRST_DUE_MS.window).toBeLessThanOrEqual(15_000);
+    expect(isDue(window, {}, OPENED, OPENED)).toBe(false);
+    expect(isDue(window, {}, OPENED, OPENED + FIRST_DUE_MS.window)).toBe(true);
   });
 
   it("staggers the others so the first hour has a rhythm", () => {
-    const due = CHORES.filter((c) => isDue(c, {}, OPENED, OPENED));
+    const soon = OPENED + 30_000;
+    const due = CHORES.filter((c) => isDue(c, {}, OPENED, soon));
     expect(due.map((c) => c.id)).toEqual(["window"]);
-    const laterIds = CHORES.filter((c) => c.id !== "window").map((c) => c.id);
-    for (const id of laterIds) expect(FIRST_DUE_MS[id]).toBeGreaterThan(0);
+    // Every other job waits minutes, not seconds — three at once on the first
+    // screen is a list of demands, not a café.
+    for (const chore of CHORES) {
+      if (chore.id === "window") continue;
+      expect(FIRST_DUE_MS[chore.id]).toBeGreaterThan(60_000);
+    }
   });
 
   it("comes back round after its interval, and not before", () => {

@@ -3798,58 +3798,89 @@ body {
    Chores — the little jobs (§8, data/chores.ts)
    ========================================================================== */
 
-/* The prompt. It sits above the adopt button because it is the thing to do
-   when you cannot afford a cat, which is most of the first hour. Deliberately
-   quiet — a chore is an invitation, and a café with nothing due should look
-   finished rather than nagging, so this element simply is not there. */
-.chore-prompt {
+/* The marker that floats on the job. Projected from world space by
+   `ui/chore-marker.ts` — it is the *only* way into a chore, so it must be a
+   real tap target.
+
+   **`pointer-events: auto` is not optional.** `#ui-root` is `pointer-events:
+   none` so canvas gestures pass through it, and every interactive widget opts
+   back in. The first version of this was a button in the HUD that never
+   declared it, so it was invisible to every tap — and the headless test that
+   "verified" it used `element.click()`, which dispatches straight at the node
+   and never hit-tests. It passed against a button nobody could press. */
+.chore-layer {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 4;
+}
+
+.chore-marker {
+  position: absolute;
+  left: 0;
+  top: 0;
   display: flex;
   align-items: center;
-  gap: 10px;
-  width: 100%;
-  padding: 9px 14px;
-  margin-bottom: 8px;
+  gap: 7px;
+  padding: 6px 12px 6px 7px;
   border: none;
-  border-radius: var(--r-card);
+  border-radius: 999px;
   background: var(--slate);
   color: var(--chalk);
-  text-align: left;
+  font-family: inherit;
+  font-size: var(--t-xs);
+  font-weight: 700;
   box-shadow: var(--lift);
-  animation: chore-arrive 320ms cubic-bezier(0.34, 1.3, 0.64, 1);
+  pointer-events: auto;
+  cursor: pointer;
+  /* A slow breath, so it reads as waiting rather than as an alert. */
+  animation: chore-breathe 2.6s ease-in-out infinite;
+}
+
+.chore-marker-spark {
+  display: flex;
+  width: 22px;
+  height: 22px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: rgba(255, 236, 209, 0.12);
+  color: var(--honey);
+}
+
+.chore-marker-label {
+  color: var(--honey);
+  white-space: nowrap;
+}
+
+@keyframes chore-breathe {
+  0%, 100% {
+    box-shadow: var(--lift), 0 0 0 0 rgba(240, 176, 84, 0.32);
+  }
+  50% {
+    box-shadow: var(--lift), 0 0 0 7px rgba(240, 176, 84, 0);
+  }
+}
+
+/* Arriving. Runs once, re-triggered whenever a new job comes due. */
+.chore-marker-in {
+  animation:
+    chore-breathe 2.6s ease-in-out infinite,
+    chore-arrive 420ms cubic-bezier(0.34, 1.4, 0.64, 1);
 }
 
 @keyframes chore-arrive {
   from {
-    transform: translateY(8px);
     opacity: 0;
+    scale: 0.6;
   }
 }
 
-.chore-prompt-text {
-  flex: 1 1 auto;
-  min-width: 0;
-}
-
-.chore-prompt-name {
-  font-size: var(--t-sm);
-}
-
-.chore-prompt-action {
-  font-size: var(--t-xs);
-  font-weight: 700;
-  color: var(--honey);
-}
-
-.chore-prompt-icon {
-  flex: 0 0 auto;
-  display: flex;
-  width: 28px;
-  height: 28px;
-  align-items: center;
-  justify-content: center;
-  border-radius: 999px;
-  background: rgba(255, 236, 209, 0.1);
-  color: var(--honey);
+@media (prefers-reduced-motion: reduce) {
+  .chore-marker,
+  .chore-marker-in {
+    animation: none;
+  }
 }
 
 /* --- The wipe minigame ---------------------------------------------------
@@ -3931,6 +3962,7 @@ body {
    The wipe layer's own card is outside this, so "later" is always reachable. */
 .wiping .hud-top,
 .wiping .hud-bottom,
+.wiping .chore-layer,
 .wiping .speech-layer {
   opacity: 0;
   pointer-events: none;
@@ -3943,7 +3975,6 @@ body {
    different typeface from everything around it (Ellis, 2026-08-26). Same trap
    as the settings cog drawing system blue on iOS (§9); the `color` half of it
    is already written down and the `font` half was not. */
-.chore-prompt,
 .wipe-quit {
   font-family: inherit;
 }

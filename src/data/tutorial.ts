@@ -58,17 +58,17 @@ export const TUTORIAL_SCRIPT: TutorialLine[] = [
     holdMs: 300,
   },
   {
-    text: "i'm mal. i live just up the road, and i've been waiting for someone to open this place back up.",
+    text: "i'm mal. i live nearby, and i've been hoping someone would open this place back up.",
     gesture: "Social_Relaxed",
     expression: "happy",
   },
   {
-    text: "{cafe}. it's a lovely name. it suits the room.",
+    text: "{cafe}. that's a good name. it suits the room.",
     gesture: "Social_Stand_Discussion_1",
     expression: "content",
   },
   {
-    text: "so — people wander in, they sit down, they order something warm, and they pay you for it. that's the whole of it, really.",
+    text: "so — people wander in, sit down, order something warm, and pay you for it. that's the whole thing.",
     gesture: "Social_Stand_Discussion_2",
     expression: "content",
   },
@@ -79,7 +79,7 @@ export const TUTORIAL_SCRIPT: TutorialLine[] = [
   // this step is what makes the next one possible, and the player finds that
   // out by doing it rather than by being told.
   {
-    text: "right. a cat needs a bed of its own before it'll move in, so a café holds as many cats as it has beds. let's get you a second one.",
+    text: "ok. a cat needs a bed of its own before it'll move in, so your café holds as many cats as it has beds. let's get you a second one.",
     gesture: "Social_Relaxed_Thinking",
     expression: "thinking",
   },
@@ -94,7 +94,7 @@ export const TUTORIAL_SCRIPT: TutorialLine[] = [
   // player has to learn and because the game genuinely treats them separately.
   // Folding them together is what let Mal leave with the ghost still in hand.
   {
-    text: "now drop it somewhere. middle of the room is grand — cats like to be where everything is.",
+    text: "now put it down somewhere. the middle of the room works — cats like to be where everything is.",
     gesture: "Social_Stand_Discussion_2",
     expression: "content",
     task: "place-bed",
@@ -108,20 +108,20 @@ export const TUTORIAL_SCRIPT: TutorialLine[] = [
 
   // --- 2. a cat -------------------------------------------------------------
   {
-    text: "go on then. you never know which one you'll get, and that's rather the point.",
+    text: "go ahead. you never know which one you'll get — that's the fun of it.",
     gesture: "Social_Relaxed",
     expression: "cheeky",
     task: "adopt",
     waitHint: "tap “adopt a cat” at the bottom",
   },
   {
-    text: "oh, look at them. name them something daft — you'll be saying it for months.",
+    text: "oh, look at them. give them a silly name — you'll be saying it for months.",
     gesture: "Social_Jump_Joy",
     expression: "love",
     holdMs: 500,
   },
   {
-    text: "and do stop and stroke them. they like it, and a happy cat is worth more to this café than any amount of furniture.",
+    text: "and stop to pet them sometimes. they like it, and a happy cat is worth more to this café than any amount of furniture.",
     gesture: "Social_Relaxed_ListeningNod",
     expression: "love",
   },
@@ -132,7 +132,7 @@ export const TUTORIAL_SCRIPT: TutorialLine[] = [
   // change. It is also the first thing in the game the player *authors*, which
   // is why it belongs in the introduction rather than being discovered later.
   {
-    text: "now the menu. you can invent your own drink, you know — a base, something stirred into it, and a name of your choosing.",
+    text: "now the menu. you can invent your own drink — a base, something stirred into it, and a name you pick.",
     gesture: "Social_CrossedArms_Thinking",
     expression: "thinking",
   },
@@ -140,47 +140,47 @@ export const TUTORIAL_SCRIPT: TutorialLine[] = [
   // `firstIngredientIsFree`. Without it this step is a dead end for anyone who
   // just spent everything on the bed, which is everyone.
   {
-    text: "your first flavour's on the house. go and pick one you like the sound of.",
+    text: "your first flavour is free. pick one you like the sound of.",
     gesture: "Social_Stand_Discussion_1",
     expression: "happy",
     task: "pick-ingredient",
     waitHint: "café → the menu → the cabinet",
   },
   {
-    text: "lovely. now stir it into something and give it a name — inventing costs nothing, it never will.",
+    text: "nice. now stir it into something and give it a name — inventing is always free.",
     gesture: "Social_Stand_Discussion_2",
     expression: "happy",
     task: "invent-drink",
     waitHint: "café → the menu → invent a blend",
   },
   {
-    text: "ha — that's going straight on the board. the fuller your menu reads, the more people pay.",
+    text: "that's going straight on the board. the better your menu, the more people pay.",
     gesture: "Social_Stand_YES",
     expression: "delighted",
   },
 
   // --- 4. a piece of furniture ---------------------------------------------
   {
-    text: "last thing. everything you put down makes the room lovelier, and lovelier brings more people through the door.",
+    text: "last thing. everything you put down makes the room nicer, and nicer brings more people in.",
     gesture: "Social_Relaxed_Thinking",
     expression: "content",
   },
   {
-    text: "and nobody stops long without somewhere to sit. go and get that armchair.",
+    text: "and nobody stays long without somewhere to sit. go get that armchair.",
     gesture: "Social_Stand_Discussion_1",
     expression: "happy",
     task: "buy-chair",
     waitHint: "shop → comfort → armchair",
   },
   {
-    text: "by the window, i'd say. green means it fits, red means try an inch to the left.",
+    text: "by the window is nice. green means it fits, red means move it a bit.",
     gesture: "Social_Relaxed",
     expression: "content",
     task: "place-chair",
     waitHint: "drag it, then tap the tick",
   },
   {
-    text: "that's the whole game, that. buy a thing, put it where you want it, watch the place fill up.",
+    text: "that's the whole game. buy a thing, put it where you want, watch the place fill up.",
     gesture: "Social_ThumbsUp",
     expression: "happy",
   },
@@ -192,7 +192,7 @@ export const TUTORIAL_SCRIPT: TutorialLine[] = [
     expression: "content",
   },
   {
-    text: "i'll have a flat white when you've a minute. see you soon, {name}.",
+    text: "i'll take a coffee when you have a minute. see you soon, {name}.",
     gesture: "Social_WaveBye",
     expression: "cheeky",
     holdMs: 600,

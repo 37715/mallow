@@ -21,8 +21,8 @@ import { DustMotes } from "@/scene/dust";
 import { seatFacings, seatPositions, seatStandPositions } from "@/scene/room";
 import { catHomes } from "@/scene/cat-homes";
 import { visitorPayAmount } from "@/data/economy";
-import { SILL } from "@/data/cafe-layout";
 import { createChoreWipe } from "@/ui/chore-wipe";
+import { createChoreMarker } from "@/ui/chore-marker";
 import { mountUI } from "@/ui/ui";
 import { CatLabelLayer, NameTag } from "@/ui/cat-labels";
 import { beds } from "@/data/beds";
@@ -561,14 +561,18 @@ async function bootstrap(): Promise<void> {
     }
     playPurchase();
   });
-  ui.attachChores((chore) => {
+  /**
+   * The marker floats on the job itself and is the only way in — see
+   * `ui/chore-marker.ts` for why it is not a row in the HUD.
+   */
+  const choreMarker = createChoreMarker(uiRoot, (chore) => {
     playTap();
-    // The window is in the back wall (`SILL` is its ledge), so this looks at
-    // the glass rather than the middle of the room. A shallow screen bias, so
-    // the pane sits above the card at the bottom rather than behind it.
-    controls.focusOn(new THREE.Vector3(0, SILL.yMax + 0.8, SILL.innerZ), 0.1, 0.55);
+    // Go and look at the thing before wiping it, so "clean the window" reads
+    // as cleaning *that* window rather than cleaning the screen.
+    controls.focusOn(new THREE.Vector3(chore.at.x, chore.at.y, chore.at.z), 0.1, 0.5);
     choreWipe.start(chore);
   });
+  ui.attachChores((chore) => choreMarker.set(chore));
 
   setOverlay((renderer, now) => {
     if (onboarding) {
@@ -686,6 +690,9 @@ async function bootstrap(): Promise<void> {
       // every frame — opening the shop is what makes the department card exist.
       ui.syncPointer();
     }
+    // After `controls.update()`, like the labels: it projects from world
+    // space, so it needs the camera in its final position for this frame.
+    choreMarker.update(camera);
     expansionGhosts.update(now);
     builder.sync(camera);
     dust.update(now);

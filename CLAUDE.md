@@ -366,6 +366,40 @@ holds, and the editor is now how that week gets built.</summary>
   injection time out every time.
 
 **Session log:**
+- *2026-08-26, later still* — **The chore prompt was untappable, and my test
+  proved it worked.**
+  - **`#ui-root` is `pointer-events: none`** so canvas gestures pass through
+    it, and every interactive widget opts back in with `pointer-events: auto`.
+    The chore prompt never did, so it was invisible to every tap. Ellis, twice:
+    *"pressing it doesnt even do anything."*
+  - **And the headless test that "verified" it used `element.click()`**, which
+    dispatches the event straight at the node and never hit-tests. It passed
+    against a button nobody could press. **`.click()` does not test that
+    something is clickable** — use `document.elementFromPoint` on the centre of
+    its rect and check the result is the element (or inside it). That is what
+    the new check does, and it is the only kind that would have caught this.
+  - **The affordance moved onto the job itself.** Ellis: *"make it be popping
+    up from or next to the window, so the user has to tap on the window to do
+    it."* A row in the HUD is a to-do list; a sparkle on the glass is the café
+    asking, and it teaches *where* the job is — which starts to matter the
+    moment there is more than one kind. `ui/chore-marker.ts`, DOM projected
+    from a world anchor on the chore (`Chore.at`).
+  - **The café opens when the guide leaves.** `openedAt` is stamped in
+    `finishTutorial` rather than at café creation, so `FIRST_DUE_MS.window`
+    being 5 s means five seconds after Mal walks out — not five seconds after
+    the save was written, which lands in the middle of her walkthrough.
+  - **The purr was three separate wrongnesses**, and "rumble" in the old
+    comment hid all of them: lowpassed noise is boomy hiss where a purr's rasp
+    lives in a *band* around 200–600 Hz; a sine tremolo is a wobble where a
+    purr is a *pulse train* (the folds close ~25×/s and the ear identifies the
+    repeated edge); and the tremolo was summed into a gain that was already
+    being ramped, so its depth changed across the sound. It is a periodic-wave
+    pulse gating a bandpassed noise now, with the rate drifting through the
+    breath — a perfectly fixed 25 Hz is the clearest tell that a sound is
+    synthetic.
+  - **Mal was too British.** "grand", "rather the point", "do stop and stroke
+    them", "on the house", "a flat white when you've a minute". Warm is the
+    goal; regional is not.
 - *2026-08-26, last* — **Six things from playing it on the phone, and the
   portrait had to be rebuilt.**
   - **A 3D portrait cannot live on the canvas, and WebKit is why.** The first

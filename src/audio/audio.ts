@@ -248,42 +248,115 @@ export function playCoin(): void {
   tone(root * 1.5, { duration: 0.3, gain: 0.04, type: "sine", delay: 0.06 });
 }
 
-/** Petting a cat — a low, warm rumble that swells and settles. */
+/**
+ * The pulse a purr is built on.
+ *
+ * **Not a sine.** A purr is a *train of pulses* — the vocal folds close about
+ * 25 times a second and the sound is the rasp of each closure, so what the ear
+ * identifies is the sharp repeated edge. Modulating with a sine gives a smooth
+ * wobble, which is why the old one read as a motorboat rather than a cat.
+ *
+ * These harmonic amplitudes sum to a rounded, asymmetric bump: quick rise,
+ * slower fall, which is the shape of one purr cycle.
+ */
+function purrWave(context: AudioContext): PeriodicWave {
+  const harmonics = [0, 1, 0.72, 0.42, 0.22, 0.11, 0.05];
+  const real = new Float32Array(harmonics.length);
+  const imag = new Float32Array(harmonics);
+  return context.createPeriodicWave(real, imag, { disableNormalization: false });
+}
+
+/**
+ * Petting a cat.
+ *
+ * **Rebuilt 2026-08-26** — Ellis: *"the purr sound is really weird and not
+ * realistic at all."* It was lowpassed white noise with a 25 Hz sine tremolo
+ * on the output gain, and it had three separate problems, all of which the
+ * word "rumble" in the old comment was hiding:
+ *
+ * 1. **The texture was wrong.** A lowpass at 260 Hz leaves a boomy hiss. The
+ *    rasp of a purr lives around 200–600 Hz, so it wants a *band*, not a
+ *    ceiling.
+ * 2. **The modulation was a sine**, which is a wobble. A purr is a pulse
+ *    train — see `purrWave`.
+ * 3. **The tremolo was added to a gain that was already being ramped**, so its
+ *    depth was ±0.35 around a moving target. That is close to 100% modulation
+ *    at the quiet ends and much less in the middle: the flutter audibly
+ *    changed character across the sound.
+ *
+ * The rate also drifts. A real cat's purr slows slightly through the out-breath
+ * and picks up again, and a perfectly fixed 25 Hz is the single clearest tell
+ * that a sound is synthetic.
+ */
 export function playPurr(): void {
   if (!ctx || !master) return;
-  const buffer = noiseBuffer(1.4);
+  const buffer = noiseBuffer(1.9);
   if (!buffer) return;
+  const now = ctx.currentTime;
+  const length = 1.7;
 
   const source = ctx.createBufferSource();
   source.buffer = buffer;
 
+  // The rasp. A band rather than a ceiling — this is the part that sounds like
+  // an animal instead of like wind.
+  const rasp = ctx.createBiquadFilter();
+  rasp.type = "bandpass";
+  rasp.frequency.value = 330;
+  rasp.Q.value = 0.8;
+
+  // A little warmth underneath it, so it has a chest.
   const body = ctx.createBiquadFilter();
   body.type = "lowpass";
-  body.frequency.value = 260;
-  body.Q.value = 2;
+  body.frequency.value = 180;
+  body.Q.value = 0.7;
 
+  /**
+   * The pulse train, as a gain the noise passes *through* — not as an addition
+   * to the envelope's gain. Keeping the two stages separate is what stops the
+   * flutter depth changing as the envelope moves.
+   */
+  const flutter = ctx.createGain();
+  flutter.gain.value = 0;
+  const floor = ctx.createConstantSource();
+  // Never fully closes: a purr is continuous with a strong pulse on top, and
+  // gating it to silence 25 times a second sounds like a broken speaker.
+  floor.offset.value = 0.55;
+  floor.connect(flutter.gain);
+
+  const pulse = ctx.createOscillator();
+  pulse.setPeriodicWave(purrWave(ctx));
+  pulse.frequency.setValueAtTime(27, now);
+  // Slows through the breath and picks up again.
+  pulse.frequency.linearRampToValueAtTime(23.5, now + length * 0.55);
+  pulse.frequency.linearRampToValueAtTime(26, now + length);
+  const depth = ctx.createGain();
+  depth.gain.value = 0.45;
+  pulse.connect(depth).connect(flutter.gain);
+
+  // The breath: one swell, in and out, rather than a flat block of sound.
   const env = ctx.createGain();
-  const now = ctx.currentTime;
   env.gain.setValueAtTime(0.0001, now);
-  env.gain.exponentialRampToValueAtTime(0.5, now + 0.12);
-  env.gain.setValueAtTime(0.5, now + 0.75);
-  env.gain.exponentialRampToValueAtTime(0.0001, now + 1.25);
+  env.gain.exponentialRampToValueAtTime(0.42, now + 0.22);
+  env.gain.exponentialRampToValueAtTime(0.3, now + length * 0.62);
+  env.gain.exponentialRampToValueAtTime(0.0001, now + length);
 
-  // Tremolo at ~25 Hz is what makes a rumble read as a purr.
-  const tremolo = ctx.createOscillator();
-  tremolo.frequency.value = 25;
-  const tremoloDepth = ctx.createGain();
-  tremoloDepth.gain.value = 0.35;
-  tremolo.connect(tremoloDepth).connect(env.gain);
+  source.connect(rasp).connect(flutter);
+  source.connect(body).connect(flutter);
+  flutter.connect(env).connect(master);
 
-  source.connect(body).connect(env).connect(master);
   source.start(now);
-  source.stop(now + 1.35);
-  tremolo.start(now);
-  tremolo.stop(now + 1.35);
+  source.stop(now + length + 0.05);
+  pulse.start(now);
+  pulse.stop(now + length + 0.05);
+  floor.start(now);
+  floor.stop(now + length + 0.05);
   source.onended = () => {
     source.disconnect();
+    rasp.disconnect();
     body.disconnect();
+    flutter.disconnect();
+    depth.disconnect();
     env.disconnect();
   };
 }

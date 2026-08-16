@@ -38,6 +38,17 @@ export type ChoreGame = "wipe";
 
 export interface Chore {
   id: string;
+  /**
+   * Where in the room the job is, in world units — the marker floats here and
+   * that is the only way to start it.
+   *
+   * **You tap the thing, not a button about the thing.** Ellis, 2026-08-26:
+   * *"make it be popping up from or next to the window, so the user has to tap
+   * on the window to do it."* A prompt in the HUD is a to-do list; a sparkle
+   * on the actual glass is the café asking, and it teaches where the job is at
+   * the same time.
+   */
+  at: { x: number; y: number; z: number };
   /** What the café says is wrong, in its own voice. */
   name: string;
   /** The button. A verb. */
@@ -65,6 +76,9 @@ const HOUR = 60 * MINUTE;
 export const CHORES: Chore[] = [
   {
     id: "window",
+    // Just in front of the glass in the back wall. The wall body is at
+    // z = -1.95 and `SILL` juts to -1.61, so this floats clear of both.
+    at: { x: 0.34, y: 1.62, z: -1.72 },
     name: "the window's gone smeary",
     action: "give it a wipe",
     hint: "drag to wipe the glass",
@@ -76,6 +90,8 @@ export const CHORES: Chore[] = [
   },
   {
     id: "tables",
+    // Over the low table by the window seat.
+    at: { x: 1.589, y: 0.62, z: 0.849 },
     name: "the tables want a wipe down",
     action: "wipe them down",
     hint: "drag to clear the crumbs",
@@ -87,6 +103,8 @@ export const CHORES: Chore[] = [
   },
   {
     id: "sweep",
+    // Clear floor in the middle of the room, away from the walking route.
+    at: { x: 0.55, y: 0.22, z: -0.35 },
     name: "there's fur on the floorboards",
     action: "sweep up",
     hint: "drag to sweep it up",
@@ -101,15 +119,17 @@ export const CHORES: Chore[] = [
 export const CHORES_BY_ID = new Map(CHORES.map((c) => [c.id, c]));
 
 /**
- * How long after the café opens each chore first comes due.
+ * How long after the café opens each chore first comes due. The others are
+ * staggered so the first hour has a small rhythm to it rather than three jobs
+ * at once and then silence.
  *
- * **The window is zero on purpose.** It is the thing waiting the moment the
- * guide walks out — Ellis's *"make it so its needed right after tutorial ends
- * to keep people drawn in"*. The others are staggered so the first hour has a
- * small rhythm to it rather than three jobs at once and then silence.
+ * **Counted from when the guide leaves, not from when the save was written** —
+ * `openedAt` is stamped at the end of the walkthrough. So `window: 5_000` is
+ * literally "five seconds after Mal walks out", which is what Ellis asked for
+ * and is the moment the player is most at a loose end.
  */
 export const FIRST_DUE_MS: Record<string, number> = {
-  window: 0,
+  window: 5_000,
   tables: 12 * MINUTE,
   sweep: 40 * MINUTE,
 };

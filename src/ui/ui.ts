@@ -143,8 +143,11 @@ export interface MountedUI {
   attachBackdrop: (apply: (id: string) => void) => void;
   /** Hand the HUD a way to start the walkthrough again from settings. */
   attachTutorial: (replay: () => void) => void;
-  /** Hand the HUD the thing that runs a chore's minigame (`ui/chore-wipe.ts`). */
-  attachChores: (start: (chore: Chore) => void) => void;
+  /**
+   * Hand the HUD the world marker that offers a chore (`ui/chore-marker.ts`).
+   * The HUD decides *which* job is due; the marker decides where it floats.
+   */
+  attachChores: (show: (chore: Chore | null) => void) => void;
   /** Leave expansion mode — the "done" button calls back into this. */
   closeExpander: () => void;
   /** The colour picker, so character creation can offer the same control. */
@@ -382,26 +385,6 @@ export function mountUI(root: HTMLElement): MountedUI {
   secondaryRow.appendChild(cafeButton);
   secondaryRow.appendChild(shopButton);
 
-  /**
-   * "Something needs doing" — the chore prompt (`data/chores.ts`).
-   *
-   * **Above the adopt button, because it is what there is to do when you
-   * cannot afford a cat**, which is most of the first hour and was exactly
-   * Ellis's complaint about the hole after the walkthrough. It is absent, not
-   * disabled, when nothing is due: a café with nothing to do should read as
-   * finished rather than as a list of unticked boxes.
-   */
-  const chorePrompt = el("button", "chore-prompt") as HTMLButtonElement;
-  const choreIcon = el("span", "chore-prompt-icon");
-  choreIcon.appendChild(icon("sparkle"));
-  const choreText = el("span", "chore-prompt-text");
-  const choreName = el("span", "chore-prompt-name");
-  const choreAction = el("span", "chore-prompt-action");
-  choreText.append(choreName, document.createElement("br"), choreAction);
-  chorePrompt.append(choreIcon, choreText);
-  chorePrompt.style.display = "none";
-
-  bottom.appendChild(chorePrompt);
   bottom.appendChild(adoptButton);
   bottom.appendChild(secondaryRow);
 
@@ -1404,7 +1387,7 @@ export function mountUI(root: HTMLElement): MountedUI {
   let setExpanding: ((on: boolean) => void) | null = null;
   let applyGraphics: ((level: GraphicsLevel) => void) | null = null;
   let applyBackdrop: ((id: string) => void) | null = null;
-  let startChore: ((chore: Chore) => void) | null = null;
+  let choreMarker: ((chore: Chore | null) => void) | null = null;
   let replayTutorial: (() => void) | null = null;
   /** The walkthrough task the arrow is currently guiding, or null. */
   let pointedTask: string | null = null;
@@ -2506,45 +2489,27 @@ export function mountUI(root: HTMLElement): MountedUI {
   let lastMoney = gameStore.getState().money;
 
   /**
-   * Show the longest-overdue job, or nothing at all.
+   * Hand the marker the longest-overdue job, or nothing.
    *
    * Called from `render` (so it follows every state change) *and* on a slow
    * timer, because a chore comes due by the clock rather than by anything the
-   * player did — without the timer the prompt would only appear the next time
+   * player did — without the timer it would only appear the next time
    * something else happened to change.
    */
   function syncChores(): void {
     const state = gameStore.getState();
-    // **Not while the guide is talking.** The window comes due the moment the
-    // café opens, which is the point — but "opens" is when the *walkthrough*
-    // ends, not when the save is created, and Mal is mid-sentence for the
-    // first few minutes of that. A second thing shouting for attention while
-    // she is asking you to open the shop is exactly the noise the walkthrough
+    // **Not while the guide is talking.** The window comes due five seconds
+    // after she leaves, which is the point — but a second thing asking for
+    // attention while she is mid-sentence is exactly the noise the walkthrough
     // exists to avoid (Ellis, 2026-08-26: *"the wipe the window pop up is
     // there right from as soon as i start the tutorial rather than after it"*).
     const due = state.player.tutorialDone
-      ? dueChores(state.chores, state.openedAt, Date.now())[0]
-      : undefined;
-    if (!due) {
-      chorePrompt.style.display = "none";
-      currentChore = null;
-      return;
-    }
-    if (currentChore?.id === due.id && chorePrompt.style.display !== "none") return;
-    currentChore = due;
-    choreName.textContent = due.name;
-    choreAction.textContent = due.action;
-    chorePrompt.style.display = "";
+      ? (dueChores(state.chores, state.openedAt, Date.now())[0] ?? null)
+      : null;
+    choreMarker?.(due);
   }
-  let currentChore: Chore | null = null;
-  chorePrompt.addEventListener("click", () => {
-    if (!currentChore) return;
-    playTap();
-    closePanel();
-    startChore?.(currentChore);
-  });
   // A minute is fine: chores come due hours apart, and this only decides how
-  // promptly the prompt notices.
+  // promptly the marker notices.
   window.setInterval(syncChores, 60_000);
 
   function render() {
@@ -2638,8 +2603,8 @@ export function mountUI(root: HTMLElement): MountedUI {
     attachTutorial(replay) {
       replayTutorial = replay;
     },
-    attachChores(start) {
-      startChore = start;
+    attachChores(show) {
+      choreMarker = show;
       syncChores();
     },
     backdropPicker: backdropSwatches,

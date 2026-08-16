@@ -692,7 +692,12 @@ export const gameStore = createStore<GameState>((set, get) => ({
   finishTutorial: () => {
     const state = get();
     if (state.player.tutorialDone) return;
-    set({ player: { ...state.player, tutorialDone: true } });
+    // **The café opens when the guide leaves.** `openedAt` is what a chore's
+    // first due date counts from, so stamping it here — rather than at café
+    // creation — is what makes "five seconds after Mal walks out" mean that,
+    // instead of five seconds after the save was written and therefore
+    // somewhere in the middle of her walkthrough.
+    set({ player: { ...state.player, tutorialDone: true }, openedAt: Date.now() });
     // §11 wants the progression funnel measured, and "did they sit through the
     // intro or bail out of it" is the very first question the funnel can ask.
     logEvent({ name: "tutorial_finished" });
