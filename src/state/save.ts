@@ -14,6 +14,7 @@ import { MOVABLE, type Placements } from "@/data/cafe-layout";
 import { SHOP_ITEMS, shopItem } from "@/data/shop";
 import { DEFAULT_PLAYER, sanitizePlayer, type PlayerProfile } from "@/data/player";
 import { sanitizeChores, type ChoreLog } from "@/systems/chores";
+import { TIP_JAR_CAPACITY } from "@/data/tips";
 import { HOME_TILE, HOME_WINDOW, ownedTiles, tileKey, type TileKey } from "@/data/expansion";
 import {
   MAX_CUSTOM_DRINKS,
@@ -87,13 +88,13 @@ import {
  */
 
 const SAVE_KEY = "mallow-save";
-const SAVE_VERSION = 23;
+const SAVE_VERSION = 24;
 
 /** Inlined so a migration can't be broken by a rebalance of the live config. */
 const TILL_CAPACITY = 9999;
 
 interface SaveDataCurrent {
-  version: 23;
+  version: 24;
   money: number;
   nextCatId: number;
   cats: CatInstance[];
@@ -114,6 +115,7 @@ interface SaveDataCurrent {
   tiles: TileKey[];
   backdropsOwned: string[];
   windows: string[];
+  tips: number;
   chores: ChoreLog;
   openedAt: number;
   instances: Instance[];
@@ -141,6 +143,7 @@ export interface LoadedSave
     | "tiles"
     | "backdropsOwned"
     | "windows"
+    | "tips"
     | "chores"
     | "openedAt"
     | "instances"
@@ -454,6 +457,8 @@ const MIGRATIONS: Record<number, (data: RawSave) => RawSave> = {
    * the same gentle opening rhythm a new café gets.
    */
   22: (data) => ({ ...data, version: 23, chores: {}, openedAt: Date.now() }),
+  /** The tip jar starts empty — nobody has tipped into a jar they did not own. */
+  23: (data) => ({ ...data, version: 24, tips: 0 }),
 };
 
 /** Keep only blends that still make sense: a real base, real add-ins, a name. */
@@ -654,6 +659,12 @@ export function loadSave(): LoadedSave | null {
       windows: Array.isArray(data.windows)
         ? data.windows.filter((v): v is string => typeof v === "string")
         : [HOME_WINDOW],
+      // Clamped rather than trusted: a garbage value here would either hand
+      // out a fortune or wedge the jar permanently shut.
+      tips:
+        typeof data.tips === "number" && Number.isFinite(data.tips) && data.tips > 0
+          ? Math.min(TIP_JAR_CAPACITY, data.tips)
+          : 0,
       chores: sanitizeChores(data.chores),
       // A café with no recorded opening time is opening now. Never 0 — see the
       // v22→v23 migration for why a zero here shouts at the player.
@@ -695,6 +706,7 @@ function persist(state: GameState): void {
     tiles: state.tiles,
     backdropsOwned: state.backdropsOwned,
     windows: state.windows,
+    tips: state.tips,
     chores: state.chores,
     openedAt: state.openedAt,
     instances: state.instances,

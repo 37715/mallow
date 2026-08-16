@@ -348,6 +348,9 @@ export const CAFE_LAYOUT: Placement[] = [
   { asset: "Papercup_Lids_Stack_A", x: -1.85, z: 0.495, y: 0.74, rotY: -HALF_PI },
   { asset: "Stack_PaperCups_Flipped_A", x: -1.851, z: 0.78, y: 0.74, rotY: -HALF_PI },
   { asset: "ComputerCashier_A", x: -0.131, z: -0.296, y: 0.78, rotY: HALF_PI },
+  // The tip jar, on the serving peninsula next to the till. `TIP_JAR_AT` in
+  // `data/tips.ts` is where its marker floats and must stay in step with this.
+  { shopItem: "tip-jar", asset: "Deco_TallGlass_Empty", x: -0.62, z: 0.84, y: 0.78, rotY: 0.4 },
   { shopItem: "counter-treats", asset: "Food_Milkshake_Chocolate", x: -0.194, z: 0.81, y: 0.782, rotY: 1.1818 },
   { shopItem: "counter-treats", asset: "Food_Milkshake_Strawberry", x: -0.124, z: 0.517, y: 0.78, rotY: 2.2816 },
   { shopItem: "counter-treats", asset: "CupcakeStand", x: -0.374, z: 1.406, y: 0.78 },

@@ -49,7 +49,8 @@ export type AnalyticsEvent =
   | { name: "tutorial_finished" }
   // Chores are the post-tutorial pacing bet (§8). Which ones actually get done
   // is the thing to look at: one nobody touches is one that isn't fun.
-  | { name: "chore_done"; chore: string };
+  | { name: "chore_done"; chore: string }
+  | { name: "tips_collected"; amount: number };
 
 /** The one numeric per event TelemetryDeck can average/sum (floatValue). */
 function primaryValue(event: AnalyticsEvent): number | undefined {

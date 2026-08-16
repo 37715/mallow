@@ -105,11 +105,39 @@ export function seatPositions(placements: Placements): THREE.Vector3[] {
   });
 }
 
+/**
+ * How far back into the seat a guest stands, per kind of seat.
+ *
+ * **The pack's sit clips are authored against the pack's own furniture.** Every
+ * clip keeps its root bone at the origin and gets the sitting pose entirely out
+ * of limb rotations (§9) — which means the *body* ends up wherever the pack's
+ * layout had the chair relative to that root, and that offset is different for
+ * a bar stool, a sofa and a floor cushion. Standing a guest at the seat's own
+ * coordinates therefore only lands correctly for one of the three.
+ *
+ * Measured by putting a guest in each and looking (2026-08-26): the armchair
+ * was right, the stools were most of a seat forward of theirs, and the floor
+ * cushions were slightly forward. Ellis: *"people sometimes sit on the chair
+ * and they arent quite on it — rotation fine but position off."*
+ *
+ * Applied along the guest's own facing, so it stays correct when the player
+ * turns the furniture.
+ */
+const SEAT_SIT_BACK: Record<SeatKind, number> = {
+  tall: 0.26,
+  floor: 0.13,
+  sofa: 0,
+};
+
 /** The same, at floor level — where a guest is *stood* to play a sit clip. */
 export function seatStandPositions(placements: Placements): THREE.Vector3[] {
-  return SEATS.map((s) => {
+  const facings = seatFacings(placements);
+  return SEATS.map((s, i) => {
     const at = placedAt(s, placements);
-    return new THREE.Vector3(at.x, 0, at.z);
+    // Backwards along the way they are facing, i.e. into the seat behind them.
+    const facing = facings[i] ?? 0;
+    const back = SEAT_SIT_BACK[SEAT_KINDS[i] ?? "floor"];
+    return new THREE.Vector3(at.x - Math.sin(facing) * back, 0, at.z - Math.cos(facing) * back);
   });
 }
 

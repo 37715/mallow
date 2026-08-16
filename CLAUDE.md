@@ -16,7 +16,7 @@ This file is the shared brain for the project. **Read it before starting work in
 > not finished. Nobody should have to re-derive the state of the project by
 > reading the whole codebase.
 
-**Last updated:** 2026-08-26 (guests order at the counter, and a busy café serves takeaways)
+**Last updated:** 2026-08-26 (tip jar, seat offsets, a loading screen worth looking at)
 
 **Built and working:**
 - **M1 — playable core loop** ✅ visitors arrive → sit → pay → money accrues.
@@ -121,7 +121,7 @@ This file is the shared brain for the project. **Read it before starting work in
   tracked Xcode project, portrait-locked, and it **compiles** (verified with
   `xcodebuild` against a simulator destination). `npm run ios` does
   build → sync → open Xcode. Signing is Ellis's to do; see §16.
-- `npm test` — 248 tests over the pure systems, save migrations, café geometry,
+- `npm test` — 250 tests over the pure systems, save migrations, café geometry,
   the visitor loop, contentment maths, the camera controls (pan/zoom clamps,
   tap-vs-drag, press-and-hold), the placement rules the authored café itself
   has to pass, the lip-sync viseme mapping, the merged pack's clips and face
@@ -368,6 +368,37 @@ holds, and the editor is now how that week gets built.</summary>
   injection time out every time.
 
 **Session log:**
+- *2026-08-26, very last* — **A tip jar, seats people actually sit on, and a
+  launch screen with something in it.**
+  - **The pack's sit clips are authored against the pack's own furniture**, and
+    that is why guests sat off their seats. Every clip keeps its root at the
+    origin and gets the pose out of limb rotations (§9), so the *body* lands
+    wherever the pack's layout had the chair relative to that root — a
+    different offset for a stool, a sofa and a floor cushion. Standing a guest
+    at the seat's own coordinates therefore only lands right for one of the
+    three. Measured by seating a guest in each and looking: the armchair was
+    correct, the stools were most of a seat forward, the cushions slightly.
+    `SEAT_SIT_BACK` is per seat *kind* and applied along the guest's facing, so
+    it survives the player turning the furniture.
+  - **The tip jar** (`data/tips.ts`) — £30, unlocked from the start, on the
+    counter. It fills as people pay and opens only when full. Three rules:
+    tips are **minted on top** of a payment rather than skimmed from it (a jar
+    that took a cut and gave it back later is the same money with an extra step
+    and a worse feeling); it **only opens when full**, because a jar you can
+    empty at any level teaches people to tap it constantly; and it **stops**
+    rather than overflowing, so being away is never punished.
+    It is the other half of the chores: a chore asks for a minute of attention,
+    the jar asks for nothing and rewards coming back — the D1 and D7 halves of
+    §4's gate.
+  - **The marker is generalised** (`ui/world-marker.ts`, was `chore-marker`).
+    Chores and the jar both want "a sparkle on the thing itself", and both can
+    be waiting at once — one shared instance would silently drop the other.
+  - **The launch screen has the app's own mark in it**: the cup with the cat's
+    face in the foam, steam, and a bar that advances. It was two plain circles,
+    which said "loading" but not *what*. The bar is time-based rather than
+    progress-based on purpose — there is no honest progress number to report,
+    and a fake bar that jumps to 100% and waits is worse than one easing toward
+    it.
 - *2026-08-26, last* — **A visit is a sequence now: in → counter → seat, or a
   cup to go.**
   - Ellis: *"i still want them to talk to my character and order before sitting

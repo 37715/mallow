@@ -22,8 +22,10 @@ import { COUNTER_POSITION, doorPositions, seatFacings, seatPositions, seatStandP
 import { catHomes } from "@/scene/cat-homes";
 import { visitorPayAmount } from "@/data/economy";
 import { createChoreWipe } from "@/ui/chore-wipe";
+import { CHORES_BY_ID } from "@/data/chores";
+import { TIP_JAR_AT, TIP_JAR_ITEM, tipsReady } from "@/data/tips";
 import { createChoreSurface } from "@/scene/chore-surface";
-import { createChoreMarker } from "@/ui/chore-marker";
+import { createWorldMarker } from "@/ui/world-marker";
 import { mountUI } from "@/ui/ui";
 import { CatLabelLayer, NameTag } from "@/ui/cat-labels";
 import { beds } from "@/data/beds";
@@ -606,11 +608,35 @@ async function bootstrap(): Promise<void> {
    * The marker floats on the job itself and is the only way in — see
    * `ui/chore-marker.ts` for why it is not a row in the HUD.
    */
-  const choreMarker = createChoreMarker(uiRoot, (chore) => {
+  const choreMarker = createWorldMarker(uiRoot, (mark) => {
+    const chore = CHORES_BY_ID.get(mark.id);
+    if (!chore) return;
     playTap();
     choreWipe.start(chore);
   });
-  ui.attachChores((chore) => choreMarker.set(chore));
+  ui.attachChores((chore) =>
+    choreMarker.set(chore ? { id: chore.id, label: chore.action, at: chore.at } : null),
+  );
+
+  /**
+   * The tip jar: a small thing on the counter that fills as people pay, and
+   * gives it all back when you tap it (`data/tips.ts`).
+   *
+   * Its own marker rather than sharing the chore's, because both can be
+   * waiting at once and a café that can only ask you for one thing at a time
+   * would drop the other silently.
+   */
+  const tipMarker = createWorldMarker(uiRoot, () => {
+    const taken = gameStore.getState().collectTips();
+    if (taken <= 0) return;
+    playCoin();
+    floaters.spawn(
+      new THREE.Vector3(TIP_JAR_AT.x, TIP_JAR_AT.y, TIP_JAR_AT.z),
+      camera,
+      "coin",
+      `+$${Math.round(taken)}`,
+    );
+  });
 
   setOverlay((renderer, now) => {
     if (onboarding) {
@@ -754,6 +780,17 @@ async function bootstrap(): Promise<void> {
     // After `controls.update()`, like the labels: it projects from world
     // space, so it needs the camera in its final position for this frame.
     choreMarker.update(camera);
+    {
+      // Only when it is full: a jar you can empty at any level teaches people
+      // to tap it constantly, which is the opposite of a cosy little bonus.
+      const state = gameStore.getState();
+      tipMarker.set(
+        tipsReady(state.tips) && state.purchased.includes(TIP_JAR_ITEM)
+          ? { id: "tips", label: "empty the jar", at: TIP_JAR_AT }
+          : null,
+      );
+      tipMarker.update(camera);
+    }
     expansionGhosts.update(now);
     builder.sync(camera);
     dust.update(now);

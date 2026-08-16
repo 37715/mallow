@@ -33,6 +33,7 @@ import {
 } from "@/data/expansion";
 import { DEFAULT_PLAYER, type PlayerProfile } from "@/data/player";
 import { CHORES_BY_ID } from "@/data/chores";
+import { TIP_JAR_ITEM, addTips, tipsReady } from "@/data/tips";
 import { choreAppeal, completeChore, isDue, type ChoreLog } from "@/systems/chores";
 import type { GraphicsLevel } from "@/data/graphics";
 import { backdrop, backdropAppeal, sanitizeBackdrop } from "@/data/backdrops";
@@ -164,6 +165,8 @@ export interface GameState {
    * happens if a session ends mid-placement.
    */
   pendingPurchase: { id: string; cost: number } | null;
+  /** Coins in the tip jar. Only collectable when full — see `data/tips.ts`. */
+  tips: number;
   /** When each chore was last done (`systems/chores.ts`). */
   chores: ChoreLog;
   /**
@@ -209,6 +212,8 @@ export interface GameState {
   movePiece: (id: string, x: number, z: number, rot?: number) => void;
   /** Mark a chore done — pays, grants xp, restores its appeal. */
   finishChore: (id: string) => void;
+  /** Empty the tip jar into the till. Returns what was in it, or 0. */
+  collectTips: () => number;
   /**
    * Take the money for a piece the player has just put down. Returns what was
    * charged, or 0 if nothing was owed, so the caller can make a noise about it.
@@ -398,6 +403,7 @@ type PersistedState = Pick<
   | "tiles"
   | "backdropsOwned"
   | "windows"
+  | "tips"
   | "chores"
   | "openedAt"
   | "instances"
@@ -439,6 +445,7 @@ function freshState(): PersistedState {
     tiles: [HOME_TILE],
     backdropsOwned: [],
     windows: [HOME_WINDOW],
+    tips: 0,
     chores: {},
     openedAt: Date.now(),
     instances: [],
@@ -511,6 +518,7 @@ export const gameStore = createStore<GameState>((set, get) => ({
         tiles: saved.tiles,
         backdropsOwned: saved.backdropsOwned,
         windows: saved.windows,
+        tips: saved.tips,
         chores: saved.chores,
         openedAt: saved.openedAt,
         instances: saved.instances,
@@ -562,6 +570,11 @@ export const gameStore = createStore<GameState>((set, get) => ({
       money: sandbox
         ? ECONOMY_CONFIG.tillCapacity
         : Math.min(ECONOMY_CONFIG.tillCapacity, money + result.moneyEarned),
+      // Tips are **minted on top** of what a visitor pays, never skimmed off
+      // it — see `data/tips.ts`. Same `set` as the money for the reason above.
+      tips: state.purchased.includes(TIP_JAR_ITEM)
+        ? addTips(state.tips, result.moneyEarned)
+        : state.tips,
       sales,
     });
   },
@@ -687,6 +700,18 @@ export const gameStore = createStore<GameState>((set, get) => ({
    * settles on the way out for exactly that reason. Settling twice is
    * harmless — the pending record is cleared here.
    */
+  collectTips: () => {
+    const state = get();
+    if (!tipsReady(state.tips) || !state.purchased.includes(TIP_JAR_ITEM)) return 0;
+    const taken = Math.round(state.tips);
+    set({
+      money: Math.min(ECONOMY_CONFIG.tillCapacity, state.money + taken),
+      tips: 0,
+    });
+    logEvent({ name: "tips_collected", amount: taken });
+    return taken;
+  },
+
   settlePurchase: () => {
     const state = get();
     const pending = state.pendingPurchase;

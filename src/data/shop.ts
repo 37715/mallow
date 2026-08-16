@@ -154,6 +154,12 @@ export const SHOP_ITEMS: ShopItem[] = [
   { id: "climber", name: "Cat climber", blurb: "High up, where they prefer to be.", category: "cats", price: 180, appeal: 0.5, place: "climber", unlock: null, preview: "Cat_Climber_A_Cream" },
 
   // --- The counter ---------------------------------------------------------
+  /**
+   * **Cheap, and unlocked from the start**, because it is aimed squarely at
+   * the first half hour — see `data/tips.ts` for why the early game needed
+   * something that rewards coming back rather than something to do.
+   */
+  { id: "tip-jar", name: "Tip jar", blurb: "Fills up while you work. Tap it when it is full.", category: "counter", price: 30, appeal: 0.2, unlock: null, preview: "Deco_TallGlass_Empty" },
   { id: "cake-display", name: "Cake display", blurb: "Cupcakes under glass.", category: "counter", price: 120, appeal: 0.4, unlock: null, preview: "Cake_Display_A" },
   { id: "counter-treats", name: "Milkshakes & cakes", blurb: "Something to look at while you queue.", category: "counter", price: 90, appeal: 0.3, unlock: null, preview: "Food_Milkshake_Strawberry" },
 

@@ -1,10 +1,11 @@
 import * as THREE from "three";
-import type { Chore } from "@/data/chores";
 import { icon } from "@/ui/icons";
 
 /**
- * A sparkle floating on the thing that needs doing, which is the only way to
- * start a chore.
+ * A sparkle floating on something in the room that wants tapping.
+ *
+ * Two things use it: a chore that has come due, and a tip jar that has filled
+ * up. Both are the same idea — **the café asking, on the thing itself** —
  *
  * **This replaced a button in the HUD**, and the replacement is the point:
  * Ellis, 2026-08-26, *"make it be popping up from or next to the window, so the
@@ -19,18 +20,28 @@ import { icon } from "@/ui/icons";
  * to fight the furniture picker for raycasts.
  */
 
-export interface ChoreMarker {
-  /** Show the job that wants doing, or `null` for none. */
-  set(chore: Chore | null): void;
+/** Something in the room asking to be tapped. */
+export interface WorldMark {
+  /** Stable identity, so re-setting the same mark does not restart its arrival. */
+  id: string;
+  /** The verb on the pill. */
+  label: string;
+  /** Where in the room it floats, in world units. */
+  at: { x: number; y: number; z: number };
+}
+
+export interface WorldMarker {
+  /** Show a mark, or `null` for none. */
+  set(mark: WorldMark | null): void;
   /** Re-project. Call after the camera has settled for the frame. */
   update(camera: THREE.Camera): void;
   dispose(): void;
 }
 
-export function createChoreMarker(
+export function createWorldMarker(
   root: HTMLElement,
-  onPick: (chore: Chore) => void,
-): ChoreMarker {
+  onPick: (mark: WorldMark) => void,
+): WorldMarker {
   const layer = document.createElement("div");
   layer.className = "chore-layer";
   // Survives `mountUI` clearing the root — see the note there.
@@ -63,7 +74,7 @@ export function createChoreMarker(
 
   const ndc = new THREE.Vector3();
   const anchor = new THREE.Vector3();
-  let current: Chore | null = null;
+  let current: WorldMark | null = null;
 
   button.addEventListener("click", (e) => {
     e.stopPropagation();
@@ -71,16 +82,16 @@ export function createChoreMarker(
   });
 
   return {
-    set(chore) {
-      // Both null is the common case — every frame with nothing due — so this
-      // still has to be cheap. It is correct now only because the layer starts
-      // hidden; see the note there.
-      if (chore?.id === current?.id) return;
-      current = chore;
-      layer.style.display = chore ? "" : "none";
-      if (chore) {
-        label.textContent = chore.action;
-        anchor.set(chore.at.x, chore.at.y, chore.at.z);
+    set(mark) {
+      // Both null is the common case — every frame with nothing to show — so
+      // this still has to be cheap. It is correct now only because the layer
+      // starts hidden; see the note there.
+      if (mark?.id === current?.id) return;
+      current = mark;
+      layer.style.display = mark ? "" : "none";
+      if (mark) {
+        label.textContent = mark.label;
+        anchor.set(mark.at.x, mark.at.y, mark.at.z);
         // Re-run the entrance every time one comes due, so it reads as
         // arriving rather than as having always been there.
         button.classList.remove("chore-marker-in");

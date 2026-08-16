@@ -6,6 +6,7 @@ import { upgradeDefinition } from "@/data/upgrades";
 import { DEFAULT_CUSTOMISATION } from "@/data/customisation";
 import { DEFAULT_PLAYER } from "@/data/player";
 import { HOME_WINDOW } from "@/data/expansion";
+import { TIP_JAR_CAPACITY } from "@/data/tips";
 
 /**
  * Save migration is the one place a bug costs a player their cats (§8), so
@@ -514,5 +515,34 @@ describe("autosave", () => {
     vi.advanceTimersByTime(AUTOSAVE_INTERVAL_MS * 3);
 
     expect(localStorage.getItem(SAVE_KEY)).toBeNull();
+  });
+});
+
+describe("v23 → v24: the tip jar", () => {
+  /** A v7 save is the oldest the chain still carries; it migrates all the way. */
+  const oldSave = {
+    version: 7,
+    money: 120,
+    nextCatId: 2,
+    cats: CATS,
+    savedAt: 1000,
+    upgrades: {},
+    customisation: DEFAULT_CUSTOMISATION,
+  };
+
+  it("starts empty, because nobody tipped into a jar they did not own", () => {
+    write(oldSave);
+    expect(loadSave()?.tips).toBe(0);
+  });
+
+  it("clamps a garbage jar rather than trusting it", () => {
+    // Either extreme is bad in its own way: a huge value hands out a fortune,
+    // and a NaN wedges the jar permanently shut because it is never "full".
+    write({ ...oldSave, version: 24, tips: 1e9, player: DEFAULT_PLAYER, windows: [HOME_WINDOW] });
+    expect(loadSave()?.tips).toBe(TIP_JAR_CAPACITY);
+    write({ ...oldSave, version: 24, tips: Number.NaN, player: DEFAULT_PLAYER, windows: [HOME_WINDOW] });
+    expect(loadSave()?.tips).toBe(0);
+    write({ ...oldSave, version: 24, tips: -5, player: DEFAULT_PLAYER, windows: [HOME_WINDOW] });
+    expect(loadSave()?.tips).toBe(0);
   });
 });

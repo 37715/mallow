@@ -51,13 +51,18 @@
         opacity: 0;
         pointer-events: none;
       }
-      /* The saucer, breathing. Two nested circles rather than the full mark:
-         at this size the cat's face would be detail nobody has time to read,
-         and a slow pulse says "warming up" better than a spinner, which says
-         "waiting". */
+      /* The mark, breathing: a saucer, the coffee, and the cat's face in the
+         foam — the same drawing as the app icon (`tools/make-icons.py`), so
+         the thing you tapped on the home screen is the thing that greets you.
+
+         It was two plain circles before, which said "loading" but not *what*.
+         The face is three shapes and reads at this size; it is the icon's own
+         geometry, scaled. A slow pulse rather than a spinner, because a
+         spinner says "waiting" and this should say "warming up". */
       #boot-cup {
-        width: 96px;
-        height: 96px;
+        position: relative;
+        width: 108px;
+        height: 108px;
         border-radius: 50%;
         background: #f6eddd;
         display: grid;
@@ -66,10 +71,85 @@
       }
       #boot-cup::after {
         content: "";
-        width: 74px;
-        height: 74px;
+        width: 82px;
+        height: 82px;
         border-radius: 50%;
         background: #deba8f;
+      }
+      /* The foam cat, drawn in cream on the coffee. */
+      #boot-cat {
+        position: absolute;
+        width: 52px;
+        height: 52px;
+      }
+
+      /* Three drifting curls of steam. Staggered and slow — this is the one
+         moving thing on screen, so it sets the pace of the whole launch. */
+      #boot-steam {
+        position: absolute;
+        top: -26px;
+        display: flex;
+        gap: 11px;
+      }
+      #boot-steam i {
+        display: block;
+        width: 5px;
+        height: 20px;
+        border-radius: 999px;
+        background: #f6eddd;
+        opacity: 0;
+        animation: boot-steam 2.8s ease-in-out infinite;
+      }
+      #boot-steam i:nth-child(2) {
+        animation-delay: 0.55s;
+      }
+      #boot-steam i:nth-child(3) {
+        animation-delay: 1.1s;
+      }
+      @keyframes boot-steam {
+        0% {
+          opacity: 0;
+          transform: translateY(8px) scaleY(0.6);
+        }
+        35% {
+          opacity: 0.5;
+        }
+        100% {
+          opacity: 0;
+          transform: translateY(-16px) scaleY(1.25);
+        }
+      }
+
+      /* A bar that actually fills, rather than a dot that spins. Launch is a
+         4 MB Draco decode on a phone and can take a few seconds; something
+         that visibly advances is the difference between "loading" and
+         "stuck". It is time-based rather than progress-based on purpose —
+         there is no honest progress number to report, and a fake bar that
+         jumps to 100% and waits is worse than one that eases toward it. */
+      #boot-bar {
+        width: 132px;
+        height: 4px;
+        border-radius: 999px;
+        background: rgba(246, 237, 221, 0.22);
+        overflow: hidden;
+      }
+      #boot-bar i {
+        display: block;
+        height: 100%;
+        width: 100%;
+        border-radius: 999px;
+        background: #f6eddd;
+        transform-origin: left;
+        transform: scaleX(0);
+        animation: boot-fill 6s cubic-bezier(0.16, 0.8, 0.3, 1) forwards;
+      }
+      @keyframes boot-fill {
+        0% {
+          transform: scaleX(0.04);
+        }
+        100% {
+          transform: scaleX(0.94);
+        }
       }
       #boot-word {
         font-size: 26px;
@@ -92,8 +172,13 @@
         }
       }
       @media (prefers-reduced-motion: reduce) {
-        #boot-cup {
+        #boot-cup,
+        #boot-steam i,
+        #boot-bar i {
           animation: none;
+        }
+        #boot-bar i {
+          transform: scaleX(0.5);
         }
       }
     </style>
@@ -104,9 +189,25 @@
       <div id="ui-root"></div>
     </div>
     <div id="boot">
-      <div id="boot-cup"></div>
+      <div id="boot-cup">
+        <div id="boot-steam"><i></i><i></i><i></i></div>
+        <!-- The cat in the foam: ears, head, and two closed eyes, matching the
+             cats in the game and on the icon. -->
+        <svg id="boot-cat" viewBox="0 0 48 48" aria-hidden="true">
+          <path
+            d="M11 20 L13 8 L21 13.5 A16 14 0 0 1 27 13.5 L35 8 L37 20
+               A15 14 0 1 1 11 20 Z"
+            fill="#f6eddd"
+          />
+          <path d="M17 25 A4 4 0 0 1 24 25" fill="none" stroke="#deba8f"
+                stroke-width="2.2" stroke-linecap="round" />
+          <path d="M26 25 A4 4 0 0 1 33 25" fill="none" stroke="#deba8f"
+                stroke-width="2.2" stroke-linecap="round" />
+        </svg>
+      </div>
       <div id="boot-word">mallow</div>
       <div id="boot-sub">putting the kettle on…</div>
+      <div id="boot-bar"><i></i></div>
     </div>
     <!--
       Failsafe, and it lives here rather than in main.ts on purpose.
