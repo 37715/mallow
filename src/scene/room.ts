@@ -150,9 +150,6 @@ export function seatStandPositions(placements: Placements): THREE.Vector3[] {
  * seat. `SEAT_POSITIONS` keeps the real height because the coin floaters want
  * to launch from the tabletop, not the floor.
  */
-export const SEAT_STAND_POSITIONS: THREE.Vector3[] = SEATS.map(
-  (s) => new THREE.Vector3(s.x, 0, s.z),
-);
 
 /**
  * Which way a guest faces when seated — **toward the door, which is also
@@ -216,6 +213,23 @@ export const SEAT_KINDS: SeatKind[] = SEATS.map((s) => {
   if (s.asset.startsWith("Sofa")) return "sofa";
   return "floor";
 });
+
+/**
+ * **Derived from the live function, not hand-rolled alongside it.**
+ *
+ * These two used to be written out separately and drifted the moment
+ * `SEAT_SIT_BACK` landed: the function applied the offset and the constant did
+ * not. `VisitorManager` defaults to the constant, so on a fresh load — which is
+ * every load — guests were seated by the stale copy and the fix appeared not to
+ * work at all. A constant that restates a function is a bug waiting for the
+ * function to change; this one asks it.
+ *
+ * **It has to sit below `SEAT_FACINGS` and `SEAT_KINDS`**, which the function
+ * reads. Declared above them it throws `Cannot access before initialization` at
+ * module load — the third time a TDZ has bitten this project (§0, 2026-08-25,
+ * twice in one day). A `const` is not hoisted; only the *function* is.
+ */
+export const SEAT_STAND_POSITIONS: THREE.Vector3[] = seatStandPositions({});
 
 /** Where cats settle: beds, the climber, sunny spots. */
 export const CAT_DISPLAY_POSITIONS: THREE.Vector3[] = CAT_SPOTS.map(

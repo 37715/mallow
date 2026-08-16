@@ -16,7 +16,7 @@ This file is the shared brain for the project. **Read it before starting work in
 > not finished. Nobody should have to re-derive the state of the project by
 > reading the whole codebase.
 
-**Last updated:** 2026-08-26 (tip jar, seat offsets, a loading screen worth looking at)
+**Last updated:** 2026-08-26 (a cleanup pass — three bugs, two of them mine from today)
 
 **Built and working:**
 - **M1 — playable core loop** ✅ visitors arrive → sit → pay → money accrues.
@@ -326,10 +326,6 @@ holds, and the editor is now how that week gets built.</summary>
   are calculated, not profiled. If "sharp" turns out to be stable on a real
   phone, the budgets can all move up; if "balanced" crashes, they must come
   down. **Nobody has yet reported which levels survive.**
-- **The character creator has a cat label floating over the avatar.**
-  `CatLabelLayer` keeps projecting "Biscuit" onto the screen during onboarding,
-  where it lands on the character you are designing. One line to suppress; not
-  done because it wasn't asked for.
 - ~~No customer variety~~ ✅ guests are the real character pack now, assembled
   per visitor from hair/top/legs/held-prop slots with a tinted garment palette
   and one of six skintones × sixteen hair colours (§9).
@@ -368,6 +364,37 @@ holds, and the editor is now how that week gets built.</summary>
   injection time out every time.
 
 **Session log:**
+- *2026-08-26, cleanup* — **Three bugs, two of them mine from earlier today,
+  and all three the same shape: a second copy of the truth.**
+  - **`SEAT_STAND_POSITIONS` was a hand-written twin of `seatStandPositions()`**
+    and drifted the moment `SEAT_SIT_BACK` landed — the function applied the
+    sit-back offset, the constant did not. `VisitorManager` defaults to the
+    constant and `setSeats` was gated on "did furniture move", so **a fresh
+    café never called it at all**: the seating fix was invisible on every load
+    until you dragged something. The constant is derived from the function now
+    and the call is unconditional. **A constant that restates a function is a
+    bug waiting for the function to change.**
+    Moving it also produced the **third TDZ** in this project — it reads
+    `SEAT_FACINGS` and `SEAT_KINDS`, so it has to be declared below them. A
+    `const` is not hoisted; only the function is.
+  - **The `settlePurchase` safety net fired after the save it was protecting.**
+    Listeners on one event run in registration order, and `initAutosave`
+    registers its `pagehide` save near the top of `bootstrap()` while mine was
+    500 lines below — so the save wrote "owns the armchair, has not paid" and
+    the settle ran into the void. It is registered before the autosave now, and
+    also on `visibilitychange`, which is the event that actually fires when an
+    iOS app is backgrounded (§0, 2026-08-05 — the same one that hid the
+    never-firing autosave for the whole life of the project).
+    Measured: backgrounding mid-placement now goes £40 → £5 *then* saves £5.
+  - **The cat labels were being drawn over the character creator**, a gap §0
+    had carried since 2026-08-17 with the note "one line to suppress". It is
+    that line: `sync` is passed no cats while onboarding is up, which removes
+    them rather than hiding them so nothing is stranded if it is abandoned.
+  - Also: §0 claimed save v23 when the code was at v24 (and the previous commit
+    message said v25, which was simply wrong), and `tipsFraction` was exported
+    and never used. Both corrected — **the migration list is the one piece of
+    documentation in this file that a wrong number can cost somebody their
+    cats.**
 - *2026-08-26, very last* — **A tip jar, seats people actually sit on, and a
   launch screen with something in it.**
   - **The pack's sit clips are authored against the pack's own furniture**, and
@@ -2646,7 +2673,7 @@ Single source of truth = the Zustand store, serialised to storage. Autosave on e
 > passes, because the data that never arrived is indistinguishable from a new
 > game. Test that writes *happen*, not just that they round-trip.
 
-**Currently at v23.** Migrations are a chain in `state/save.ts`: each entry bumps exactly one version, and `loadSave` walks a save forward from whatever version it's on. Adding a version means appending one migration and one test case to `state/save.test.ts` — which every version must have, because this is the one place a bug costs a player their cats. (v1→v2 added `savedAt`; v2→v3 added `upgrades`; v3→v4 added `venueIndex` plus an optional `contentUntil` per cat; v4→v5 **removed** `venueIndex` with the venue ladder and clamped old billion-pound balances into the new readable range; v5→v6 is the deliberate one-time break described in §0; v6→v7 rehomes an *untouched* sofa/rug choice onto the new free default without touching a bought one; v7→v8 split the floor out of the wall style; v8→v9 added `placements`; v9→v10 granted an existing café the whole shop catalogue; v10→v11 marked existing players as having finished character creation; v11→v12 dropped the retired `decor` upgrade and **refunded** it; v12→v17 added the coffee menu, expansion tiles, purchasable backdrops and cat beds (v16→v17 grants every existing cat a free bed, since capacity became bed count); v17→v18 seeds `windows` with the café's own back window, which had been hard-coded in the layout — miss it and the café wakes up bricked in; v18→v19 grants the floor cushions, which moved into the shop; v19→v20 marks an existing café as having already seen the guide, so a finished café is never shown a tutorial; v22→v23 adds chores and stamps `openedAt` at *migration time* rather than
+**Currently at v24.** Migrations are a chain in `state/save.ts`: each entry bumps exactly one version, and `loadSave` walks a save forward from whatever version it's on. Adding a version means appending one migration and one test case to `state/save.test.ts` — which every version must have, because this is the one place a bug costs a player their cats. (v1→v2 added `savedAt`; v2→v3 added `upgrades`; v3→v4 added `venueIndex` plus an optional `contentUntil` per cat; v4→v5 **removed** `venueIndex` with the venue ladder and clamped old billion-pound balances into the new readable range; v5→v6 is the deliberate one-time break described in §0; v6→v7 rehomes an *untouched* sofa/rug choice onto the new free default without touching a bought one; v7→v8 split the floor out of the wall style; v8→v9 added `placements`; v9→v10 granted an existing café the whole shop catalogue; v10→v11 marked existing players as having finished character creation; v11→v12 dropped the retired `decor` upgrade and **refunded** it; v12→v17 added the coffee menu, expansion tiles, purchasable backdrops and cat beds (v16→v17 grants every existing cat a free bed, since capacity became bed count); v17→v18 seeds `windows` with the café's own back window, which had been hard-coded in the layout — miss it and the café wakes up bricked in; v18→v19 grants the floor cushions, which moved into the shop; v19→v20 marks an existing café as having already seen the guide, so a finished café is never shown a tutorial; v23→v24 adds the tip jar, empty — nobody tipped into a jar they did not own; v22→v23 adds chores and stamps `openedAt` at *migration time* rather than
 zero — a zero would make every chore overdue by decades and greet a returning
 player with three jobs at once; v20→v21 withdraws the floor cushions the v19 grant handed out — the only migration that *removes* anything, and safe only because it can never take back something that was bought. Cats and names always survive.)
 

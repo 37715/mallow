@@ -67,8 +67,3 @@ export function tipsReady(tips: number): boolean {
   return tips >= TIP_JAR_CAPACITY;
 }
 
-/** How full it looks, 0–1, for anything that wants to show it. */
-export function tipsFraction(tips: number): number {
-  if (!Number.isFinite(tips) || tips <= 0) return 0;
-  return Math.min(1, tips / TIP_JAR_CAPACITY);
-}

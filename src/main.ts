@@ -91,7 +91,6 @@ async function bootstrap(): Promise<void> {
     ) {
       return;
     }
-    const movedFurniture = placements !== shownPlacements || instances !== shownInstances;
     shownCustomisation = customisation;
     shownPlacements = placements;
     shownPurchased = purchased;
@@ -104,9 +103,12 @@ async function bootstrap(): Promise<void> {
       // Cat spots depend on *both*: where furniture is, and whether it has
       // been bought at all.
       catManager.setSpots(catHomes(gameStore.getState()));
-      if (movedFurniture) {
-        visitorManager.setSeats(seatStandPositions(placements), seatFacings(placements));
-      }
+      // Unconditional. It used to be gated on "did furniture move", which
+      // meant a fresh café never called it at all and guests were seated from
+      // the module constant — the exact path the sit-back offset was invisible
+      // on. Re-deriving five vectors is far cheaper than reasoning about which
+      // changes count.
+      visitorManager.setSeats(seatStandPositions(placements), seatFacings(placements));
       // The doorway rides the floor's outer edge, so growing the café moves
       // where guests come in — see `doorPositions`.
       const door = doorPositions(tiles);
@@ -151,6 +153,27 @@ async function bootstrap(): Promise<void> {
   // say different things — see `entities/tutorial-guide.ts`.
   const speech = new SpeechBubble(uiRoot, { msPerChar: SPEECH_MS_PER_CHAR });
   let guide: TutorialGuide | null = null;
+  /**
+   * Settle an unpaid piece if the session ends while it is still in the
+   * player's hands. `pendingPurchase` is runtime-only, so without this a
+   * force-quit mid-placement hands out free furniture.
+   *
+   * **Registered before `initAutosave`, and that is the whole point.**
+   * Listeners on the same event fire in registration order, and `initAutosave`
+   * saves on `pagehide` — so with this below it the save wrote the state with
+   * the item already owned and the money not yet taken, which is precisely the
+   * hole it exists to close. It also has to cover `visibilitychange`, because
+   * on iOS that is the one that actually fires when the app is backgrounded
+   * (§0, 2026-08-05 — the same event that hid the never-firing autosave).
+   */
+  const settleOnLeave = () => {
+    gameStore.getState().settlePurchase();
+  };
+  window.addEventListener("pagehide", settleOnLeave);
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") settleOnLeave();
+  });
+
   initAutosave(gameStore);
   initAnalytics(() => {
     const { money, cats } = gameStore.getState();
@@ -719,15 +742,6 @@ async function bootstrap(): Promise<void> {
     };
   }
 
-  /**
-   * Settle an unpaid piece if the session ends while it is still in the
-   * player's hands. `pendingPurchase` is runtime-only, so without this a
-   * force-quit mid-placement would hand out free furniture.
-   */
-  window.addEventListener("pagehide", () => {
-    gameStore.getState().settlePurchase();
-  });
-
   // Offline earnings on launch, and on resume from background — inside the
   // Capacitor shell the page isn't reloaded when the app comes back (§8).
   function settleAway(awayMs: number): void {
@@ -759,7 +773,17 @@ async function bootstrap(): Promise<void> {
     // Before the labels: they project from world space, so they need the
     // camera in its final position for this frame or they lag a frame behind.
     controls.update();
-    catLabels.sync(cats, catManager.getLabelAnchors(), camera);
+    /**
+     * **No cat names during character creation.**
+     *
+     * The labels project from world space, and the café is running live behind
+     * the onboarding card — so "Biscuit" was being drawn straight across the
+     * face of the avatar the player is designing. §0 has listed this as a known
+     * gap since 2026-08-17 with the note "one line to suppress"; passing no
+     * cats is that line, and it removes the labels rather than hiding them so
+     * nothing is left stranded if onboarding is abandoned.
+     */
+    catLabels.sync(onboarding ? [] : cats, catManager.getLabelAnchors(), camera);
     nameTag.update(camera, now);
     // Held locally because the guide's `finished` callback sets `guide` to
     // null *during* this update — so reading `guide.anchor` on the next line
