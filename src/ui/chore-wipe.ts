@@ -3,7 +3,7 @@ import { playTap } from "@/audio/audio";
 import { icon } from "@/ui/icons";
 
 /**
- * The wiping minigame: the café's window, grubby, and you rub it clean.
+ * The wiping minigame: something in the café, grubby, and you rub it clean.
  *
  * ## Two things this got wrong before, both worth keeping
  *
@@ -19,9 +19,10 @@ import { icon } from "@/ui/icons";
  *
  * **And the muck covered the whole screen**, which meant the thing being
  * cleaned was the phone rather than the window. There is a real render of the
- * window in the middle of it now (`scene/window-preview.ts`) and the grime is
- * confined to the glass, so what you are wiping is unambiguous and what you
- * uncover is the café's own window.
+ * café's own surface in the middle of it now (`scene/chore-surface.ts`), framed
+ * so the card *is* the thing — a pane of glass, a tabletop, a patch of boards
+ * — and the grime is confined to it. That framing is also what makes each
+ * chore look like its own job rather than a recolour of the last one.
  *
  * The rest of the shape is unchanged and deliberate: no fail state, no timer,
  * no score, and it completes at 88% rather than 100% — hunting the last specks
@@ -31,6 +32,8 @@ import { icon } from "@/ui/icons";
 export interface ChoreWipe {
   start(chore: Chore): void;
   readonly open: boolean;
+  /** Which job is on screen, so the caller knows what to render. */
+  readonly chore: Chore | null;
   /** Where the window should be rendered, or null when the game is closed. */
   stageRect(): DOMRect | null;
   /** Copy the rendered window into the card. Same frame as the render. */
@@ -295,6 +298,10 @@ export function createChoreWipe(
       title.textContent = next.name;
       hint.textContent = next.hint;
       fill.style.width = "0%";
+      // The card takes the surface's own shape — a pane of glass is landscape
+      // and a patch of floor is square, and showing one in the other's box is
+      // most of what would make three chores feel like one.
+      card.style.aspectRatio = String(next.surface.aspect);
       layer.style.display = "";
       root.classList.add("wiping");
       // After display, or the card measures zero and the grime is painted into
@@ -304,6 +311,10 @@ export function createChoreWipe(
 
     get open(): boolean {
       return chore !== null;
+    },
+
+    get chore(): Chore | null {
+      return chore;
     },
 
     stageRect(): DOMRect | null {

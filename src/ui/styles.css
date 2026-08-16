@@ -3910,6 +3910,7 @@ body {
   position: relative;
   width: min(340px, calc(100vw - 44px));
   /* Portrait-ish, like the window itself. */
+  /* Set per chore from `ChoreSurface.aspect` — this is only the fallback. */
   aspect-ratio: 5 / 6;
   max-height: 56vh;
   border-radius: var(--r-card);

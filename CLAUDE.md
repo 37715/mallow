@@ -16,7 +16,7 @@ This file is the shared brain for the project. **Read it before starting work in
 > not finished. Nobody should have to re-derive the state of the project by
 > reading the whole codebase.
 
-**Last updated:** 2026-08-26 (the window minigame, rebuilt around a real render)
+**Last updated:** 2026-08-26 (a surface per chore, framed so the card is the thing)
 
 **Built and working:**
 - **M1 — playable core loop** ✅ visitors arrive → sit → pay → money accrues.
@@ -366,6 +366,27 @@ holds, and the editor is now how that week gets built.</summary>
   injection time out every time.
 
 **Session log:**
+- *2026-08-26, very last* — **One surface per chore, and the framing is what
+  does the work.**
+  - Ellis: *"it looks like im also wiping the wall? it should only be pure
+    glass. not the entire wall. just the window. and of course it should look
+    different for the floor and tables too."* **Both halves have the same
+    answer: frame the camera so the card *is* the surface.** Masking the grime
+    to the glass would have solved the first complaint and taught us nothing
+    about a tabletop; a per-chore subject and framing solves both, and every
+    job looks like its own job. `ChoreSurface` in `data/chores.ts` is three
+    numbers — where the camera stands, how much world the card holds, and what
+    shape the card is — and `scene/chore-surface.ts` knows nothing else.
+  - **The card takes the surface's shape.** A pane of glass is landscape and a
+    patch of floor is square; showing one in the other's box is most of what
+    would make three chores feel like one.
+  - **The glass is brighter because the panel behind it is over-range.** The
+    preview composite applies the room's own exposure (0.40) and ACES before
+    the grade, so a plain white plane lands near 0.7 and reads as flat grey.
+    A colour above 1 is what an over-exposed window actually looks like going
+    into a tone map — the same trick the café's own daylight panel uses.
+  - Anything with a colourway resolves against the player's customisation, so
+    a repainted café is cleaning *its* glass and *its* floorboards.
 - *2026-08-26, last* — **The wipe minigame was inert too, and it is a proper
   window now.**
   - **`pointer-events: auto` was missing again.** Second widget in a row.

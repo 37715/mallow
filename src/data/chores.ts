@@ -36,6 +36,43 @@
 
 export type ChoreGame = "wipe";
 
+/**
+ * What the minigame shows you, and how it is framed.
+ *
+ * **One surface per chore, filling the card.** Ellis, 2026-08-26: *"it looks
+ * like im also wiping the wall? it should only be pure glass. not the entire
+ * window... and of course it should look different for the floor and tables
+ * too."* Both halves are solved the same way — by framing the camera so the
+ * card *is* the thing being cleaned. Masking the grime to the glass would have
+ * worked for the window and told us nothing about how to do a tabletop; a
+ * per-chore subject and framing does both, and every chore looks like its own
+ * job rather than a recoloured version of the last one.
+ *
+ * `slot` resolves against the player's own customisation where there is one,
+ * so somebody who has repainted cleans *their* window and *their* floorboards.
+ */
+export interface ChoreSurface {
+  /** Resolve the asset from the player's style. Wins over `asset`. */
+  slot?: "wallWindow" | "floor";
+  /** A fixed asset, for anything with no colourway. */
+  asset?: string;
+  /**
+   * Where the camera stands, as a direction from the point it looks at. Length
+   * is ignored — the distance is solved from `span`.
+   */
+  from: [number, number, number];
+  /**
+   * How wide a slice of the world the card holds, in world units. This is what
+   * decides whether you are looking at a window or at a wall with a window in
+   * it, so it is the number to change if a surface reads wrong.
+   */
+  span: number;
+  /** The card's shape, so a wide surface is not shown in a tall box. */
+  aspect: number;
+  /** Height above the piece's base to aim at. Omit to aim at the top of it. */
+  aimY?: number;
+}
+
 export interface Chore {
   id: string;
   /**
@@ -56,6 +93,8 @@ export interface Chore {
   /** One line under the title while the minigame is open. */
   hint: string;
   game: ChoreGame;
+  /** What the minigame renders, and how it frames it. */
+  surface: ChoreSurface;
   /** How long after doing it before it needs doing again. */
   everyMs: number;
   /** Appeal it contributes *while fresh*. Never subtracted when due. */
@@ -83,6 +122,11 @@ export const CHORES: Chore[] = [
     action: "give it a wipe",
     hint: "drag to wipe the glass",
     game: "wipe",
+    // **Tight on the glass.** The aperture is 2.24 across, so a span under
+    // that means the card is pane and frame and no wall at all — which is the
+    // whole ask: *"it should only be pure glass. not the entire wall."*
+    // Landscape, because the window is.
+    surface: { slot: "wallWindow", from: [0, 0, 1], span: 2.1, aspect: 6 / 5, aimY: 1.86 },
     everyMs: 4 * HOUR,
     appeal: 0.6,
     pay: 12,
@@ -96,6 +140,10 @@ export const CHORES: Chore[] = [
     action: "wipe them down",
     hint: "drag to clear the crumbs",
     game: "wipe",
+    // Looking down at the tabletop from across it, the way you would stand,
+    // and close enough that the top fills the card rather than floating in the
+    // middle of it.
+    surface: { asset: "Table_Short", from: [0.12, 0.9, 1], span: 0.78, aspect: 1 },
     everyMs: 6 * HOUR,
     appeal: 0.5,
     pay: 10,
@@ -109,6 +157,9 @@ export const CHORES: Chore[] = [
     action: "sweep up",
     hint: "drag to sweep it up",
     game: "wipe",
+    // A patch of boards rather than the whole 4-unit tile: close enough that
+    // the planks read as a floor you are crouching over.
+    surface: { slot: "floor", from: [0.1, 1, 0.7], span: 2.2, aspect: 1 },
     everyMs: 8 * HOUR,
     appeal: 0.4,
     pay: 8,

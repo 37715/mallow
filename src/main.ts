@@ -22,7 +22,7 @@ import { doorPositions, seatFacings, seatPositions, seatStandPositions } from "@
 import { catHomes } from "@/scene/cat-homes";
 import { visitorPayAmount } from "@/data/economy";
 import { createChoreWipe } from "@/ui/chore-wipe";
-import { createWindowPreview } from "@/scene/window-preview";
+import { createChoreSurface } from "@/scene/chore-surface";
 import { createChoreMarker } from "@/ui/chore-marker";
 import { mountUI } from "@/ui/ui";
 import { CatLabelLayer, NameTag } from "@/ui/cat-labels";
@@ -556,7 +556,7 @@ async function bootstrap(): Promise<void> {
    * is what makes "clean the window" read as cleaning *the* window rather than
    * cleaning the screen.
    */
-  const windowPreview = createWindowPreview(environment);
+  const choreSurface = createChoreSurface(environment);
   const choreWipe = createChoreWipe(uiRoot, (chore) => {
     // Banked once the overlay is gone, so the appeal chip's own celebration
     // (`celebrate` in `ui.ts`, which pops the number and then the takings a
@@ -617,11 +617,12 @@ async function bootstrap(): Promise<void> {
     // rect and copied straight into the card, the same trick as the portrait
     // — the overlay is opaque DOM, so nothing drawn on the canvas could
     // otherwise be seen through it.
-    const glass = choreWipe.stageRect();
-    if (glass) {
-      windowPreview.setStyle(gameStore.getState().customisation);
-      windowPreview.render(renderer, glass, now);
-      choreWipe.paintWindow(renderer.domElement, glass);
+    const surface = choreWipe.stageRect();
+    const job = choreWipe.chore;
+    if (surface && job) {
+      choreSurface.setSubject(job, gameStore.getState().customisation);
+      choreSurface.render(renderer, surface, now);
+      choreWipe.paintWindow(renderer.domElement, surface);
     }
   });
 
@@ -658,6 +659,9 @@ async function bootstrap(): Promise<void> {
       // exactly the sort of thing §17 wants a handle on: wrapping `say` here is
       // how the lip sync reaching it was verified.
       guidePortrait,
+      // The minigame is behind a marker that is only on screen when a job is
+      // due, so driving it from a script needs a way in (§17).
+      choreWipe,
       seatPositions: () => seatPositions(gameStore.getState().placements),
     };
   }
