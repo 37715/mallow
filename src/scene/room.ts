@@ -101,9 +101,15 @@ export const SEAT_STAND_POSITIONS: THREE.Vector3[] = SEATS.map(
  * the fiction — people sit facing the way they came in — and because the door
  * is a fixed point rather than a fixed angle, each seat gets a slightly
  * different three-quarter turn for free instead of everyone facing identically.
+ *
+ * **But it is only right for a seat with no front**, which is why
+ * `Placement.seatFacing` overrides it. A stool or a floor cushion has no wrong
+ * way round; an armchair does, and the door happens to lie 50.7° off where
+ * that chair points. Nobody could see it until furniture could be turned,
+ * because at the authored angle a 50° skew reads as somebody lounging.
  */
-export const SEAT_FACINGS: number[] = SEATS.map((s) =>
-  Math.atan2(DOOR.x - s.x, DOOR.z - s.z),
+export const SEAT_FACINGS: number[] = SEATS.map(
+  (s) => s.seatFacing ?? Math.atan2(DOOR.x - s.x, DOOR.z - s.z),
 );
 
 /**

@@ -25,7 +25,7 @@ export interface SpeechBubbleOptions {
 export class SpeechBubble {
   private readonly layer: HTMLElement;
   private readonly bubble: HTMLElement;
-  private readonly portrait: HTMLElement;
+  private readonly portrait: HTMLCanvasElement;
   private readonly textNode: HTMLElement;
   private readonly hint: HTMLElement;
   private readonly ndc = new THREE.Vector3();
@@ -48,11 +48,24 @@ export class SpeechBubble {
     // exactly how the coin floaters were silently dead for weeks.
     this.layer.dataset.overlay = "";
 
-    // A hole for the 3D portrait, not a picture of one: it carries no
-    // background, because the café canvas sits *behind* the whole UI and
-    // anything opaque here would paint over the thing it is meant to frame.
-    // Same arrangement as the shop's stage — see `scene/preview-stage.ts`.
-    this.portrait = document.createElement("div");
+    /**
+     * Mal's face, beside her words.
+     *
+     * **A real 2D canvas holding a *copy* of the 3D, not a hole cut in the
+     * interface.** The first version drew her onto the café canvas and cut the
+     * panel's dim away above her with a `clip-path`, which was fine in Chrome
+     * and wrong on the only device that matters: **WebKit does not reliably
+     * clip `backdrop-filter`**, so on Ellis's phone the panel's blur sat
+     * straight on top of her, "sometimes completely blurred". Anything that
+     * lives on the canvas is at the mercy of whatever DOM paints over it, and
+     * there is no arrangement of z-index that fixes that — the canvas is below
+     * all of it by construction.
+     *
+     * Copying the pixels into an element instead makes her ordinary DOM: she
+     * sits inside the bubble, above every panel, with no notch, no clip-path,
+     * no safe-area arithmetic and nothing to hide behind.
+     */
+    this.portrait = document.createElement("canvas");
     this.portrait.className = "speech-portrait";
 
     this.bubble = document.createElement("div");
@@ -62,8 +75,11 @@ export class SpeechBubble {
     this.hint = document.createElement("span");
     this.hint.className = "speech-hint";
     this.hint.textContent = "tap to continue";
-    this.bubble.append(this.textNode, this.hint);
-    this.layer.append(this.portrait, this.bubble);
+    const body = document.createElement("div");
+    body.className = "speech-body";
+    body.append(this.textNode, this.hint);
+    this.bubble.append(this.portrait, body);
+    this.layer.append(this.bubble);
     root.appendChild(this.layer);
     this.hide();
   }
@@ -141,10 +157,6 @@ export class SpeechBubble {
     // behind the panel and blurred by its backdrop filter. Raising the layer
     // is the only thing that can lift her out.
     this.layer.classList.toggle("speech-layer-docked", docked);
-    // Nothing else in the app knows a walkthrough is running, and the panel
-    // layer needs to stop covering the café where the portrait is drawn. A
-    // class on the root is how it finds out.
-    this.layer.parentElement?.classList.toggle("guide-peek", docked);
     this.docked = docked;
   }
 
@@ -160,6 +172,47 @@ export class SpeechBubble {
     if (!this.visible || !this.docked) return null;
     const rect = this.portrait.getBoundingClientRect();
     return rect.width < 4 || rect.height < 4 ? null : rect;
+  }
+
+  /**
+   * Copy the portrait out of the WebGL canvas and into the bubble's own.
+   *
+   * **Must run in the same frame as the render that produced it.** Without
+   * `preserveDrawingBuffer` the drawing buffer is cleared once the browser
+   * composites, so this only works because the caller renders and blits inside
+   * one animation frame. `drawImage` from a WebGL canvas is a GPU-side copy,
+   * not a `readPixels` stall.
+   *
+   * The source region is the same rect this element occupies, so whatever was
+   * drawn onto the café underneath is exactly covered by this element — there
+   * is never a stray portrait visible behind the bubble.
+   */
+  blitPortrait(source: HTMLCanvasElement, rect: DOMRect): void {
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    const width = Math.max(1, Math.round(rect.width * dpr));
+    const height = Math.max(1, Math.round(rect.height * dpr));
+    if (this.portrait.width !== width || this.portrait.height !== height) {
+      this.portrait.width = width;
+      this.portrait.height = height;
+    }
+    const ctx = this.portrait.getContext("2d");
+    if (!ctx) return;
+    // The source canvas is in *device* pixels at the renderer's own ratio,
+    // which is not this one — it is solved from the graphics budget
+    // (`data/graphics.ts`) and changes when the player changes the setting.
+    const scale = source.width / Math.max(1, window.innerWidth);
+    ctx.clearRect(0, 0, width, height);
+    ctx.drawImage(
+      source,
+      rect.left * scale,
+      rect.top * scale,
+      rect.width * scale,
+      rect.height * scale,
+      0,
+      0,
+      width,
+      height,
+    );
   }
 
   update(anchor: THREE.Vector3, camera: THREE.Camera, now: number): void {

@@ -589,8 +589,15 @@ async function bootstrap(): Promise<void> {
     // together for most of the walkthrough — she is the one asking them to open
     // the shop. The two rects never overlap, so the order only decides which
     // wins if that ever stops being true.
+    // Mal's portrait: render her into the café canvas at exactly the rect her
+    // bubble's own canvas occupies, then copy those pixels across. The copy
+    // has to happen in this same frame — see `blitPortrait` — and the element
+    // sitting over the source region is what hides the render underneath.
     const peek = speech.portraitRect();
-    if (peek) guidePortrait.render(renderer, peek, now);
+    if (peek) {
+      guidePortrait.render(renderer, peek, now);
+      speech.blitPortrait(renderer.domElement, peek);
+    }
   });
 
   // §17 wants debug affordances for anything spatial, and this scene is only

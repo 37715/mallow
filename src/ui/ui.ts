@@ -798,6 +798,10 @@ export function mountUI(root: HTMLElement): MountedUI {
     nameInput.maxLength = 24;
     nameInput.placeholder = "name it";
     nameInput.autocomplete = "off";
+    // The walkthrough points here between picking an ingredient and being able
+    // to add the blend: "add to the menu" is disabled until it has a name, and
+    // an arrow on a dead button teaches nothing.
+    nameInput.dataset.guide = "blend-name";
     maker.appendChild(nameInput);
 
     const make = el("button", "reveal-confirm", "add to the menu") as HTMLButtonElement;
@@ -1420,11 +1424,13 @@ export function mountUI(root: HTMLElement): MountedUI {
    * opening the department reveals the buy button, so it moves again. Nothing
    * has to tell it a panel changed.
    */
+  /** How far into the current task's path the arrow has reached — see below. */
+  let furthestGuideDepth = -1;
   const GUIDE_PATHS: Record<string, string[]> = {
     "buy-bed": ["shop", "dept-cats", "buy-bed"],
     adopt: ["adopt"],
     "pick-ingredient": ["cafe", "blends", "ingredient"],
-    "invent-drink": ["cafe", "blends", "make-blend"],
+    "invent-drink": ["cafe", "blends", "blend-name", "make-blend"],
     "buy-chair": ["shop", "dept-comfort", "buy-armchair"],
     // Placing happens in the world, under the player's finger. Nothing to
     // point at, and an arrow stuck to a button would be actively misleading.
@@ -2509,7 +2515,16 @@ export function mountUI(root: HTMLElement): MountedUI {
    */
   function syncChores(): void {
     const state = gameStore.getState();
-    const due = dueChores(state.chores, state.openedAt, Date.now())[0];
+    // **Not while the guide is talking.** The window comes due the moment the
+    // café opens, which is the point — but "opens" is when the *walkthrough*
+    // ends, not when the save is created, and Mal is mid-sentence for the
+    // first few minutes of that. A second thing shouting for attention while
+    // she is asking you to open the shop is exactly the noise the walkthrough
+    // exists to avoid (Ellis, 2026-08-26: *"the wipe the window pop up is
+    // there right from as soon as i start the tutorial rather than after it"*).
+    const due = state.player.tutorialDone
+      ? dueChores(state.chores, state.openedAt, Date.now())[0]
+      : undefined;
     if (!due) {
       chorePrompt.style.display = "none";
       currentChore = null;
@@ -2646,6 +2661,9 @@ export function mountUI(root: HTMLElement): MountedUI {
      */
     point(target) {
       pointedTask = target;
+      // A new task starts from the top of its own path — the monotonic rule in
+      // `syncPointer` is per task, not for the whole walkthrough.
+      furthestGuideDepth = -1;
       syncPointer();
     },
     syncPointer,
@@ -2654,16 +2672,37 @@ export function mountUI(root: HTMLElement): MountedUI {
   function syncPointer(): void {
     const path = pointedTask ? (GUIDE_PATHS[pointedTask] ?? []) : [];
     let node: HTMLElement | null = null;
+    let depth = -1;
     // Last match wins: the deepest thing that exists is where they are now.
-    for (const step of path) {
-      const found = root.querySelector<HTMLElement>(`[data-guide="${step}"]`);
+    for (let i = 0; i < path.length; i++) {
+      const found = root.querySelector<HTMLElement>(`[data-guide="${path[i]}"]`);
       if (!found || (found as HTMLButtonElement).disabled) continue;
       // **Measure, don't ask `offsetParent`.** It is null for anything inside a
       // `position: fixed` ancestor — which is the whole HUD — so the obvious
       // visibility check silently rejected every control on screen.
       const rect = found.getBoundingClientRect();
-      if (rect.width > 0 && rect.height > 0) node = found;
+      if (rect.width > 0 && rect.height > 0) {
+        node = found;
+        depth = i;
+      }
     }
+
+    /**
+     * **Never point backwards.** The steps of a path stop existing as the
+     * player drills in — opening the café panel replaces the tab that opened
+     * it — so once the deepest available marker was two levels up, the arrow
+     * swung back to the nav button underneath the open panel and told the
+     * player to press the thing they had just pressed. Ellis, 2026-08-26:
+     * *"after i pick honey for an ingredient the arrow is now pointing down at
+     * the blurred cafe button even tho i still need to name it and press add
+     * to menu."*
+     *
+     * So the depth only ever increases within a task. If nothing at or past
+     * the furthest point is on screen, the arrow shows nothing — which is
+     * honest, and far better than confidently pointing at the wrong control.
+     */
+    if (depth < furthestGuideDepth) node = null;
+    else furthestGuideDepth = depth;
 
     for (const previous of root.querySelectorAll<HTMLElement>(".pointed-at")) {
       if (previous !== node) previous.classList.remove("pointed-at");

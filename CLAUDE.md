@@ -16,7 +16,7 @@ This file is the shared brain for the project. **Read it before starting work in
 > not finished. Nobody should have to re-derive the state of the project by
 > reading the whole codebase.
 
-**Last updated:** 2026-08-26 (chores — the answer to the post-tutorial hole)
+**Last updated:** 2026-08-26 (six fixes from a phone: the portrait, the arrow, the armchair)
 
 **Built and working:**
 - **M1 — playable core loop** ✅ visitors arrive → sit → pay → money accrues.
@@ -366,6 +366,45 @@ holds, and the editor is now how that week gets built.</summary>
   injection time out every time.
 
 **Session log:**
+- *2026-08-26, last* — **Six things from playing it on the phone, and the
+  portrait had to be rebuilt.**
+  - **A 3D portrait cannot live on the canvas, and WebKit is why.** The first
+    version drew Mal onto the café canvas and cut the panel's dim away above
+    her with a `clip-path`. Perfect in headless Chrome; on Ellis's phone she
+    was *"far too far in the top left and its getting cut off… it even is
+    sometimes completely blurred"*. **WebKit does not reliably clip
+    `backdrop-filter`**, so the panel's blur sat straight on top of her — and
+    no z-index can fix that, because the canvas is under all DOM by
+    construction. She is a **2D canvas holding a copy** now (`blitPortrait`:
+    `drawImage` from the WebGL canvas in the same frame as the render, which is
+    a GPU-side copy, not a `readPixels` stall), sitting inside the bubble as an
+    ordinary element. No notch, no clip-path, no safe-area arithmetic, nothing
+    to hide behind. **The general rule: anything that must sit above the
+    interface has to *be* interface.**
+  - **The arrow pointed backwards.** After picking an ingredient it swung down
+    to the café button *underneath the open panel* — because the deeper
+    markers stop existing as you drill in, so the deepest *available* one was
+    two levels up. Depth is monotonic within a task now: it never retreats, and
+    shows nothing rather than confidently pointing at the wrong control. The
+    name field got its own marker, since "add to the menu" is disabled until
+    the blend is named and an arrow on a dead button teaches nothing.
+  - **Guests sat 50.7° across the armchair, and always had.** `SEAT_FACINGS`
+    faces the door, which is right for a stool or a cushion and wrong for
+    anything with a back: the armchair is authored at 0.3888 and the door lies
+    at −0.4964 from it. Invisible until furniture could be turned, and then the
+    only thing you could see. `Placement.seatFacing` is the override, and the
+    default stays door-facing for the round seats that need it.
+  - **`<button>` inherits neither `color` nor `font`.** §9 already recorded the
+    `color` half (the settings cog drawing system blue on iOS); the chore
+    prompt shipped in the platform's system face for exactly the same reason.
+    Both halves are written down now.
+  - **The chore prompt appeared during the walkthrough.** The window is due the
+    moment the café opens — but "opens" means when the *guide leaves*, not when
+    the save is written. It is gated on `tutorialDone`, which also explains why
+    tapping it did nothing: it was sitting under an open modal's dim.
+  - **Two glasses hung in mid-air in a new café.** `Deco_TallGlass_Flipped` ×2
+    were the only things at shelf height without a `shopItem`, so they stayed
+    when the shelf they stand on was not bought. Same fault the cupcakes had.
 - *2026-08-26, later* — **Chores, and three bugs found by playing it.**
   - **The post-tutorial hole is the real problem, and a *price* cannot fix it.**
     Ellis: *"i finish the tutorial and now im out of cash with literally nothing

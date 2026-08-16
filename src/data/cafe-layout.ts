@@ -147,6 +147,21 @@ export interface Placement {
   /** Height a guest's feet rest at when seated here. Defaults to a chair. */
   seatY?: number;
   /**
+   * Which way a guest faces when sitting here, in world radians, **at this
+   * piece's authored rotation**. Any rotation the player applies is added on
+   * top (`seatFacings` in `scene/room.ts`).
+   *
+   * Only pieces with an obvious front need it. The default — face the door, so
+   * the camera gets a face rather than the back of a head — is right for a
+   * stool or a floor cushion, which have no front, and wrong for anything with
+   * a back to it: the armchair is authored at 0.3888 while the door lies at
+   * −0.4964 from it, so a guest sat in it was skewed **50.7°** across the seat.
+   * That was invisible until furniture could be turned, and then it was the
+   * only thing you could see (Ellis, 2026-08-26: *"no matter which way its
+   * rotated they are just like 45 degree off"*).
+   */
+  seatFacing?: number;
+  /**
    * Height a cat sits at here. Beds and climbers have a rim or a platform, and
    * a cat left at y=0 is cut in half by it.
    */
@@ -333,8 +348,13 @@ export const CAFE_LAYOUT: Placement[] = [
   { shopItem: "shelves", asset: "Deco_Cups_1", x: -1.874, z: 1.231, y: 1.44, rotY: HALF_PI },
   { shopItem: "shelves", asset: "Deco_Cups_2", x: -1.877, z: 0.897, y: 1.44, rotY: HALF_PI },
   { shopItem: "shelves", asset: "Deco_Cups_3", x: -1.856, z: 0.546, y: 1.44, rotY: HALF_PI },
-  { asset: "Deco_TallGlass_Flipped", x: -1.843, z: 0.068, y: 1.44, rotY: Math.PI },
-  { asset: "Deco_TallGlass_Flipped", x: -1.882, z: -0.158, y: 1.44, rotY: -HALF_PI },
+  // **On the shelf, so they belong to the shelf.** These two were the only
+  // things at y=1.44 without a `shopItem`, so a café that had not bought the
+  // shelves got two glasses hanging in mid-air against the wall — the same
+  // fault the cupcakes had before `needs`, and found the same way (Ellis,
+  // looking at a new café).
+  { shopItem: "shelves", asset: "Deco_TallGlass_Flipped", x: -1.843, z: 0.068, y: 1.44, rotY: Math.PI },
+  { shopItem: "shelves", asset: "Deco_TallGlass_Flipped", x: -1.882, z: -0.158, y: 1.44, rotY: -HALF_PI },
 
   // The tall shelf in the corner, with the trailing plant on top of it.
   { asset: "Hanging_Shelf_A", x: -1.858, z: -1.278, y: 1.864, rotY: HALF_PI },
@@ -363,7 +383,7 @@ export const CAFE_LAYOUT: Placement[] = [
   // --- Seating. Order is stable; the economy addresses seats by index. -------
   { shopItem: "bar-stools", asset: "Chair_Bar_A", id: "stool-a", movable: true, x: 0.286, z: 0.996, rotY: -2.0176, seat: true, seatY: 0.68 },
   { shopItem: "bar-stools", asset: "Chair_Bar_A", id: "stool-b", movable: true, x: 0.345, z: 0.382, rotY: -1.3348, seat: true, seatY: 0.68 },
-  { shopItem: "armchair", asset: "Sofa_Single_Cream", id: "armchair", movable: true, slot: "sofa", x: 1.268, z: -1.094, rotY: 0.3888, seat: true, seatY: 0.42 },
+  { shopItem: "armchair", asset: "Sofa_Single_Cream", id: "armchair", movable: true, slot: "sofa", x: 1.268, z: -1.094, rotY: 0.3888, seat: true, seatY: 0.42, seatFacing: 0.3888 },
   { shopItem: "floor-cushions", asset: "Cushion_Red", id: "floor-cushion-a", movable: true, x: 1.458, z: 0.047, y: -0.124, rotY: 0.3072, scale: 1.064, seat: true, seatY: 0.2 },
   { shopItem: "floor-cushions", asset: "Cushion_Blue", id: "floor-cushion-b", movable: true, x: 1.399, z: 1.636, y: -0.046, rotY: 2.89, scale: 1.064, seat: true, seatY: 0.21 },
 
