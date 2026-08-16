@@ -16,7 +16,7 @@ This file is the shared brain for the project. **Read it before starting work in
 > not finished. Nobody should have to re-derive the state of the project by
 > reading the whole codebase.
 
-**Last updated:** 2026-08-26 (drawn cat faces; money moves when the piece lands)
+**Last updated:** 2026-08-26 (guests order at the counter, and a busy café serves takeaways)
 
 **Built and working:**
 - **M1 — playable core loop** ✅ visitors arrive → sit → pay → money accrues.
@@ -121,7 +121,7 @@ This file is the shared brain for the project. **Read it before starting work in
   tracked Xcode project, portrait-locked, and it **compiles** (verified with
   `xcodebuild` against a simulator destination). `npm run ios` does
   build → sync → open Xcode. Signing is Ellis's to do; see §16.
-- `npm test` — 245 tests over the pure systems, save migrations, café geometry,
+- `npm test` — 248 tests over the pure systems, save migrations, café geometry,
   the visitor loop, contentment maths, the camera controls (pan/zoom clamps,
   tap-vs-drag, press-and-hold), the placement rules the authored café itself
   has to pass, the lip-sync viseme mapping, the merged pack's clips and face
@@ -368,6 +368,32 @@ holds, and the editor is now how that week gets built.</summary>
   injection time out every time.
 
 **Session log:**
+- *2026-08-26, last* — **A visit is a sequence now: in → counter → seat, or a
+  cup to go.**
+  - Ellis: *"i still want them to talk to my character and order before sitting
+    down. or sometimes buy the drink and walk out with it. make it more real
+    rather than a constant stream of people just sitting in the chair."* The old
+    loop was spawn → seat → pay → leave, which is a waiting room — **nobody
+    ever went near the counter the player stands behind**, so the barista the
+    game makes you design had nothing to do.
+  - **The branch that matters is the full café.** The old loop *dropped* an
+    arrival when every chair was taken, so a popular café looked identical to
+    an empty one from the doorway. Now the overflow queues, buys and goes.
+  - **A takeaway is worth 0.55 of a visit, and that number is load-bearing.**
+    §8's economy rests on two throughput ceilings and one of them is seating;
+    if a full café sold every arrival a cup at full price, seats would stop
+    mattering. `npm run balance` after this change: playing still beats being
+    away by 5.84×, till ceiling intact.
+  - **Everybody pays at the counter**, not on the way out. It is where a café
+    takes your money, it is the only moment a takeaway stands still, and it
+    puts the coin pop beside the barista instead of beside an empty chair.
+    `paidSeatIndexes` carries −1 for the counter.
+  - **A café with no seats at all still serves nobody**, deliberately: quietly
+    earning without a chair would hide the fact that it needs one. A test pins
+    it, alongside one that a busy café produces takeaways rather than silence.
+  - The takeaway roll is the system's only randomness, and it made two existing
+    tests flaky the moment it landed — `tickVisitors` takes an injectable
+    `random` now and the sims pass "always sit".
 - *2026-08-26, end of day* — **Faces for every breed, and money that moves when
   the piece lands.**
   - **Sixteen drawn cat faces, replacing a coloured disc with a dot on it.**

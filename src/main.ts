@@ -18,7 +18,7 @@ import { CatManager } from "@/entities/cat-manager";
 import { Barista } from "@/entities/barista";
 import { VisitorManager } from "@/entities/visitor-manager";
 import { DustMotes } from "@/scene/dust";
-import { doorPositions, seatFacings, seatPositions, seatStandPositions } from "@/scene/room";
+import { COUNTER_POSITION, doorPositions, seatFacings, seatPositions, seatStandPositions } from "@/scene/room";
 import { catHomes } from "@/scene/cat-homes";
 import { visitorPayAmount } from "@/data/economy";
 import { createChoreWipe } from "@/ui/chore-wipe";
@@ -157,8 +157,14 @@ async function bootstrap(): Promise<void> {
 
   // --- Juice: coins pop out of the seat a guest just paid at (§10) ---------
   onGameEvent("visitorPaid", ({ seatIndex }) => {
-    // Live positions: a coin must pop out of wherever that chair is *now*.
-    const seat = seatPositions(gameStore.getState().placements)[seatIndex];
+    // **−1 is the counter**: a takeaway pays and leaves without ever having a
+    // chair, so the coin pops where the money actually changed hands.
+    // Otherwise: live positions, because a coin must pop out of wherever that
+    // chair is *now*.
+    const seat =
+      seatIndex < 0
+        ? new THREE.Vector3(COUNTER_POSITION.x, 0.55, COUNTER_POSITION.z)
+        : seatPositions(gameStore.getState().placements)[seatIndex];
     if (seat) {
       const stats = currentCafeStats(gameStore.getState());
       const amount = visitorPayAmount(stats.appeal, stats.payMultiplier);

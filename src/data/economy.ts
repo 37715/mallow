@@ -83,6 +83,34 @@ export const ECONOMY_CONFIG = {
 
   /** How long a visitor takes to walk from their seat back out the door. */
   walkOutDurationMs: 2400,
+  /**
+   * How long a guest stands at the counter being served.
+   *
+   * **Everyone orders before they do anything else** (2026-08-26). Ellis:
+   * *"i still want them to talk to my character and order before sitting down.
+   * or sometimes buy the drink and walk out with it. make it more real rather
+   * than a constant stream of people just sitting in the chair."* This is the
+   * pause that makes the café read as a business rather than a waiting room —
+   * and it is where the player's own barista finally has something to do.
+   */
+  orderDurationMs: 1800,
+  /**
+   * Chance a guest takes their drink away rather than sitting, when a seat
+   * *is* free. Variety only — the interesting case is the one below.
+   */
+  takeawayChance: 0.22,
+  /**
+   * What a takeaway cup is worth, against a guest who settles in.
+   *
+   * **Deliberately less than a full visit, and that is load-bearing.** §8's
+   * economy rests on two throughput ceilings, one of which is seating; if a
+   * full café simply sold every arrival a takeaway at full price, seats would
+   * stop mattering and the ceiling would be gone. A cup to go is worth having
+   * — a café that turns people away when it is busy feels dead — but it is
+   * not worth as much as somebody who stays, buys the atmosphere and pets a
+   * cat. Re-run `npm run balance` if this moves.
+   */
+  takeawayPayFactor: 0.55,
 
   /**
    * Maximum cats living in the café. A hard cap, not a soft one.

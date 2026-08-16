@@ -6,6 +6,8 @@ import {
   type CharacterAssets,
 } from "@/entities/character-library";
 import {
+  COUNTER_FACING,
+  COUNTER_POSITION,
   DOOR_LOBBY_POSITION,
   DOOR_POSITION,
   DOOR_THRESHOLD_POSITION,
@@ -103,6 +105,8 @@ export class VisitorManager {
   private lastFrame = 0;
   /** Guests already told to sit, so the sit clip is triggered exactly once. */
   private readonly seated = new Set<string>();
+  /** The same, for the pause at the counter. */
+  private readonly ordering = new Set<string>();
   /**
    * Where the chairs currently are. Live rather than a module constant,
    * because the player can drag a seat across the room and the guest walking
@@ -155,6 +159,7 @@ export class VisitorManager {
       character.dispose();
       this.charactersById.delete(id);
       this.seated.delete(id);
+      this.ordering.delete(id);
     }
 
     for (const visitor of visitors) {
@@ -175,18 +180,47 @@ export class VisitorManager {
     const mesh = character.group;
     const seatPos = this.seats[visitor.seatIndex] ?? this.door;
 
-    if (now < visitor.seatedAt) {
+    if (now < visitor.orderedAt) {
+      // In through the door and up to the counter.
       const t = THREE.MathUtils.clamp(
-        (now - visitor.spawnedAt) / Math.max(1, visitor.seatedAt - visitor.spawnedAt),
+        (now - visitor.spawnedAt) / Math.max(1, visitor.orderedAt - visitor.spawnedAt),
         0,
         1,
       );
       const before = mesh.position.clone();
-      walkRoute(mesh.position, [this.door, this.threshold, DOOR_LOBBY_POSITION, seatPos], t);
+      walkRoute(mesh.position, [this.door, this.threshold, DOOR_LOBBY_POSITION, COUNTER_POSITION], t);
       // Face the way they're actually travelling, so they turn at the door
       // instead of walking in sideways staring at their chair.
       faceTravel(mesh, before);
-    } else if (now < visitor.leavingAt) {
+      this.ordering.delete(visitor.id);
+    } else if (now < visitor.servedAt) {
+      /**
+       * **At the counter, being served.**
+       *
+       * They stand still and face the barista — the one moment a guest and the
+       * player's own character are actually dealing with each other, which is
+       * the whole reason this phase exists (`systems/visitors.ts`).
+       */
+      mesh.position.copy(COUNTER_POSITION);
+      mesh.rotation.set(0, COUNTER_FACING, 0);
+      if (!this.ordering.has(visitor.id)) {
+        this.ordering.add(visitor.id);
+        this.seated.delete(visitor.id);
+        character.idle();
+        character.express("happy");
+      }
+    } else if (!visitor.takeaway && now < visitor.seatedAt) {
+      // Drink in hand, crossing to their chair.
+      const t = THREE.MathUtils.clamp(
+        (now - visitor.servedAt) / Math.max(1, visitor.seatedAt - visitor.servedAt),
+        0,
+        1,
+      );
+      const before = mesh.position.clone();
+      walkRoute(mesh.position, [COUNTER_POSITION, seatPos], t);
+      faceTravel(mesh, before);
+      if (this.ordering.delete(visitor.id)) character.walk();
+    } else if (!visitor.takeaway && now < visitor.leavingAt) {
       mesh.position.copy(seatPos);
       // **Aimed every frame, not once on sitting down.** The position is
       // already re-read every frame, so a chair dragged across the room takes
@@ -206,7 +240,8 @@ export class VisitorManager {
         character.express(SEATED_MOODS[seed % SEATED_MOODS.length]);
       }
     } else {
-      if (this.seated.delete(visitor.id)) {
+      // Out again — from their chair, or straight from the counter with a cup.
+      if (this.seated.delete(visitor.id) || this.ordering.delete(visitor.id)) {
         character.walk();
         character.express("happy"); // leaving pleased, which is the whole game
       }
@@ -216,7 +251,9 @@ export class VisitorManager {
         1,
       );
       const before = mesh.position.clone();
-      walkRoute(mesh.position, [seatPos, DOOR_LOBBY_POSITION, this.threshold, this.door], t);
+      // A takeaway leaves from the counter, not from a chair they never sat in.
+      const from = visitor.takeaway ? COUNTER_POSITION : seatPos;
+      walkRoute(mesh.position, [from, DOOR_LOBBY_POSITION, this.threshold, this.door], t);
       faceTravel(mesh, before);
     }
   }

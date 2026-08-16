@@ -1,7 +1,9 @@
 import * as THREE from "three";
 import {
+  BARISTA_SPOT,
   CAFE_LAYOUT,
   CAT_SPOTS,
+  COUNTER_QUEUE,
   DOOR,
   DOOR_LOBBY,
   DOOR_THRESHOLD,
@@ -65,6 +67,19 @@ export const DOOR_THRESHOLD_POSITION = new THREE.Vector3(DOOR_THRESHOLD.x, 0, DO
 
 /** Clear floor inside the door — routes guests around the counter peninsula. */
 export const DOOR_LOBBY_POSITION = new THREE.Vector3(DOOR_LOBBY.x, 0, DOOR_LOBBY.z);
+
+/** Where they queue to order. Every visit goes through it — see `COUNTER_QUEUE`. */
+export const COUNTER_POSITION = new THREE.Vector3(COUNTER_QUEUE.x, 0, COUNTER_QUEUE.z);
+
+/**
+ * Which way a guest faces while ordering: at the counter, which is where the
+ * barista is. Anything else and they queue with their back to the person
+ * serving them.
+ */
+export const COUNTER_FACING = Math.atan2(
+  BARISTA_SPOT.x - COUNTER_QUEUE.x,
+  BARISTA_SPOT.z - COUNTER_QUEUE.z,
+);
 
 /**
  * Where guests sit, in stable index order. The economy addresses seats by

@@ -288,6 +288,19 @@ export const DOOR_THRESHOLD = { x: -1.03, z: 2.06 };
 export const DOOR_LOBBY = { x: 1.4, z: 1.55 };
 
 /**
+ * Where a guest stands to order, on the customer side of the serving
+ * peninsula (`Bar_Kitchen_Angled_A` at −0.413, 0.497).
+ *
+ * **Every visit passes through here.** It is what turns the loop from "spawn,
+ * sit, pay" into a café: the player's own barista finally has somebody to
+ * serve, and a takeaway has somewhere to be served *at* before turning round
+ * (`systems/visitors.ts`). Kept out in the open floor rather than tight to the
+ * counter, because guests lerp along an authored polyline with no pathfinding
+ * — hugging the peninsula would clip its corner.
+ */
+export const COUNTER_QUEUE = { x: 0.42, z: 1.02 };
+
+/**
  * Where the player's own character stands, behind the counter.
  *
  * Ellis: *"that character should then walk behind the counter!! to work!!"* —
