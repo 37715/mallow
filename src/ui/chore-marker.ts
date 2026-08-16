@@ -35,6 +35,18 @@ export function createChoreMarker(
   layer.className = "chore-layer";
   // Survives `mountUI` clearing the root — see the note there.
   layer.dataset.overlay = "";
+  /**
+   * **Hidden until there is something to point at.**
+   *
+   * It was created visible, and `set(null)` returned early because
+   * `null?.id === null?.id` — so the button sat at its untransformed origin,
+   * the very top-left corner of the screen, from boot until a chore came due.
+   * Ellis saw it during the walkthrough, which is exactly the moment the whole
+   * feature is gated *off*. A guard that compares only ids cannot tell "same
+   * as before" from "nothing, and nothing has been done about it yet"; the
+   * initial state has to be the hidden one.
+   */
+  layer.style.display = "none";
 
   const button = document.createElement("button");
   button.className = "chore-marker";
@@ -60,6 +72,9 @@ export function createChoreMarker(
 
   return {
     set(chore) {
+      // Both null is the common case — every frame with nothing due — so this
+      // still has to be cheap. It is correct now only because the layer starts
+      // hidden; see the note there.
       if (chore?.id === current?.id) return;
       current = chore;
       layer.style.display = chore ? "" : "none";

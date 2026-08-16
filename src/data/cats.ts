@@ -37,42 +37,32 @@ export interface CatDefinition {
   furColor: number;
   /** Accent color for ears/paws/tail tip. */
   accentColor: number;
-  /**
-   * Markings, which is what actually tells two breeds apart at portrait size.
-   *
-   * A tuxedo and an espresso are both near-black; a marmalade and a
-   * butterscotch are both warm cream. Fur colour alone does not separate them
-   * at 50px, so the pattern carries the difference — see `ui/cat-face.ts`.
-   */
-  pattern?: "solid" | "tabby" | "spotted" | "tuxedo" | "patch" | "points";
-  /** Eye colour. Defaults to a warm amber. */
-  eyes?: number;
   /** One line of personality flavour — deepens attachment (§8). */
   flavor: string;
 }
 
 export const CAT_DEFINITIONS: CatDefinition[] = [
   // Common
-  { id: "marmalade", breed: "Marmalade Shorthair", rarity: "common", furColor: 0xd97b4f, accentColor: 0xffffff, pattern: "tabby", eyes: 0x3f7a3f, flavor: "Believes every sunbeam was arranged personally." },
-  { id: "cinnamon-tabby", breed: "Cinnamon Tabby", rarity: "common", furColor: 0x8a6a52, accentColor: 0x3a2a20, pattern: "tabby", eyes: 0x6f8a30, flavor: "Supervises the counter with great seriousness." },
-  { id: "raincloud", breed: "Raincloud Grey", rarity: "common", furColor: 0xc9c9c9, accentColor: 0x6e6e6e, pattern: "tabby", eyes: 0x4f6f86, flavor: "Naps hardest when it drizzles outside." },
-  { id: "butterscotch", breed: "Butterscotch", rarity: "common", furColor: 0xe8c39e, accentColor: 0xffffff, pattern: "solid", eyes: 0x8a6a2a, flavor: "Smells faintly of warm pastry. Nobody knows why." },
-  { id: "tuxedo", breed: "Tuxedo", rarity: "common", furColor: 0x2f2f2f, accentColor: 0xffffff, pattern: "tuxedo", eyes: 0x4f9a5a, flavor: "Dressed for an occasion that never quite arrives." },
+  { id: "marmalade", breed: "Marmalade Shorthair", rarity: "common", furColor: 0xd97b4f, accentColor: 0xffffff, flavor: "Believes every sunbeam was arranged personally." },
+  { id: "cinnamon-tabby", breed: "Cinnamon Tabby", rarity: "common", furColor: 0x8a6a52, accentColor: 0x3a2a20, flavor: "Supervises the counter with great seriousness." },
+  { id: "raincloud", breed: "Raincloud Grey", rarity: "common", furColor: 0xc9c9c9, accentColor: 0x6e6e6e, flavor: "Naps hardest when it drizzles outside." },
+  { id: "butterscotch", breed: "Butterscotch", rarity: "common", furColor: 0xe8c39e, accentColor: 0xffffff, flavor: "Smells faintly of warm pastry. Nobody knows why." },
+  { id: "tuxedo", breed: "Tuxedo", rarity: "common", furColor: 0x2f2f2f, accentColor: 0xffffff, flavor: "Dressed for an occasion that never quite arrives." },
   // Uncommon
-  { id: "snowdrop", breed: "Snowdrop", rarity: "uncommon", furColor: 0xffffff, accentColor: 0xf2c9c9, pattern: "solid", eyes: 0x6aa6d6, flavor: "Tiptoes everywhere, even on carpet." },
-  { id: "patchwork", breed: "Patchwork Calico", rarity: "uncommon", furColor: 0xe0975a, accentColor: 0x3a2a20, pattern: "patch", eyes: 0x7a8a2f, flavor: "No two naps in the same spot twice." },
-  { id: "toasted-siamese", breed: "Toasted Siamese", rarity: "uncommon", furColor: 0xe8d8c0, accentColor: 0x6b4a3a, pattern: "points", eyes: 0x3f7fb5, flavor: "Has opinions, and will share them at length." },
-  { id: "espresso", breed: "Espresso", rarity: "uncommon", furColor: 0x241d19, accentColor: 0xcaa06a, pattern: "solid", eyes: 0xd2a24a, flavor: "Wide awake at exactly the wrong hours." },
+  { id: "snowdrop", breed: "Snowdrop", rarity: "uncommon", furColor: 0xffffff, accentColor: 0xf2c9c9, flavor: "Tiptoes everywhere, even on carpet." },
+  { id: "patchwork", breed: "Patchwork Calico", rarity: "uncommon", furColor: 0xe0975a, accentColor: 0x3a2a20, flavor: "No two naps in the same spot twice." },
+  { id: "toasted-siamese", breed: "Toasted Siamese", rarity: "uncommon", furColor: 0xe8d8c0, accentColor: 0x6b4a3a, flavor: "Has opinions, and will share them at length." },
+  { id: "espresso", breed: "Espresso", rarity: "uncommon", furColor: 0x241d19, accentColor: 0xcaa06a, flavor: "Wide awake at exactly the wrong hours." },
   // Rare
-  { id: "honey-bengal", breed: "Honey Bengal", rarity: "rare", furColor: 0xd9a23f, accentColor: 0x8a5a20, pattern: "spotted", eyes: 0x4f8a3a, flavor: "Moves like poured honey. Knocks nothing over. Ever." },
-  { id: "smoked-blue", breed: "Smoked Blue", rarity: "rare", furColor: 0x7d8a9a, accentColor: 0xdfe8f0, pattern: "solid", eyes: 0x5f8fa6, flavor: "Regulars swear her purr sounds like rain on a roof." },
-  { id: "cocoa-ragdoll", breed: "Cocoa Ragdoll", rarity: "rare", furColor: 0xbfa08a, accentColor: 0x5a4030, pattern: "points", eyes: 0x5a8fc0, flavor: "Goes completely limp when happy, which is always." },
+  { id: "honey-bengal", breed: "Honey Bengal", rarity: "rare", furColor: 0xd9a23f, accentColor: 0x8a5a20, flavor: "Moves like poured honey. Knocks nothing over. Ever." },
+  { id: "smoked-blue", breed: "Smoked Blue", rarity: "rare", furColor: 0x7d8a9a, accentColor: 0xdfe8f0, flavor: "Regulars swear her purr sounds like rain on a roof." },
+  { id: "cocoa-ragdoll", breed: "Cocoa Ragdoll", rarity: "rare", furColor: 0xbfa08a, accentColor: 0x5a4030, flavor: "Goes completely limp when happy, which is always." },
   // Epic
-  { id: "moonlit-silver", breed: "Moonlit Silver", rarity: "epic", furColor: 0xdfe4ec, accentColor: 0x9aa8c0, pattern: "tabby", eyes: 0x8fa6c0, flavor: "Fur catches the light like frost on a window." },
-  { id: "twilight-persian", breed: "Twilight Persian", rarity: "epic", furColor: 0x8a7ab5, accentColor: 0xe8dff5, pattern: "solid", eyes: 0xd8c060, flavor: "Appears in doorways without ever seeming to walk." },
+  { id: "moonlit-silver", breed: "Moonlit Silver", rarity: "epic", furColor: 0xdfe4ec, accentColor: 0x9aa8c0, flavor: "Fur catches the light like frost on a window." },
+  { id: "twilight-persian", breed: "Twilight Persian", rarity: "epic", furColor: 0x8a7ab5, accentColor: 0xe8dff5, flavor: "Appears in doorways without ever seeming to walk." },
   // Legendary
-  { id: "golden-mochi", breed: "Golden Mochi", rarity: "legendary", furColor: 0xf2c464, accentColor: 0xfff2d0, pattern: "spotted", eyes: 0x9a6a20, flavor: "Old regulars say the café was built around this cat." },
-  { id: "sakura-spirit", breed: "Sakura Spirit", rarity: "legendary", furColor: 0xf5cdd6, accentColor: 0xfff5f8, pattern: "solid", eyes: 0xc06a8a, flavor: "Petals drift in when she naps by the door." },
+  { id: "golden-mochi", breed: "Golden Mochi", rarity: "legendary", furColor: 0xf2c464, accentColor: 0xfff2d0, flavor: "Old regulars say the café was built around this cat." },
+  { id: "sakura-spirit", breed: "Sakura Spirit", rarity: "legendary", furColor: 0xf5cdd6, accentColor: 0xfff5f8, flavor: "Petals drift in when she naps by the door." },
 ];
 
 /** The cat every new café opens with. */

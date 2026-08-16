@@ -33,7 +33,7 @@ import { SPEECH_MS_PER_CHAR, TutorialGuide } from "@/entities/tutorial-guide";
 import { FloaterLayer } from "@/ui/floaters";
 import { initAnalytics } from "@/analytics/analytics";
 import { onGameEvent } from "@/core/events";
-import { initAudio, playCoin, playPurchase, playPurr, playTap, setMusicMuted } from "@/audio/audio";
+import { initAudio, playCoin, playMeow, playPurchase, playPurr, playTap, setMusicMuted } from "@/audio/audio";
 
 async function bootstrap(): Promise<void> {
   const canvas = document.getElementById("scene") as HTMLCanvasElement;
@@ -404,6 +404,10 @@ async function bootstrap(): Promise<void> {
       const position = catManager.worldPositionOf(catId);
       if (position) floaters.burstHearts(position, camera);
       playPurr();
+      // Sometimes they answer. Only sometimes: a cat that meows every single
+      // time you touch it is a doorbell, and the surprise is the charm. Silent
+      // until a recording is dropped in — see `playMeow`.
+      if (Math.random() < 0.3) window.setTimeout(playMeow, 260 + Math.random() * 220);
     },
   });
   attachControls(controls);

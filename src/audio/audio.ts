@@ -99,6 +99,7 @@ export function initAudio(): void {
   musicGain.connect(master);
 
   startAmbient();
+  void loadSamples();
 }
 
 /** Short helper: an oscillator with an attack/decay envelope, auto-cleaned up. */
@@ -146,6 +147,85 @@ function tone(
     osc.disconnect();
     env.disconnect();
   };
+}
+
+/**
+ * Recorded sounds, if any have been dropped in.
+ *
+ * **Some things cannot be synthesised well enough, and a cat is one of them.**
+ * The purr has now been built three times — a boomy wobble, then a diesel
+ * engine, then (Ellis) *"heavy rain with reverb. no cat sound at all."* That is
+ * not a tuning problem: a purr is a vocal tract, and filtered noise is never
+ * going to be one. Nor is a meow, which the game has never had at all.
+ *
+ * So the audio layer takes files when they exist and falls back to synthesis
+ * when they do not. Nothing here downloads anything — **drop `.mp3`/`.ogg`
+ * files into `public/audio/` with these names and they are used automatically**:
+ *
+ *     public/audio/purr.mp3
+ *     public/audio/meow-1.mp3   (…-2, …-3: one is picked at random)
+ *
+ * §10's "no asset files" rule was about *not blocking first paint on a
+ * download and not inheriting licensing questions*, and both still hold: these
+ * load lazily in the background, a missing file is silently fine, and the only
+ * files that will ever be here are ones with a licence we chose. Freesound and
+ * Pixabay both have CC0 cat recordings.
+ */
+const SAMPLE_PATHS: Record<string, string[]> = {
+  purr: ["/audio/purr.mp3", "/audio/purr.ogg"],
+  meow: ["/audio/meow-1.mp3", "/audio/meow-2.mp3", "/audio/meow-3.mp3"],
+};
+
+/** Decoded samples, keyed as above. Absent means "not loaded, or not there". */
+const samples = new Map<string, AudioBuffer[]>();
+let samplesRequested = false;
+
+/**
+ * Fetch and decode whatever is present. Called once, after the context exists.
+ *
+ * Failures are expected and silent: a café with no audio files is the normal
+ * case until somebody adds them, and it must sound exactly as it does today
+ * rather than logging errors on every boot.
+ */
+async function loadSamples(): Promise<void> {
+  if (samplesRequested || !ctx) return;
+  samplesRequested = true;
+  for (const [name, paths] of Object.entries(SAMPLE_PATHS)) {
+    const decoded: AudioBuffer[] = [];
+    for (const path of paths) {
+      try {
+        const response = await fetch(path);
+        if (!response.ok) continue;
+        decoded.push(await ctx.decodeAudioData(await response.arrayBuffer()));
+      } catch {
+        // No file, or not decodable. The synthesised version stands in.
+      }
+    }
+    if (decoded.length > 0) samples.set(name, decoded);
+  }
+}
+
+/**
+ * Play a recorded sample if one exists. Returns false when there is none, which
+ * is the caller's cue to fall back to synthesis.
+ */
+function playSample(name: string, gain = 1): boolean {
+  const options = samples.get(name);
+  if (!options || !ctx || !master) return false;
+  const buffer = options[Math.floor(Math.random() * options.length)];
+  const source = ctx.createBufferSource();
+  source.buffer = buffer;
+  // A little variation, so a repeated sound never lands identically twice.
+  source.playbackRate.value = 0.94 + Math.random() * 0.12;
+  const env = ctx.createGain();
+  env.gain.value = gain;
+  source.connect(env).connect(master);
+  source.start();
+  source.onended = () => {
+    source.disconnect();
+    env.disconnect();
+  };
+  return true;
 }
 
 /** Looping buffer of gentle noise — used for room tone and the purr. */
@@ -292,6 +372,8 @@ function purrWave(context: AudioContext): PeriodicWave {
  */
 export function playPurr(): void {
   if (!ctx || !master) return;
+  // A recording if there is one — see `SAMPLE_PATHS`.
+  if (playSample("purr", 0.9)) return;
   const buffer = noiseBuffer(1.9);
   if (!buffer) return;
   const now = ctx.currentTime;
@@ -366,6 +448,16 @@ export function playPurr(): void {
   };
 }
 
+
+/**
+ * A meow. Recording only — there is no synthesised fallback, because a
+ * synthesised meow is worse than silence and this is a sound the game has
+ * never had. Drop a file in and cats start speaking; until then, nothing.
+ */
+export function playMeow(): void {
+  if (!ctx || !master) return;
+  playSample("meow", 0.85);
+}
 
 /** Generic soft UI tap. */
 export function playTap(): void {
