@@ -16,7 +16,7 @@ This file is the shared brain for the project. **Read it before starting work in
 > not finished. Nobody should have to re-derive the state of the project by
 > reading the whole codebase.
 
-**Last updated:** 2026-08-26 (chores you tap on, and a doorway that follows the floor)
+**Last updated:** 2026-08-26 (the window minigame, rebuilt around a real render)
 
 **Built and working:**
 - **M1 — playable core loop** ✅ visitors arrive → sit → pay → money accrues.
@@ -366,6 +366,32 @@ holds, and the editor is now how that week gets built.</summary>
   injection time out every time.
 
 **Session log:**
+- *2026-08-26, last* — **The wipe minigame was inert too, and it is a proper
+  window now.**
+  - **`pointer-events: auto` was missing again.** Second widget in a row.
+    `#ui-root` is `pointer-events: none` so canvas gestures reach the café, and
+    the wipe layer never opted back in — so the muck was a decal and every drag
+    panned the room behind it. Ellis: *"its just a grey/white sheet over the
+    screen that does nothing? i cant wipe anything im still moving about the
+    camera?"* **Anything mounted into `#ui-root` that expects a touch needs
+    this, and its absence is invisible except by really touching the thing** —
+    which is why the check is `elementFromPoint`, not `.click()`.
+  - **The muck covered the whole screen, so the thing being cleaned was the
+    phone.** There is a real render of the café's own window in the middle of
+    it now (`scene/window-preview.ts`), grime confined to the glass, a shine
+    sweep and a scatter of sparkles when it comes clean.
+  - **Three framing mistakes, all fixed by measuring the piece instead of
+    assuming where it is.** Architecture in this pack has an *offset* local
+    frame, so an object placed at the origin is not at the origin: this wall's
+    geometry lives at z ≈ −2, x −2.26…2.02. First the camera sat inside the
+    glass (3.15 away covered 1.6 across against a 2.24-wide aperture) and the
+    "render" was a flat field — sampled 185,180,168 at every point, which is
+    what tipped it. Then the daylight panel was *in front* of the wall. Then a
+    panel sized to the frame spilled past the arch's sweep as a grey wedge.
+    Everything is derived from `Box3().setFromObject` now.
+  - The chore is banked **after** the overlay closes, so the appeal chip's own
+    celebration plays on a HUD the player can see. Verified end to end: money
+    40→52, appeal 1.9→2.5, chore logged, overlay and marker gone.
 - *2026-08-26, end* — **The doorway follows the floor out.**
   - Ellis: *"that little notch is always the doorway and should still be a
     little notch over the new floor square so it should move along to the edge

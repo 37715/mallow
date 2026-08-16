@@ -22,6 +22,7 @@ import { doorPositions, seatFacings, seatPositions, seatStandPositions } from "@
 import { catHomes } from "@/scene/cat-homes";
 import { visitorPayAmount } from "@/data/economy";
 import { createChoreWipe } from "@/ui/chore-wipe";
+import { createWindowPreview } from "@/scene/window-preview";
 import { createChoreMarker } from "@/ui/chore-marker";
 import { mountUI } from "@/ui/ui";
 import { CatLabelLayer, NameTag } from "@/ui/cat-labels";
@@ -555,11 +556,14 @@ async function bootstrap(): Promise<void> {
    * is what makes "clean the window" read as cleaning *the* window rather than
    * cleaning the screen.
    */
+  const windowPreview = createWindowPreview(environment);
   const choreWipe = createChoreWipe(uiRoot, (chore) => {
+    // Banked once the overlay is gone, so the appeal chip's own celebration
+    // (`celebrate` in `ui.ts`, which pops the number and then the takings a
+    // beat later) plays on a HUD the player can actually see. Finishing while
+    // a full-screen layer was up meant the one animation that says "this was
+    // worth doing" happened behind it.
     gameStore.getState().finishChore(chore.id);
-    // Appeal announces itself: `render` already pops the chip when the number
-    // rises, and finishing a chore raises it. Nothing to trigger here.
-    controls.reset();
     const seat = seatPositions(gameStore.getState().placements)[0];
     if (seat) {
       floaters.spawn(
@@ -577,9 +581,6 @@ async function bootstrap(): Promise<void> {
    */
   const choreMarker = createChoreMarker(uiRoot, (chore) => {
     playTap();
-    // Go and look at the thing before wiping it, so "clean the window" reads
-    // as cleaning *that* window rather than cleaning the screen.
-    controls.focusOn(new THREE.Vector3(chore.at.x, chore.at.y, chore.at.z), 0.1, 0.5);
     choreWipe.start(chore);
   });
   ui.attachChores((chore) => choreMarker.set(chore));
@@ -611,6 +612,16 @@ async function bootstrap(): Promise<void> {
     if (peek) {
       guidePortrait.render(renderer, peek, now);
       speech.blitPortrait(renderer.domElement, peek);
+    }
+    // The window being cleaned. Rendered into the café canvas at the card's
+    // rect and copied straight into the card, the same trick as the portrait
+    // — the overlay is opaque DOM, so nothing drawn on the canvas could
+    // otherwise be seen through it.
+    const glass = choreWipe.stageRect();
+    if (glass) {
+      windowPreview.setStyle(gameStore.getState().customisation);
+      windowPreview.render(renderer, glass, now);
+      choreWipe.paintWindow(renderer.domElement, glass);
     }
   });
 
