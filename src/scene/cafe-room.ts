@@ -14,8 +14,8 @@ import {
   type CustomisableSlot,
 } from "@/data/customisation";
 import { loadCafeAssets, type CafeAssets } from "@/scene/asset-library";
-import { HOME_TILE, coveredByPatch, expansionPlacements } from "@/scene/cafe-tiles";
-import { HOME_WINDOW } from "@/data/expansion";
+import { HOME_TILE, expansionPlacements } from "@/scene/cafe-tiles";
+import { HOME_WINDOW, growth } from "@/data/expansion";
 import type { TileKey } from "@/data/expansion";
 import { CAT_BED_ITEM, bedAsset } from "@/data/beds";
 import { copyAsset, shopItem } from "@/data/shop";
@@ -67,12 +67,14 @@ function place(
   item: Placement,
   choice: Customisation,
   placements: Placements,
+  grown?: { x: number; z: number },
 ): THREE.Object3D | null {
   const name = assetFor(item, choice);
   const object = assets.create(name);
   if (!object) return null;
-  // The player's position wins over the layout's for anything movable.
-  const at = placedAt(item, placements);
+  // The player's position wins over the layout's for anything movable, and
+  // the layout's own is carried by the floor's edge for anything pinned to it.
+  const at = placedAt(item, placements, grown);
   object.position.set(at.x, item.y ?? 0, at.z);
   // Player rotation is *added* to the layout's own, so a piece authored at an
   // angle keeps it and "turn it 90°" means 90° from where it was.
@@ -105,6 +107,12 @@ export async function buildCafeRoom(
   const missing: string[] = [];
 
   const sill = hasWindowSill(choice);
+  /**
+   * How far the floor reaches past the original room. Everything pinned to an
+   * edge — the entrance notch, its mat, the sign and cushion on the street —
+   * is carried out by this so the doorway stays the doorway.
+   */
+  const grown = growth(tiles);
 
   // Floor the café bought, and **every wall it has** (§8 step 6).
   //
@@ -117,7 +125,7 @@ export async function buildCafeRoom(
   // For an unexpanded café the two agree piece for piece — there is a test.
   const extra = expansionPlacements(tiles, choice, windows);
   for (const [offset, item] of extra.entries()) {
-    const mesh = place(assets, item, choice, placements);
+    const mesh = place(assets, item, choice, placements, grown);
     if (!mesh) {
       missing.push(assetFor(item, choice));
       continue;
@@ -138,9 +146,16 @@ export async function buildCafeRoom(
   for (const [index, item] of CAFE_LAYOUT.entries()) {
     // Walls are always generated now — see above.
     if (item.slot === "wallPlain" || item.slot === "wallWindow") continue;
-    // The entrance notch gives way to a square laid over it — two slabs on the
-    // same ground z-fight. The doormat and sign stay; they sit on the new floor.
-    if (item.slot === "floorStep" && coveredByPatch(tiles, item.x, item.z)) continue;
+    // **The entrance rides the edge rather than retiring**, so there is no
+    // longer anything to skip. It used to be dropped once a patio covered it
+    // — two slabs on the same ground z-fight — which left an expanded café
+    // with no doorway at all: the notch vanished and the mat, the sign and the
+    // walking route stayed behind in what was now the middle of the floor.
+    //
+    // Note the obsolete test could not simply be kept alongside the shift: the
+    // notch *straddles* the boundary by design, so once it moves out to the
+    // new edge it is always "covered" by the tile it borders, and the skip
+    // fired every time. See `Placement.followsEdge`.
     // The window-seat cushions rest on style A's ledge. Other styles have a
     // flat window wall, so they'd float — leave them out rather than fake it.
     if (item.onSill && !sill) continue;
@@ -148,7 +163,7 @@ export async function buildCafeRoom(
     if (item.shopItem && !purchased.includes(item.shopItem)) continue;
     // …and neither is a cupcake without the case it sits in. See `needs`.
     if (item.needs && !purchased.includes(item.needs)) continue;
-    const mesh = place(assets, item, choice, placements);
+    const mesh = place(assets, item, choice, placements, grown);
     if (!mesh) {
       missing.push(assetFor(item, choice));
       continue;

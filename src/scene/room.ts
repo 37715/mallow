@@ -11,7 +11,7 @@ import {
   type Placements,
 } from "@/data/cafe-layout";
 import type { SeatKind } from "@/entities/character-library";
-import { floorBounds, type TileKey } from "@/data/expansion";
+import { floorBounds, growth, type TileKey } from "@/data/expansion";
 import { tileSurfaces } from "@/scene/cafe-tiles";
 
 /**
@@ -31,6 +31,30 @@ export const ROOM_SIZE = {
 
 /** Where guests come from — off-frame, in line with the entrance step. */
 export const DOOR_POSITION = new THREE.Vector3(DOOR.x, 0, DOOR.z);
+
+/**
+ * The doorway at its *current* place, which moves as the café grows.
+ *
+ * The entrance notch rides the floor's +z edge (`Placement.followsEdge`), so
+ * the approach has to ride it too — otherwise guests walk in through what is
+ * now the middle of the room and the doorway they actually pass is a slab of
+ * plain floor. Only `z` moves: growth is +x/+z, the entrance is on the +z
+ * face, and widening the café sideways does not move which face you come in
+ * through.
+ *
+ * `DOOR_LOBBY` deliberately stays put. It is the waypoint that routes guests
+ * around the counter peninsula, which has not moved — see the note on it.
+ */
+export function doorPositions(tiles: TileKey[]): {
+  door: THREE.Vector3;
+  threshold: THREE.Vector3;
+} {
+  const dz = growth(tiles).z;
+  return {
+    door: new THREE.Vector3(DOOR.x, 0, DOOR.z + dz),
+    threshold: new THREE.Vector3(DOOR_THRESHOLD.x, 0, DOOR_THRESHOLD.z + dz),
+  };
+}
 
 /**
  * The threshold on the doormat. Guests walk `DOOR_POSITION` → here → their
@@ -179,7 +203,7 @@ export function catDisplayPositions(
 ): THREE.Vector3[] {
   const onFurniture = CAT_SPOTS.filter((c) => !c.shopItem || purchased.includes(c.shopItem)).map(
     (c) => {
-      const at = placedAt(c, placements);
+      const at = placedAt(c, placements, growth(tiles));
       return new THREE.Vector3(at.x, c.catY ?? 0, at.z);
     },
   );

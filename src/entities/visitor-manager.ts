@@ -123,6 +123,19 @@ export class VisitorManager {
     this.facings = facings;
   }
 
+  /**
+   * Where the way in is. It moves: the entrance notch rides the floor's outer
+   * edge as the café grows (`doorPositions`), and a guest still walking to the
+   * old one would come in through the middle of the room.
+   */
+  private door = DOOR_POSITION;
+  private threshold = DOOR_THRESHOLD_POSITION;
+
+  setDoor(door: THREE.Vector3, threshold: THREE.Vector3): void {
+    this.door = door;
+    this.threshold = threshold;
+  }
+
   constructor(scene: THREE.Scene) {
     this.group.name = "visitors";
     scene.add(this.group);
@@ -160,7 +173,7 @@ export class VisitorManager {
 
   private positionVisitor(character: Character, visitor: Visitor, now: number): void {
     const mesh = character.group;
-    const seatPos = this.seats[visitor.seatIndex] ?? DOOR_POSITION;
+    const seatPos = this.seats[visitor.seatIndex] ?? this.door;
 
     if (now < visitor.seatedAt) {
       const t = THREE.MathUtils.clamp(
@@ -169,7 +182,7 @@ export class VisitorManager {
         1,
       );
       const before = mesh.position.clone();
-      walkRoute(mesh.position, [DOOR_POSITION, DOOR_THRESHOLD_POSITION, DOOR_LOBBY_POSITION, seatPos], t);
+      walkRoute(mesh.position, [this.door, this.threshold, DOOR_LOBBY_POSITION, seatPos], t);
       // Face the way they're actually travelling, so they turn at the door
       // instead of walking in sideways staring at their chair.
       faceTravel(mesh, before);
@@ -203,7 +216,7 @@ export class VisitorManager {
         1,
       );
       const before = mesh.position.clone();
-      walkRoute(mesh.position, [seatPos, DOOR_LOBBY_POSITION, DOOR_THRESHOLD_POSITION, DOOR_POSITION], t);
+      walkRoute(mesh.position, [seatPos, DOOR_LOBBY_POSITION, this.threshold, this.door], t);
       faceTravel(mesh, before);
     }
   }

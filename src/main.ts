@@ -18,7 +18,7 @@ import { CatManager } from "@/entities/cat-manager";
 import { Barista } from "@/entities/barista";
 import { VisitorManager } from "@/entities/visitor-manager";
 import { DustMotes } from "@/scene/dust";
-import { seatFacings, seatPositions, seatStandPositions } from "@/scene/room";
+import { doorPositions, seatFacings, seatPositions, seatStandPositions } from "@/scene/room";
 import { catHomes } from "@/scene/cat-homes";
 import { visitorPayAmount } from "@/data/economy";
 import { createChoreWipe } from "@/ui/chore-wipe";
@@ -104,6 +104,10 @@ async function bootstrap(): Promise<void> {
       if (movedFurniture) {
         visitorManager.setSeats(seatStandPositions(placements), seatFacings(placements));
       }
+      // The doorway rides the floor's outer edge, so growing the café moves
+      // where guests come in — see `doorPositions`.
+      const door = doorPositions(tiles);
+      visitorManager.setDoor(door.door, door.threshold);
     });
   });
   const catManager = new CatManager(scene);
@@ -128,6 +132,12 @@ async function bootstrap(): Promise<void> {
   const barista = new Barista(scene);
   barista.setAppearance(gameStore.getState().player.created ? gameStore.getState().player.appearance : null);
   const visitorManager = new VisitorManager(scene);
+  {
+    // The café may already be expanded on load, so the door starts where the
+    // floor currently reaches rather than where the layout drew it.
+    const door = doorPositions(gameStore.getState().tiles);
+    visitorManager.setDoor(door.door, door.threshold);
+  }
   const dust = new DustMotes(scene);
 
   const floaters = new FloaterLayer(uiRoot);

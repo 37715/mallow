@@ -231,6 +231,20 @@ export function floorAppeal(owned: TileKey[]): number {
 }
 
 /** The floor's world extent, for framing and for the placement validator. */
+/**
+ * How far the floor has grown past the original room, in world units.
+ *
+ * Growth is +x/+z only (see the note by `expansionCandidates`), so this is
+ * always non-negative — and it is exactly what the doorway and the pieces
+ * standing outside it have to move by. The home tile spans −2…2 on both axes,
+ * so an unexpanded café returns `{ x: 0, z: 0 }` and nothing shifts.
+ */
+export function growth(owned: TileKey[]): { x: number; z: number } {
+  const bounds = floorBounds(owned);
+  const half = PATCH / 2;
+  return { x: bounds.maxX - half, z: bounds.maxZ - half };
+}
+
 export function floorBounds(owned: TileKey[]): {
   minX: number;
   maxX: number;

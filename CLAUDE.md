@@ -16,7 +16,7 @@ This file is the shared brain for the project. **Read it before starting work in
 > not finished. Nobody should have to re-derive the state of the project by
 > reading the whole codebase.
 
-**Last updated:** 2026-08-26 (six fixes from a phone: the portrait, the arrow, the armchair)
+**Last updated:** 2026-08-26 (chores you tap on, and a doorway that follows the floor)
 
 **Built and working:**
 - **M1 — playable core loop** ✅ visitors arrive → sit → pay → money accrues.
@@ -121,7 +121,7 @@ This file is the shared brain for the project. **Read it before starting work in
   tracked Xcode project, portrait-locked, and it **compiles** (verified with
   `xcodebuild` against a simulator destination). `npm run ios` does
   build → sync → open Xcode. Signing is Ellis's to do; see §16.
-- `npm test` — 241 tests over the pure systems, save migrations, café geometry,
+- `npm test` — 245 tests over the pure systems, save migrations, café geometry,
   the visitor loop, contentment maths, the camera controls (pan/zoom clamps,
   tap-vs-drag, press-and-hold), the placement rules the authored café itself
   has to pass, the lip-sync viseme mapping, the merged pack's clips and face
@@ -366,6 +366,33 @@ holds, and the editor is now how that week gets built.</summary>
   injection time out every time.
 
 **Session log:**
+- *2026-08-26, end* — **The doorway follows the floor out.**
+  - Ellis: *"that little notch is always the doorway and should still be a
+    little notch over the new floor square so it should move along to the edge
+    of the floor again. and the 'outside' furniture also needs to move so it
+    doesnt end up being inside when i extend."* Both halves are one rule:
+    **a thing that means "the way in" or "the street" is defined by being at
+    the boundary**, so when the boundary moves it moves.
+    `Placement.followsEdge` is the flag; `growth(tiles)` is how far.
+  - **The axis is explicit, not inferred.** The sign stands beyond +z and the
+    stray cushion beyond +x, and guessing from coordinates would tie the
+    layout to the current footprint. Growing +z alone must not drag the
+    cushion inward, and a test pins exactly that.
+  - **The old "retire the notch when a patio covers it" check had to go, not
+    be adapted.** The notch *straddles* the boundary by design, so once it
+    moves out to the new edge it is always "covered" by the tile it borders —
+    the skip fired every time and an expanded café had no doorway at all.
+    Verified by measuring, and it is what caught the real bug underneath:
+    my edit had passed the growth to the *expansion* placement loop rather
+    than the layout one, because a single-occurrence replace hit the first
+    `place(...)` call in the file. The screenshot looked plausible either way.
+  - **The walking route moves with it** (`doorPositions`, `setDoor`), or guests
+    walk in through the middle of the room. `DOOR_LOBBY` deliberately stays —
+    it is the waypoint that dodges the counter peninsula, which has not moved.
+  - **The mover reads positions off the mesh now, not the layout.** Anything
+    that can be carried by an edge has authored coordinates that are simply
+    the *old* place once the café grows; the object in the room already knows
+    where it is.
 - *2026-08-26, later still* — **The chore prompt was untappable, and my test
   proved it worked.**
   - **`#ui-root` is `pointer-events: none`** so canvas gestures pass through

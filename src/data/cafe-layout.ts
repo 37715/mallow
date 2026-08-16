@@ -222,6 +222,26 @@ export interface Placement {
    */
   outdoor?: boolean;
   /**
+   * This piece rides the floor's outer edge as the café grows.
+   *
+   * **The doorway has to stay the doorway.** Ellis, 2026-08-26: *"that little
+   * notch is always the doorway and should still be a little notch over the
+   * new floor square so it should move along to the edge of the floor again.
+   * and the 'outside' furniture also needs to move so it doesnt end up being
+   * inside when i extend."* Both halves are the same rule — a thing that means
+   * "the way in" or "the street" is defined by being at the boundary, so when
+   * the boundary moves it moves.
+   *
+   * The axis is explicit rather than inferred from position: the A-frame is
+   * beyond the +z edge and the stray cushion beyond +x, and guessing from
+   * coordinates would tie the layout to the current footprint.
+   *
+   * A piece the player has picked up and put somewhere keeps *their* position
+   * — see `placedAt`. Once they have made a decision about it, the café does
+   * not get to override it.
+   */
+  followsEdge?: "x" | "z";
+  /**
    * Rests *on* the sill ledge, overhanging it — the window seat. Left out
    * entirely on wall styles with no ledge, where it would hang in mid-air.
    * Implies `crossesSill`.
@@ -295,7 +315,7 @@ export const CAFE_LAYOUT: Placement[] = [
 
   // The threshold step at the front-left, so the floor plan isn't a plain
   // square. The red mat and the A-frame sign belong to it.
-  { asset: "Flooring_A_Entrance", slot: "floorStep", x: -1, z: 2, y: -FLOOR_THICKNESS },
+  { asset: "Flooring_A_Entrance", slot: "floorStep", x: -1, z: 2, y: -FLOOR_THICKNESS, followsEdge: "z" },
 
   // --- The counter ----------------------------------------------------------
   //
@@ -409,9 +429,9 @@ export const CAFE_LAYOUT: Placement[] = [
   { asset: "Cat_Bed_A_Cream", id: "cat-bed", movable: true, slot: "catBed", x: -0.45, z: -1.55, catSpot: true, catY: 0.1 },
 
   // --- Outside the door -----------------------------------------------------
-  { asset: "Carpet_Small_Red", id: "rug", movable: true, slot: "carpet", x: -1.033, z: 2.06, walkOver: true },
-  { shopItem: "a-frame", asset: "Blackboard_Small", x: 0.932, z: 2.647, y: -0.271, rotY: 1.151, rotX: 0.0094, rotZ: -0.0196, outdoor: true },
-  { shopItem: "stray-cushion", asset: "Cushion_Orange", x: 2.426, z: 0.914, y: -0.273, rotY: 0.19, rotZ: -0.0624, scale: 1.064, outdoor: true },
+  { asset: "Carpet_Small_Red", id: "rug", movable: true, slot: "carpet", x: -1.033, z: 2.06, walkOver: true, followsEdge: "z" },
+  { shopItem: "a-frame", asset: "Blackboard_Small", x: 0.932, z: 2.647, y: -0.271, rotY: 1.151, rotX: 0.0094, rotZ: -0.0196, outdoor: true, followsEdge: "z" },
+  { shopItem: "stray-cushion", asset: "Cushion_Orange", x: 2.426, z: 0.914, y: -0.273, rotY: 0.19, rotZ: -0.0624, scale: 1.064, outdoor: true, followsEdge: "x" },
 ];
 
 /**
@@ -426,7 +446,7 @@ export const CAFE_LAYOUT: Placement[] = [
  * doorway — or a clear patch with the floorboards showing all round it.
  */
 export const FLOOR_CAT_SPOTS: Placement[] = [
-  { asset: "", x: -1.05, z: 2.06, catSpot: true }, // curled on the doormat
+  { asset: "", x: -1.05, z: 2.06, catSpot: true, followsEdge: "z" }, // curled on the doormat
   { asset: "", x: -0.35, z: 1.92, catSpot: true }, // the clear strip in front of the counter
 ];
 
@@ -499,7 +519,23 @@ export function placedRotation(item: Placement, placements: Placements): number 
   return (item.rotY ?? 0) + (moved?.rot ?? 0);
 }
 
-export function placedAt(item: Placement, placements: Placements): { x: number; z: number } {
+/**
+ * How far a piece has been carried by the café growing — zero for everything
+ * that is not pinned to an edge. See `Placement.followsEdge`.
+ */
+export function edgeShift(
+  item: Placement,
+  grown: { x: number; z: number } | undefined,
+): { x: number; z: number } {
+  if (!grown || !item.followsEdge) return { x: 0, z: 0 };
+  return item.followsEdge === "x" ? { x: grown.x, z: 0 } : { x: 0, z: grown.z };
+}
+
+export function placedAt(
+  item: Placement,
+  placements: Placements,
+  grown?: { x: number; z: number },
+): { x: number; z: number } {
   if (item.attachTo) {
     const parent = BY_ID.get(item.attachTo);
     const moved = parent ? placements[item.attachTo] : undefined;
@@ -507,7 +543,11 @@ export function placedAt(item: Placement, placements: Placements): { x: number; 
     return { x: item.x + (moved.x - parent.x), z: item.z + (moved.z - parent.z) };
   }
   const moved = item.id ? placements[item.id] : undefined;
-  return moved ?? { x: item.x, z: item.z };
+  // A piece the player has placed keeps their position: the edge rule is the
+  // café's default opinion about where a thing belongs, not a law.
+  if (moved) return moved;
+  const shift = edgeShift(item, grown);
+  return { x: item.x + shift.x, z: item.z + shift.z };
 }
 
 /** Where cats settle: cat furniture first, then bare-floor spots. */

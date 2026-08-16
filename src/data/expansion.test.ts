@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
+import { CAFE_LAYOUT, placedAt } from "@/data/cafe-layout";
 import {
+  growth,
   HOME_TILE,
   PATCH,
   MAX_PATCHES,
@@ -163,5 +165,46 @@ describe("what a patch draws", () => {
     ]);
     expect(drawn.filter((p) => p.asset.startsWith("Wall")).every((p) => p.asset.includes("_C_")))
       .toBe(true);
+  });
+});
+
+describe("the doorway rides the floor's edge", () => {
+  const entrance = CAFE_LAYOUT.find((p) => p.slot === "floorStep")!;
+  const sign = CAFE_LAYOUT.find((p) => p.shopItem === "a-frame")!;
+  const cushion = CAFE_LAYOUT.find((p) => p.shopItem === "stray-cushion")!;
+
+  it("does not move at all in an unexpanded café", () => {
+    const grown = growth([HOME_TILE]);
+    expect(grown).toEqual({ x: 0, z: 0 });
+    expect(placedAt(entrance, {}, grown)).toEqual({ x: entrance.x, z: entrance.z });
+  });
+
+  it("carries the entrance, its mat and the sign out to the new +z edge", () => {
+    const grown = growth([HOME_TILE, "0,1"]);
+    expect(grown.z).toBe(PATCH);
+    // The whole doorway moves together, or the mat ends up in the middle of
+    // the room and the notch is somewhere else entirely.
+    expect(placedAt(entrance, {}, grown).z).toBe(entrance.z + PATCH);
+    expect(placedAt(sign, {}, grown).z).toBe(sign.z + PATCH);
+    // …and nothing moves sideways, because the café did not grow sideways.
+    expect(placedAt(entrance, {}, grown).x).toBe(entrance.x);
+    expect(placedAt(cushion, {}, grown)).toEqual({ x: cushion.x, z: cushion.z });
+  });
+
+  it("moves each piece only along the edge it belongs to", () => {
+    // The stray cushion sits beyond +x; the sign beyond +z. Growing one axis
+    // must not drag the other's furniture with it.
+    const grown = growth([HOME_TILE, "1,0"]);
+    expect(grown).toEqual({ x: PATCH, z: 0 });
+    expect(placedAt(cushion, {}, grown).x).toBe(cushion.x + PATCH);
+    expect(placedAt(sign, {}, grown)).toEqual({ x: sign.x, z: sign.z });
+  });
+
+  it("leaves a piece the player has moved exactly where they put it", () => {
+    // The mat is movable. Once somebody has made a decision about where it
+    // goes, the café does not get to override it on the next expansion.
+    const mat = CAFE_LAYOUT.find((p) => p.id === "rug")!;
+    const grown = growth([HOME_TILE, "0,1"]);
+    expect(placedAt(mat, { rug: { x: 0.5, z: -0.5 } }, grown)).toEqual({ x: 0.5, z: -0.5 });
   });
 });

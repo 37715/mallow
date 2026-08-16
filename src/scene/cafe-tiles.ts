@@ -7,7 +7,6 @@ import {
   wallSegmentId,
   type WallSide,
   isRoomPatch,
-  ownedPatches,
   ownedTiles,
   tileCentre,
   tileKey,
@@ -211,20 +210,6 @@ function wallPiece(corner: boolean, last: boolean, end: "X" | "XL"): string {
   if (corner) return "Corner_Mid";
   if (last) return `Mid_End_${end}`;
   return "Mid";
-}
-
-/**
- * Is this spot inside a bought patio?
- *
- * Used to retire the entrance notch once a patch covers it — two floor slabs
- * on the same ground z-fight, and the notch is the smaller, older one.
- */
-export function coveredByPatch(tiles: TileKey[], x: number, z: number): boolean {
-  const half = PATCH / 2;
-  return ownedPatches(tiles).some((tile) => {
-    const at = tileCentre(tile);
-    return Math.abs(at.x - x) <= half && Math.abs(at.z - z) <= half;
-  });
 }
 
 /** Standable ground, one rectangle per tile — what the placement validator needs. */

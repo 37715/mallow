@@ -4,7 +4,6 @@ import {
   DOOR,
   DOOR_LOBBY,
   DOOR_THRESHOLD,
-  placedAt,
   placedRotation,
 } from "@/data/cafe-layout";
 import { tileSurfaces } from "@/scene/cafe-tiles";
@@ -224,13 +223,16 @@ export function createFurnitureMover(options: FurnitureMoverOptions): FurnitureM
     // meshes rather than assumed, so a wall-style change that resizes the step
     // is picked up for free.
     const out: Footprint[] = tileSurfaces(gameStore.getState().tiles);
-    const placements = gameStore.getState().placements;
     for (const child of getRoomGroup().children) {
       const other = child.userData.furniture as FurnitureTag | undefined;
       if (!other?.size) continue;
       const item = CAFE_LAYOUT[other.index];
       if (item?.slot !== "floorStep") continue;
-      const at = placedAt(item, placements);
+      // **The mesh, not the placement.** The entrance rides the floor's outer
+      // edge as the café grows (`Placement.followsEdge`), so the layout's
+      // authored coordinates are the *old* doorway once anything is built.
+      // The object in the room is already where it really is.
+      const at = child.position;
       /**
        * **Measured from the mesh, not from the placement.**
        *
@@ -301,7 +303,9 @@ export function createFurnitureMover(options: FurnitureMoverOptions): FurnitureM
       if (!other || !other.size) continue;
       const item = CAFE_LAYOUT[other.index];
       if (!item) continue;
-      const at = placedAt(item, placements);
+      // The mesh again — same reason as above, and it also covers props that
+      // inherit a parent's movement through `attachTo`.
+      const at = child.position;
       const box = turnedBox(other.size, at.x, at.z, placedRotation(item, placements));
       const onWall = other.wall === true || (item.y ?? 0) > 1.2;
       out.push({
