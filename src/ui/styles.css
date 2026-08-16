@@ -1509,24 +1509,23 @@ body {
   color: var(--chalk-dim);
 }
 
-/* --- Cat swatches (the placeholder portrait until real cat art lands) ------ */
+/* --- Cat portraits (drawn per breed — see `ui/cat-face.ts`) ---------------- */
 
 .cat-swatch {
   position: relative;
   width: 50px;
   height: 50px;
-  border-radius: 50%;
   flex-shrink: 0;
-  box-shadow: inset 0 -3px 7px rgba(0, 0, 0, 0.22);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.cat-swatch-accent {
-  position: absolute;
-  right: 3px;
-  bottom: 3px;
-  width: 15px;
-  height: 15px;
-  border-radius: 50%;
+.cat-face {
+  width: 100%;
+  height: 100%;
+  /* A soft seat under the face, so a pale cat does not float on a pale card. */
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.28));
 }
 
 .cat-swatch.unknown {
@@ -1534,7 +1533,6 @@ body {
   align-items: center;
   justify-content: center;
   background: transparent;
-  box-shadow: inset 0 0 0 2px var(--slate-line);
   color: var(--chalk-dim);
   font-size: 19px;
   font-weight: 700;

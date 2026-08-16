@@ -1,3 +1,4 @@
+import { chosenAssets, type Customisation, type CustomisableSlot } from "@/data/customisation";
 import type { UnlockCondition, Progress } from "@/data/customisation";
 
 /**
@@ -72,6 +73,12 @@ export interface ShopItem {
    */
   preview: string;
   /**
+   * The customisable slot this piece belongs to, if any — so copies of it
+   * follow the player's colourway rather than staying the shop's default.
+   * See `copyAsset`.
+   */
+  slot?: CustomisableSlot;
+  /**
    * The asset a *second* one is built from.
    *
    * Ellis, 2026-08-25: *"should be able to buy multiple of furniture and stuff
@@ -125,7 +132,7 @@ export const SHOP_ITEMS: ShopItem[] = [
   // at first. there should be nothing so the user has room to place stuff."*
   // It is also what the walkthrough has you buy and put down, so it needs a
   // page — see FIRST_FURNITURE in `systems/tutorial.ts`.
-  { id: "armchair", name: "Armchair", blurb: "The good seat, by the window.", category: "comfort", price: 35, appeal: 0.5, place: "armchair", unlock: null, preview: "Sofa_Single_Cream" },
+  { id: "armchair", name: "Armchair", blurb: "The good seat, by the window.", category: "comfort", price: 35, appeal: 0.5, place: "armchair", unlock: null, preview: "Sofa_Single_Cream", slot: "sofa" },
   { id: "bar-stools", name: "Bar stools", blurb: "Two, pulled up to the counter.", category: "comfort", price: 70, appeal: 0.3, place: "stool-a", unlock: null, preview: "Chair_Bar_A" },
   { id: "low-table", name: "Low table", blurb: "Something to put a cup on.", category: "comfort", price: 60, appeal: 0.3, place: "low-table", unlock: null, preview: "Table_Short" },
   { id: "side-table", name: "Side table", blurb: "Comes with a coffee already on it.", category: "comfort", price: 140, appeal: 0.4, place: "side-table", unlock: null, preview: "Table_Tall" },
@@ -175,7 +182,17 @@ export function furnitureAppeal(purchased: string[], copies: string[] = []): num
 }
 
 /** The asset one more of this item is built from. */
-export function copyAsset(item: ShopItem): string {
+/**
+ * The asset a *second* one of this item is built from.
+ *
+ * **It has to follow the colourway.** A copy used to be a fixed asset name,
+ * so recolouring your sofa left the second one in the shop's original cream —
+ * the café had two sofas that were supposed to be the same piece and were
+ * visibly not. Anything with a `slot` resolves through the player's
+ * customisation, exactly as the authored placement does (`assetFor`).
+ */
+export function copyAsset(item: ShopItem, choice?: Customisation): string {
+  if (item.slot && choice) return chosenAssets(choice)[item.slot];
   return item.copy ?? item.preview;
 }
 

@@ -16,7 +16,7 @@ This file is the shared brain for the project. **Read it before starting work in
 > not finished. Nobody should have to re-derive the state of the project by
 > reading the whole codebase.
 
-**Last updated:** 2026-08-26 (a surface per chore, framed so the card is the thing)
+**Last updated:** 2026-08-26 (drawn cat faces; money moves when the piece lands)
 
 **Built and working:**
 - **M1 — playable core loop** ✅ visitors arrive → sit → pay → money accrues.
@@ -297,9 +297,11 @@ holds, and the editor is now how that week gets built.</summary>
   this go?" hook without the tonal break. **Ellis's call — not yet made.**
 
 **Known gaps / debts:**
-- **The cats are still greybox.** Customers are real art as of 2026-08-01; the
-  *cats* are still procedural primitives, and they are the emotional star of the
-  game. A cat pack is now the single most valuable art buy left.
+- **The cats are still greybox** *in the world* — customers are real art, the
+  cats are procedural primitives. **Their portraits are not**: the cat pack was
+  given up on 2026-08-26 (*"lets give up waiting for the released cat pack"*)
+  and all sixteen breeds now have a drawn face (`ui/cat-face.ts`). The 3D cats
+  are still the outstanding art buy.
 - ~~**There is no wave clip in the character pack.**~~ ✅ 2026-08-25 — the Lip
   Sync pack ships `Social_WaveHello`, and it is the barista's first greeting
   now. The base pack's 43 clips genuinely had no greeting in them; the answer
@@ -366,6 +368,48 @@ holds, and the editor is now how that week gets built.</summary>
   injection time out every time.
 
 **Session log:**
+- *2026-08-26, end of day* — **Faces for every breed, and money that moves when
+  the piece lands.**
+  - **Sixteen drawn cat faces, replacing a coloured disc with a dot on it.**
+    The stylesheet called that disc "the placeholder portrait until real cat art
+    lands"; the pack never shipped, and Ellis called it: *"lets give up waiting
+    for the released cat pack. create all the little cat faces for the icons."*
+    A collection game's hook is that the things you collect are individuals
+    (§8), and sixteen identical circles say they differ by a hex code.
+    **The markings are what does the work, not the fur colour** — a tuxedo and
+    an espresso are both near-black, a marmalade and a butterscotch both warm
+    cream, and at 50px only a pattern separates them. So every breed carries
+    one (`CatDefinition.pattern`) plus its own eye colour. §9's icon rules
+    hold, with one deliberate exception: these are *portraits*, so they carry
+    real colour rather than `currentColor`.
+  - **Money moves when the piece lands.** Ellis: *"when i place an item, that
+    is when i want a ka ching sound fx and an animation and for the money to be
+    taken. only when positioned is chosen and placed."* Buying now records a
+    `pendingPurchase` and charges nothing; `settlePurchase` takes it on commit,
+    with the chime and a coin floater at the piece. It also removes an oddity
+    the old flow had — the till dropped for a decision the player had not
+    finished making, and cancelling flickered it back up. Measured: £40 stays
+    £40 on buy, £40→£5 on placing, and buy-then-cancel never moves it.
+    `pendingPurchase` is runtime-only, so `pagehide` settles it — otherwise a
+    force-quit mid-drag is free furniture.
+  - **"bed a cream".** `furnitureName` fell through to tidying the raw asset
+    (`Cat_Bed_A_Cream`) because an instance has no `slot` to look a category up
+    from. It prefers the catalogue's own name now — the shop already knows what
+    the player thinks a thing is called, and the pack's internal naming is only
+    a fallback for props nobody can buy.
+  - **A copy of a recoloured piece kept the shop's original colour.** `copyAsset`
+    returned a fixed name, so a second sofa stayed cream after you had repainted
+    the first. It resolves through the customisation slot now. And the colours
+    page **says how many pieces it repaints** — a colourway belongs to a slot,
+    not an object, which the page never admitted anywhere.
+  - **The purr, third time.** Ellis: *"so it doesnt sound like a diesel engine
+    starting up."* Three things were making it a motor, in order: **energy
+    below ~150 Hz** chopped at 25 Hz, which is exactly an idling diesel — there
+    is a highpass now and the 180 Hz "chest" band is gone entirely; a **hard
+    pulse shape** with harmonics to the seventh; and **modulation from 0.1 to
+    1.0**, a chopper rather than a flutter. A purr heard across a room has
+    almost nothing down low — the rumble is something you feel with a hand on
+    the cat, not a sound.
 - *2026-08-26, very last* — **One surface per chore, and the framing is what
   does the work.**
   - Ellis: *"it looks like im also wiping the wall? it should only be pure

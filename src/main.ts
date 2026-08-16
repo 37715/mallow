@@ -245,6 +245,23 @@ async function bootstrap(): Promise<void> {
         const at = mover.commit();
         if (at) gameStore.getState().movePiece(pieceId, at.x, at.z, at.rot);
         furnitureEditor.hideMoveBar();
+        // **This is the moment money changes hands.** Buying used to debit
+        // immediately, so the till dropped for a decision the player had not
+        // finished making and cancelling flickered it back up. Now the piece
+        // landing is the purchase: the chime, the coins, and the number moving
+        // all happen together, where the player is already looking.
+        if (justBought && at) {
+          const paid = gameStore.getState().settlePurchase();
+          if (paid > 0) {
+            playPurchase();
+            floaters.spawn(
+              new THREE.Vector3(at.x, 0.85, at.z),
+              camera,
+              "coin",
+              `-$${Math.round(paid)}`,
+            );
+          }
+        }
       },
       () => {
         mover.cancel();
@@ -665,6 +682,15 @@ async function bootstrap(): Promise<void> {
       seatPositions: () => seatPositions(gameStore.getState().placements),
     };
   }
+
+  /**
+   * Settle an unpaid piece if the session ends while it is still in the
+   * player's hands. `pendingPurchase` is runtime-only, so without this a
+   * force-quit mid-placement would hand out free furniture.
+   */
+  window.addEventListener("pagehide", () => {
+    gameStore.getState().settlePurchase();
+  });
 
   // Offline earnings on launch, and on resume from background — inside the
   // Capacitor shell the page isn't reloaded when the app comes back (§8).

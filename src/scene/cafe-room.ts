@@ -60,6 +60,11 @@ export interface FurnitureTag {
   size?: THREE.Vector3;
   /** Hangs on a wall rather than standing on the floor. See `ShopItem.wall`. */
   wall?: boolean;
+  /**
+   * What the player calls this thing. Set for instances, which have no `slot`
+   * to look a category up from — see the note where it is assigned.
+   */
+  name?: string;
 }
 
 function place(
@@ -189,7 +194,7 @@ export async function buildCafeRoom(
   for (const instance of instances) {
     const item = shopItem(instance.item);
     const asset =
-      instance.item === CAT_BED_ITEM ? bedAsset(choice) : item ? copyAsset(item) : "";
+      instance.item === CAT_BED_ITEM ? bedAsset(choice) : item ? copyAsset(item, choice) : "";
     const built = asset ? assets.create(asset) : null;
     if (!built) {
       missing.push(asset || instance.item);
@@ -204,6 +209,12 @@ export async function buildCafeRoom(
       // fail rather than return somebody else's furniture.
       index: -1000 - instances.indexOf(instance),
       asset,
+      // **The catalogue's name, not the asset's.** An instance is not a row of
+      // `CAFE_LAYOUT`, so it has no `slot` to look a category up from, and
+      // `furnitureName` fell back to tidying the raw asset — which is how a
+      // cat bed came to be titled "bed a cream" (Ellis, 2026-08-26). The shop
+      // already knows what the player thinks this thing is called.
+      name: shopItem(instance.item)?.name,
       id: instance.id,
       movable: true,
       size: assets.get(asset)?.size,

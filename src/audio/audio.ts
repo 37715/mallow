@@ -251,16 +251,17 @@ export function playCoin(): void {
 /**
  * The pulse a purr is built on.
  *
- * **Not a sine.** A purr is a *train of pulses* — the vocal folds close about
- * 25 times a second and the sound is the rasp of each closure, so what the ear
- * identifies is the sharp repeated edge. Modulating with a sine gives a smooth
- * wobble, which is why the old one read as a motorboat rather than a cat.
- *
- * These harmonic amplitudes sum to a rounded, asymmetric bump: quick rise,
- * slower fall, which is the shape of one purr cycle.
+ * **Nearly a sine, and that is the correction.** A purr *is* a train of pulses
+ * — the folds close about 25 times a second — but the previous version gave
+ * that pulse a full harmonic stack, and a hard-edged 25 Hz buzz with strong
+ * harmonics is a **motor**. Ellis: *"fix the cat purr so it doesnt sound like
+ * a diesel engine starting up."* A cat is soft-edged: the flutter is felt more
+ * than heard, and what you actually hear is breath being interrupted. Two
+ * quiet harmonics keep it from being a plain tremolo without building an
+ * engine.
  */
 function purrWave(context: AudioContext): PeriodicWave {
-  const harmonics = [0, 1, 0.72, 0.42, 0.22, 0.11, 0.05];
+  const harmonics = [0, 1, 0.3, 0.1];
   const real = new Float32Array(harmonics.length);
   const imag = new Float32Array(harmonics);
   return context.createPeriodicWave(real, imag, { disableNormalization: false });
@@ -269,24 +270,25 @@ function purrWave(context: AudioContext): PeriodicWave {
 /**
  * Petting a cat.
  *
- * **Rebuilt 2026-08-26** — Ellis: *"the purr sound is really weird and not
- * realistic at all."* It was lowpassed white noise with a 25 Hz sine tremolo
- * on the output gain, and it had three separate problems, all of which the
- * word "rumble" in the old comment was hiding:
+ * **The diesel was coming from underneath.** This has now been built three
+ * times: lowpassed noise with a sine tremolo (a boomy wobble), then a hard
+ * pulse train over a low band (an engine), and now this. Three things were
+ * making it a motor, in order of how much each contributed:
  *
- * 1. **The texture was wrong.** A lowpass at 260 Hz leaves a boomy hiss. The
- *    rasp of a purr lives around 200–600 Hz, so it wants a *band*, not a
- *    ceiling.
- * 2. **The modulation was a sine**, which is a wobble. A purr is a pulse
- *    train — see `purrWave`.
- * 3. **The tremolo was added to a gain that was already being ramped**, so its
- *    depth was ±0.35 around a moving target. That is close to 100% modulation
- *    at the quiet ends and much less in the middle: the flutter audibly
- *    changed character across the sound.
+ * 1. **Energy below ~150 Hz.** A low band chopped at 25 Hz is the exact recipe
+ *    for an idling diesel. There is a highpass now, and the "chest" lowpass
+ *    that sat at 180 Hz — the loudest offender — is gone entirely. A purr
+ *    heard from across a room has almost nothing down there; the rumble is
+ *    something you feel with a hand on the cat, not a sound.
+ * 2. **A hard pulse shape**, with harmonics stacked to the seventh. See
+ *    `purrWave`.
+ * 3. **Modulation far too deep** — it swung from 0.1 to 1.0 of the carrier,
+ *    which is a chopper. It is 0.62→1.0 now: a flutter across a continuous
+ *    breath, rather than the breath being switched on and off.
  *
- * The rate also drifts. A real cat's purr slows slightly through the out-breath
- * and picks up again, and a perfectly fixed 25 Hz is the single clearest tell
- * that a sound is synthetic.
+ * What is left is an airy band around 400–900 Hz, fluttered gently, with the
+ * rate drifting through the breath because a perfectly fixed rate is the
+ * clearest tell that a sound is synthetic.
  */
 export function playPurr(): void {
   if (!ctx || !master) return;
@@ -298,51 +300,53 @@ export function playPurr(): void {
   const source = ctx.createBufferSource();
   source.buffer = buffer;
 
-  // The rasp. A band rather than a ceiling — this is the part that sounds like
-  // an animal instead of like wind.
+  // **Nothing below here.** This one filter is most of the difference between
+  // a cat and a generator.
+  const cut = ctx.createBiquadFilter();
+  cut.type = "highpass";
+  cut.frequency.value = 190;
+  cut.Q.value = 0.7;
+
+  // The rasp: airy and soft-edged, not chesty.
   const rasp = ctx.createBiquadFilter();
   rasp.type = "bandpass";
-  rasp.frequency.value = 330;
-  rasp.Q.value = 0.8;
+  rasp.frequency.value = 560;
+  rasp.Q.value = 0.45;
 
-  // A little warmth underneath it, so it has a chest.
-  const body = ctx.createBiquadFilter();
-  body.type = "lowpass";
-  body.frequency.value = 180;
-  body.Q.value = 0.7;
+  // Take the hiss off the top so it reads as breath rather than static.
+  const soften = ctx.createBiquadFilter();
+  soften.type = "lowpass";
+  soften.frequency.value = 1500;
+  soften.Q.value = 0.6;
 
   /**
-   * The pulse train, as a gain the noise passes *through* — not as an addition
-   * to the envelope's gain. Keeping the two stages separate is what stops the
-   * flutter depth changing as the envelope moves.
+   * The flutter, as a gain the noise passes *through* — not as an addition to
+   * the envelope's own gain. Keeping the two stages separate is what stops the
+   * depth changing as the envelope moves.
    */
   const flutter = ctx.createGain();
   flutter.gain.value = 0;
   const floor = ctx.createConstantSource();
-  // Never fully closes: a purr is continuous with a strong pulse on top, and
-  // gating it to silence 25 times a second sounds like a broken speaker.
-  floor.offset.value = 0.55;
+  floor.offset.value = 0.81;
   floor.connect(flutter.gain);
 
   const pulse = ctx.createOscillator();
   pulse.setPeriodicWave(purrWave(ctx));
-  pulse.frequency.setValueAtTime(27, now);
-  // Slows through the breath and picks up again.
-  pulse.frequency.linearRampToValueAtTime(23.5, now + length * 0.55);
-  pulse.frequency.linearRampToValueAtTime(26, now + length);
+  pulse.frequency.setValueAtTime(28, now);
+  pulse.frequency.linearRampToValueAtTime(25.5, now + length * 0.55);
+  pulse.frequency.linearRampToValueAtTime(27.5, now + length);
   const depth = ctx.createGain();
-  depth.gain.value = 0.45;
+  depth.gain.value = 0.19;
   pulse.connect(depth).connect(flutter.gain);
 
   // The breath: one swell, in and out, rather than a flat block of sound.
   const env = ctx.createGain();
   env.gain.setValueAtTime(0.0001, now);
-  env.gain.exponentialRampToValueAtTime(0.42, now + 0.22);
-  env.gain.exponentialRampToValueAtTime(0.3, now + length * 0.62);
+  env.gain.exponentialRampToValueAtTime(0.4, now + 0.26);
+  env.gain.exponentialRampToValueAtTime(0.28, now + length * 0.62);
   env.gain.exponentialRampToValueAtTime(0.0001, now + length);
 
-  source.connect(rasp).connect(flutter);
-  source.connect(body).connect(flutter);
+  source.connect(cut).connect(rasp).connect(soften).connect(flutter);
   flutter.connect(env).connect(master);
 
   source.start(now);
@@ -353,13 +357,15 @@ export function playPurr(): void {
   floor.stop(now + length + 0.05);
   source.onended = () => {
     source.disconnect();
+    cut.disconnect();
     rasp.disconnect();
-    body.disconnect();
+    soften.disconnect();
     flutter.disconnect();
     depth.disconnect();
     env.disconnect();
   };
 }
+
 
 /** Generic soft UI tap. */
 export function playTap(): void {

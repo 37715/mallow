@@ -12,6 +12,7 @@ import {
 } from "@/state/store";
 import { formatMoney, formatDuration } from "@/ui/format";
 import { icon } from "@/ui/icons";
+import { catFace } from "@/ui/cat-face";
 import { contentCatCount } from "@/systems/cafe";
 import { visibleCatCapacity } from "@/scene/room";
 import { costForNextCat } from "@/data/economy";
@@ -23,7 +24,7 @@ import {
 } from "@/data/cats";
 import { UPGRADE_DEFINITIONS } from "@/data/upgrades";
 import { levelProgress } from "@/data/progression";
-import { bedAsset, bedCost, beds, freeBeds } from "@/data/beds";
+import { CAT_BED_ITEM, bedAsset, bedCost, beds, freeBeds } from "@/data/beds";
 import {
   MAX_PATCHES,
   expansionCandidates,
@@ -48,8 +49,10 @@ import {
 import { salesRanking } from "@/systems/menu";
 import {
   CUSTOMISATION,
+  SLOT_CATEGORY,
   chosenAssets,
   isUnlocked,
+  type CustomisableSlot,
   type CustomisationCategory,
 } from "@/data/customisation";
 import {
@@ -61,7 +64,7 @@ import {
   shopItem,
   type ShopItem,
 } from "@/data/shop";
-import { MOVABLE, MOVABLE_LABELS, type Placement } from "@/data/cafe-layout";
+import { CAFE_LAYOUT, MOVABLE, MOVABLE_LABELS, type Placement } from "@/data/cafe-layout";
 import { tidyAssetName } from "@/scene/furniture-picker";
 import type { ShopPreview } from "@/scene/shop-preview";
 import { ECONOMY_CONFIG } from "@/data/economy";
@@ -93,9 +96,6 @@ const REVEAL_INTENSITY: Record<string, number> = {
   legendary: 1,
 };
 
-function cssColor(color: number): string {
-  return `#${color.toString(16).padStart(6, "0")}`;
-}
 
 function el(tag: string, className: string, text?: string): HTMLElement {
   const node = document.createElement(tag);
@@ -112,17 +112,17 @@ function rarityBadge(definition: CatDefinition): HTMLElement {
 }
 
 /** Circular fur swatch — the placeholder "portrait" until real cat art exists. */
+/**
+ * A breed's portrait.
+ *
+ * Was a coloured disc with a dot on it, described in its own stylesheet as
+ * "the placeholder portrait until real cat art lands". The cat pack never
+ * shipped, so the faces are drawn — `ui/cat-face.ts`.
+ */
 function catSwatch(definition: CatDefinition, unknown = false): HTMLElement {
   const swatch = el("div", "cat-swatch");
-  if (unknown) {
-    swatch.classList.add("unknown");
-    swatch.textContent = "?";
-    return swatch;
-  }
-  swatch.style.background = cssColor(definition.furColor);
-  const accent = el("div", "cat-swatch-accent");
-  accent.style.background = cssColor(definition.accentColor);
-  swatch.appendChild(accent);
+  if (unknown) swatch.classList.add("unknown");
+  swatch.appendChild(catFace(definition, unknown));
   return swatch;
 }
 
@@ -1223,6 +1223,31 @@ export function mountUI(root: HTMLElement): MountedUI {
     outside: "shop",
   };
 
+  /**
+   * How many pieces in the café a colourway would repaint.
+   *
+   * Counts what is actually in the room: an authored piece only if it has been
+   * bought, plus every copy the player has made of it. Walls and floor are the
+   * building — always exactly one of each, whatever the footprint.
+   */
+  function piecesInCategory(state: ReturnType<typeof gameStore.getState>, categoryId: string): number {
+    const slot = SLOT_FOR_CATEGORY[categoryId];
+    if (!slot) return 1;
+    const authored = CAFE_LAYOUT.filter(
+      (p) => p.slot === slot && (!p.shopItem || state.purchased.includes(p.shopItem)),
+    ).length;
+    const copies = state.instances.filter((i) => {
+      if (i.item === CAT_BED_ITEM) return slot === "catBed";
+      return shopItem(i.item)?.slot === slot;
+    }).length;
+    return Math.max(1, authored + copies);
+  }
+
+  /** Inverse of `SLOT_CATEGORY`, for counting what a colourway touches. */
+  const SLOT_FOR_CATEGORY: Record<string, CustomisableSlot | undefined> = Object.fromEntries(
+    Object.entries(SLOT_CATEGORY).map(([slot, category]) => [category, slot as CustomisableSlot]),
+  );
+
   const STYLE_TAB = "colours";
   /**
    * The "arrange" tab: every piece currently in the café that can be moved.
@@ -1630,7 +1655,9 @@ export function mountUI(root: HTMLElement): MountedUI {
         const state = gameStore.getState();
         if (!state.purchased.includes(item.id)) {
           if (state.buyShopItem(item.id)) {
-            playPurchase();
+            // No chime here: the sale completes when the piece is put down
+            // (`settlePurchase`), and that is where the noise belongs.
+            playTap();
             startPlacing(item.place ?? item.id, true);
             return;
           }
@@ -1865,7 +1892,20 @@ export function mountUI(root: HTMLElement): MountedUI {
         shopPreview?.setItem(unlocked ? page.item.preview : null);
       } else {
         name.textContent = page.category.name;
-        blurb.textContent = page.category.hint;
+        // **Say how many it changes.** A colourway belongs to a *slot*, not to
+        // one object, so recolouring the cat bed recolours every cat bed —
+        // which the page did not say anywhere, and reads as the game thinking
+        // you only own one (Ellis, 2026-08-26: *"its implying theres only 1
+        // sofa, 1 table etc which idk how that works when i have multiple"*).
+        // Saying it plainly is the honest fix; per-object colours would be a
+        // different feature, and a much larger one.
+        {
+          const pieces = piecesInCategory(state, page.category.id);
+          blurb.textContent =
+            pieces > 1
+              ? `${page.category.hint} changes all ${pieces} of them.`
+              : page.category.hint;
+        }
         // Whatever colourway is in the café — or the one under your finger, so
         // you can see a colour before buying it.
         const shown = peeking

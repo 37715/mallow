@@ -2,6 +2,7 @@ import * as THREE from "three";
 import { CAFE_LAYOUT } from "@/data/cafe-layout";
 import { SLOT_CATEGORY, categoryById, type CustomisationCategory } from "@/data/customisation";
 import type { FurnitureTag } from "@/scene/cafe-room";
+import { shopItem } from "@/data/shop";
 
 /**
  * Work out which piece of café the player just touched (§8 "The café editor").
@@ -138,9 +139,21 @@ export function tidyAssetName(asset: string): string {
     .toLowerCase();
 }
 
-/** Human-readable name for a piece, for a heading. */
+/**
+ * Human-readable name for a piece, for a heading.
+ *
+ * **The catalogue first.** Tidying the asset name is a last resort and it is
+ * not good enough on its own: `Cat_Bed_A_Cream` comes out as "bed a cream",
+ * which is what a player saw when they hovered the bed they had just bought.
+ * The shop and the customisation categories both know real names; the pack's
+ * internal naming is only a fallback for props nobody can buy.
+ */
 export function furnitureName(tag: FurnitureTag): string {
+  if (tag.name) return tag.name.toLowerCase();
   const category = tag.slot ? categoryById(SLOT_CATEGORY[tag.slot]) : undefined;
   if (category) return category.name.toLowerCase();
-  return tidyAssetName(CAFE_LAYOUT[tag.index]?.asset ?? tag.asset);
+  const item = CAFE_LAYOUT[tag.index];
+  const owner = item?.shopItem ? shopItem(item.shopItem) : undefined;
+  if (owner) return owner.name.toLowerCase();
+  return tidyAssetName(item?.asset ?? tag.asset);
 }

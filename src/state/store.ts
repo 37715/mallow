@@ -148,6 +148,22 @@ export interface GameState {
    * while the ghost was still in your hand.
    */
   placementsMade: number;
+  /**
+   * A purchase that has been made but not yet paid for, because the piece is
+   * still in the player's hands.
+   *
+   * **Money changes when the thing lands, not when the button is pressed.**
+   * Ellis, 2026-08-26: *"when i place an item, that is when i want a ka ching
+   * sound fx and an animation and for the money to be taken. only when
+   * positioned is chosen and placed."* He is right, and it also removes an
+   * oddity the old flow had: buying debited immediately and cancelling
+   * refunded, so the till flickered down and back up for a decision the player
+   * had not finished making.
+   *
+   * Runtime only, deliberately not saved — see `settlePurchase` for what
+   * happens if a session ends mid-placement.
+   */
+  pendingPurchase: { id: string; cost: number } | null;
   /** When each chore was last done (`systems/chores.ts`). */
   chores: ChoreLog;
   /**
@@ -193,6 +209,11 @@ export interface GameState {
   movePiece: (id: string, x: number, z: number, rot?: number) => void;
   /** Mark a chore done — pays, grants xp, restores its appeal. */
   finishChore: (id: string) => void;
+  /**
+   * Take the money for a piece the player has just put down. Returns what was
+   * charged, or 0 if nothing was owed, so the caller can make a noise about it.
+   */
+  settlePurchase: () => number;
   /** Buy a piece of furniture. False if locked, already owned, or unaffordable. */
   buyShopItem: (id: string) => boolean;
   /** Finish character creation. */
@@ -498,6 +519,8 @@ export const gameStore = createStore<GameState>((set, get) => ({
     : freshState()),
   visitors: [],
   lastVisitorSpawnAt: 0,
+  // Runtime only: nothing is mid-placement at boot.
+  pendingPurchase: null,
   // Runtime only — a fresh session has placed nothing yet, whatever the save
   // says about what is already in the room.
   placementsMade: 0,
@@ -656,6 +679,25 @@ export const gameStore = createStore<GameState>((set, get) => ({
     logEvent({ name: "chore_done", chore: id });
   },
 
+  /**
+   * Charge for the piece that has just been placed.
+   *
+   * **Also the safety net.** `pendingPurchase` is runtime-only, so a session
+   * that ends mid-placement would otherwise hand out a free piece; `main.ts`
+   * settles on the way out for exactly that reason. Settling twice is
+   * harmless — the pending record is cleared here.
+   */
+  settlePurchase: () => {
+    const state = get();
+    const pending = state.pendingPurchase;
+    if (!pending) return 0;
+    set({
+      money: Math.max(0, state.money - pending.cost),
+      pendingPurchase: null,
+    });
+    return pending.cost;
+  },
+
   movePiece: (id, x, z, rot = 0) => {
     const state = get();
     // **Two kinds of furniture, one move.** An authored piece records an
@@ -786,18 +828,33 @@ export const gameStore = createStore<GameState>((set, get) => ({
     return id;
   },
 
+  /**
+   * Back out of a purchase that is still in the player's hands.
+   *
+   * **Nothing is refunded, because nothing was taken.** Money moves when the
+   * piece lands (`settlePurchase`), so cancelling only has to remove the piece
+   * and take the xp back — without that last part, buy-then-cancel is a free
+   * xp tap you can hold down forever. A refund is still issued for a pending
+   * record that has somehow already been settled, so this can never silently
+   * charge for something the player does not end up with.
+   */
   undoPurchase: (id) => {
     const state = get();
+    const pending = state.pendingPurchase;
+    const unpaid = pending?.id === id;
+    const refund = (cost: number) =>
+      unpaid ? state.money : Math.min(ECONOMY_CONFIG.tillCapacity, state.money + cost);
 
     const instance = state.instances.find((i) => i.id === id);
     if (instance) {
       // A bed's price depends on how many there were *before* it — so refund
       // the cost of the one being removed, not of the next one.
-      const cost = bedCost(beds(state.placements, state.instances).length - 1);
+      const cost = pending?.cost ?? bedCost(beds(state.placements, state.instances).length - 1);
       set({
-        money: Math.min(ECONOMY_CONFIG.tillCapacity, state.money + cost),
+        money: refund(cost),
         instances: state.instances.filter((i) => i.id !== id),
         xp: Math.max(0, state.xp - XP_AWARDS.furniture(cost)),
+        pendingPurchase: unpaid ? null : state.pendingPurchase,
       });
       return;
     }
@@ -805,9 +862,10 @@ export const gameStore = createStore<GameState>((set, get) => ({
     const item = shopItem(id);
     if (!item || !state.purchased.includes(id)) return;
     set({
-      money: Math.min(ECONOMY_CONFIG.tillCapacity, state.money + item.price),
+      money: refund(item.price),
       purchased: state.purchased.filter((p) => p !== id),
       xp: Math.max(0, state.xp - XP_AWARDS.furniture(item.price)),
+      pendingPurchase: unpaid ? null : state.pendingPurchase,
     });
   },
 
@@ -862,11 +920,11 @@ export const gameStore = createStore<GameState>((set, get) => ({
 
     const id = `inst-${state.nextInstanceId}`;
     set({
-      money: state.money - cost,
       // Dropped at the origin and immediately handed to the placer, which
       // spirals out to the nearest spot it actually fits (`nearestValidSpot`).
       instances: [...state.instances, { id, item: itemId, x: 0, z: 0 }],
       nextInstanceId: state.nextInstanceId + 1,
+      pendingPurchase: { id, cost },
     });
     logEvent({ name: "shop_item_bought", item: itemId, cost });
     get().grantXp(XP_AWARDS.furniture(cost));
@@ -959,7 +1017,11 @@ export const gameStore = createStore<GameState>((set, get) => ({
     if (item.unlock && !item.unlock.met(currentProgress(state))) return false;
     if (state.money < item.price) return false;
 
-    set({ money: state.money - item.price, purchased: [...state.purchased, id] });
+    // Charged on placement, not here — see `pendingPurchase`.
+    set({
+      purchased: [...state.purchased, id],
+      pendingPurchase: { id, cost: item.price },
+    });
     logEvent({ name: "shop_item_bought", item: id, cost: item.price });
     get().grantXp(XP_AWARDS.furniture(item.price));
     return true;
