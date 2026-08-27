@@ -1,6 +1,6 @@
 import { bedCost } from "@/data/beds";
 import { costForNextCat } from "@/data/economy";
-import { shopItem } from "@/data/shop";
+import { copyPrice, shopItem } from "@/data/shop";
 
 /**
  * What the guided tutorial asks the player to *do*, and how to tell when
@@ -16,6 +16,31 @@ import { shopItem } from "@/data/shop";
  * what lets the same script work for someone replaying it with a full café as
  * for someone on their first morning, and it means a rebalance of any of the
  * cost curves can never quietly make a step impossible to finish.
+ *
+ * **A baseline turns every step into "buy one *more*", so a replay has to be
+ * priced as a replay** (Ellis, 2026-08-23: *"if you press the walk me through
+ * tutorial thing again … it gets stuck in an infinite loop of buying and
+ * adopting a new cat over and over"*). On a first morning the free-looking
+ * steps really are free — the first add-in is on the house, the armchair has
+ * never been bought — so `taskCost` could return 0 for them and be right. On a
+ * second run every one of those is a purchase at a *higher* price than the
+ * first: the next add-in costs £90, the next armchair is a copy at 1.45× and
+ * up. The till was topped up to zero for those steps, so the walkthrough
+ * dead-ended on "pick a flavour" with £22 in the till and no way past it —
+ * and the only door out of a step that never completes was starting the whole
+ * thing again, which bought another bed and another cat each time round.
+ *
+ * Two rules come out of that, and they are the general version:
+ *
+ * 1. **Ask what the step costs *this* café, not what it costs a new one.**
+ *    Every cost here is read from the same live curve the shop charges from,
+ *    including the copy curve. A price the walkthrough works out for itself is
+ *    a price that can disagree with the till (§8).
+ * 2. **Some steps cannot be completed at any price** — the menu holds four
+ *    blends, and the shelf runs out of add-ins. `taskPossible` says so, and
+ *    the guide talks past those rather than waiting for something that will
+ *    never happen. A step that cannot be finished must never be a step that is
+ *    waited on.
  */
 
 export type TaskId =
@@ -48,6 +73,19 @@ export interface TutorialSnapshot {
   placements: number;
   /** Add-ins unlocked for blending. Zero of them makes a blend step a dead end. */
   ingredients: number;
+  /**
+   * What the next add-in the café is *allowed* to buy would cost, or null if
+   * there isn't one — every flavour owned, or the rest above its level.
+   *
+   * Passed in rather than worked out here, because "allowed" is a question
+   * about level and ownership that `data/drinks.ts` answers (`nextIngredient`)
+   * and because the first one is free by a rule that lives in the store.
+   */
+  nextIngredientCost: number | null;
+  /** Room on the menu for another blend. False at the cap of four. */
+  canBlend: boolean;
+  /** Armchairs already in the café. The next one is a copy, and copies cost more. */
+  chairs: number;
 }
 
 /**
@@ -75,18 +113,56 @@ export function taskCost(id: TaskId, snap: TutorialSnapshot): number {
       return bedCost(snap.beds);
     case "adopt":
       return costForNextCat(snap.cats);
-    case "buy-chair":
-      return shopItem(FIRST_FURNITURE)?.price ?? 0;
+    case "buy-chair": {
+      const item = shopItem(FIRST_FURNITURE);
+      if (!item) return 0;
+      // **The same expression the shop's own price tag uses**, copy curve and
+      // all — `copyPrice(item, 0)` is the plain price, so one call covers the
+      // first armchair and the fourth. A walkthrough that quoted `item.price`
+      // to somebody who already owns one topped the till up to a third of what
+      // the till was about to charge (§8, "the price shown and the price
+      // charged must be one call").
+      return copyPrice(item, snap.chairs);
+    }
     // Putting a piece down costs nothing — you have already paid for it.
     case "place-bed":
     case "place-chair":
       return 0;
-    // **Inventing a blend is free** and must stay that way — see the note in
-    // `store.createBlend`. The add-in that goes in it is given, not sold: see
-    // `grantFirstIngredient`.
+    // **Free on a first morning, £90 on a replay.** The first add-in is on the
+    // house (`firstIngredientIsFree`), which is where the 0 used to come from
+    // — but the rule is about the *first*, and a second walkthrough is asking
+    // for a second flavour. The caller reports the live price, free or not.
     case "pick-ingredient":
+      return snap.nextIngredientCost ?? 0;
+    // **Inventing a blend is free** and must stay that way — see the note in
+    // `store.createBlend`. It can still be *impossible* once the menu is full;
+    // that is `taskPossible`'s business, not a price.
     case "invent-drink":
       return 0;
+  }
+}
+
+/**
+ * Could the player finish this step at all, with enough money?
+ *
+ * Only two steps can answer no, and neither of them is about the till: a menu
+ * already holding four blends has nowhere to put a fifth, and a café that has
+ * bought every add-in its level allows has nothing left to pick. Both are
+ * reachable only on a replay, which is exactly when nobody is watching for
+ * them.
+ *
+ * A guide that waits on one of these waits for ever, and the player has no way
+ * to tap past a task line — so the walkthrough must *talk past* an impossible
+ * step instead (`entities/tutorial-guide.ts`). Pillar 1: no dead ends.
+ */
+export function taskPossible(id: TaskId, snap: TutorialSnapshot): boolean {
+  switch (id) {
+    case "pick-ingredient":
+      return snap.nextIngredientCost !== null;
+    case "invent-drink":
+      return snap.canBlend;
+    default:
+      return true;
   }
 }
 

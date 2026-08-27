@@ -34,6 +34,9 @@ export type AnalyticsEvent =
   | { name: "cat_petted"; breed: string }
   | { name: "furniture_moved"; piece: string }
   | { name: "shop_item_bought"; item: string; cost: number }
+  // What comes *back* is as interesting as what goes out: an item players
+  // routinely buy and then sell is one the shop is describing badly.
+  | { name: "furniture_sold"; item: string; refund: number }
   | { name: "player_created" }
   | { name: "customisation_bought"; category: string; option: string; cost: number }
   | { name: "level_up"; level: number }
@@ -50,7 +53,12 @@ export type AnalyticsEvent =
   // Chores are the post-tutorial pacing bet (§8). Which ones actually get done
   // is the thing to look at: one nobody touches is one that isn't fun.
   | { name: "chore_done"; chore: string }
-  | { name: "tips_collected"; amount: number };
+  | { name: "tips_collected"; amount: number }
+  // **How often the till is emptied is the health check on the whole
+  // mechanic** (`systems/till.ts`): collections per session says whether it is
+  // a small pleasure or a chore, and a café whose till is always at the brim
+  // when collected is one whose capacity has fallen behind its income.
+  | { name: "till_collected"; amount: number; money: number };
 
 /** The one numeric per event TelemetryDeck can average/sum (floatValue). */
 function primaryValue(event: AnalyticsEvent): number | undefined {
@@ -66,6 +74,8 @@ function primaryValue(event: AnalyticsEvent): number | undefined {
     case "offline_income":
       return event.earned;
     case "visitor_paid":
+      return event.amount;
+    case "till_collected":
       return event.amount;
     default:
       return undefined;

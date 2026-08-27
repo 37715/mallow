@@ -8,16 +8,19 @@ import {
 } from "@/data/cafe-layout";
 import {
   chosenAssets,
+  chosenTints,
   DEFAULT_CUSTOMISATION,
   hasWindowSill,
   type Customisation,
   type CustomisableSlot,
 } from "@/data/customisation";
-import { loadCafeAssets, type CafeAssets } from "@/scene/asset-library";
+import { applyTint, loadCafeAssets, type CafeAssets } from "@/scene/asset-library";
 import { HOME_TILE, expansionPlacements } from "@/scene/cafe-tiles";
 import { HOME_WINDOW, growth } from "@/data/expansion";
 import type { TileKey } from "@/data/expansion";
 import { CAT_BED_ITEM, bedAsset } from "@/data/beds";
+import { tillAssetFor } from "@/data/till";
+import type { UpgradeLevels } from "@/systems/upgrades";
 import { copyAsset, shopItem } from "@/data/shop";
 import type { Instance } from "@/state/store";
 
@@ -37,7 +40,14 @@ export interface BuiltRoom {
 }
 
 /** The asset a placement resolves to, honouring the player's customisation. */
-export function assetFor(item: Placement, choice: Customisation): string {
+export function assetFor(
+  item: Placement,
+  choice: Customisation,
+  upgrades: UpgradeLevels = {},
+): string {
+  // The till is the one piece whose look is bought with an upgrade rather than
+  // chosen from a colourway — see `data/till.ts`.
+  if (item.isTill) return tillAssetFor(upgrades);
   if (!item.slot) return item.asset;
   return chosenAssets(choice)[item.slot] ?? item.asset;
 }
@@ -67,14 +77,31 @@ export interface FurnitureTag {
   name?: string;
 }
 
+/**
+ * Where a player-placed instance's `FurnitureTag.index` starts, counting down.
+ *
+ * A tag's `index` is normally a row of `CAFE_LAYOUT`. Two kinds of object have
+ * no such row and are given negative indices instead, so that a lookup fails
+ * loudly rather than returning somebody else's furniture: generated wall
+ * segments at `-1 - n`, and instances from this base.
+ *
+ * **Exported because consumers have to tell the two apart.** A missing layout
+ * row is not the same thing as "not real furniture" — `furniture-mover.ts`
+ * skips the walls and must *not* skip the instances, and it read them as one
+ * category until 2026-08-17, which is why cat beds could be stacked. The gap
+ * to −1 is enormous on purpose: the wall runs are single digits.
+ */
+export const INSTANCE_INDEX_BASE = -1000;
+
 function place(
   assets: CafeAssets,
   item: Placement,
   choice: Customisation,
   placements: Placements,
   grown?: { x: number; z: number },
+  upgrades: UpgradeLevels = {},
 ): THREE.Object3D | null {
-  const name = assetFor(item, choice);
+  const name = assetFor(item, choice, upgrades);
   const object = assets.create(name);
   if (!object) return null;
   // The player's position wins over the layout's for anything movable, and
@@ -88,6 +115,11 @@ function place(
   // Footprint-only scaling, for floor slabs — see `Placement.scaleXZ`.
   if (item.scaleXZ) object.scale.set(item.scaleXZ, 1, item.scaleXZ);
 
+  // A colourway the pack has no second asset for, painted on instead. Only the
+  // wall pieces use this — see `CustomisationOption.tint`.
+  const tint = item.slot ? chosenTints(choice)[item.slot] : undefined;
+  if (tint) applyTint(object, tint);
+
   // Floors and carpets only receive shadow; everything else casts too. Fewer
   // shadow casters is the cheapest shadow win there is (§13).
   if ((assets.get(name)?.size.y ?? 1) < 0.3) {
@@ -98,14 +130,35 @@ function place(
   return object;
 }
 
-export async function buildCafeRoom(
-  choice: Customisation = DEFAULT_CUSTOMISATION,
-  placements: Placements = {},
-  purchased: string[] = [],
-  tiles: TileKey[] = [HOME_TILE],
-  instances: Instance[] = [],
-  windows: string[] = [HOME_WINDOW],
-): Promise<BuiltRoom> {
+/**
+ * Everything the room is built from.
+ *
+ * **An object rather than seven positional arguments**, which is what it had
+ * grown to. Every one of them is a slice of the save, they are all optional,
+ * and three of them are arrays — so a mis-ordered call site would have type-
+ * checked and quietly built the wrong café.
+ */
+export interface RoomState {
+  choice?: Customisation;
+  placements?: Placements;
+  purchased?: string[];
+  tiles?: TileKey[];
+  instances?: Instance[];
+  windows?: string[];
+  /** Upgrade levels — the till's model follows its own (`data/till.ts`). */
+  upgrades?: UpgradeLevels;
+}
+
+export async function buildCafeRoom(state: RoomState = {}): Promise<BuiltRoom> {
+  const {
+    choice = DEFAULT_CUSTOMISATION,
+    placements = {},
+    purchased = [],
+    tiles = [HOME_TILE],
+    instances = [],
+    windows = [HOME_WINDOW],
+    upgrades = {},
+  } = state;
   const assets = await loadCafeAssets();
   const group = new THREE.Group();
   group.name = "cafe";
@@ -168,19 +221,19 @@ export async function buildCafeRoom(
     if (item.shopItem && !purchased.includes(item.shopItem)) continue;
     // …and neither is a cupcake without the case it sits in. See `needs`.
     if (item.needs && !purchased.includes(item.needs)) continue;
-    const mesh = place(assets, item, choice, placements, grown);
+    const mesh = place(assets, item, choice, placements, grown, upgrades);
     if (!mesh) {
-      missing.push(assetFor(item, choice));
+      missing.push(assetFor(item, choice, upgrades));
       continue;
     }
     const tag: FurnitureTag = {
       index,
       slot: item.slot,
-      asset: assetFor(item, choice),
+      asset: assetFor(item, choice, upgrades),
       id: item.id,
       movable: item.movable === true,
       /** Footprint, for the placement validator. Measured, not guessed. */
-      size: assets.get(assetFor(item, choice))?.size,
+      size: assets.get(assetFor(item, choice, upgrades))?.size,
     };
     mesh.userData.furniture = tag;
     group.add(mesh);
@@ -204,10 +257,15 @@ export async function buildCafeRoom(
     // floor. Both are dragged the same way — see `systems/placement.ts`.
     built.position.set(instance.x, item?.wall ? (item.wallY ?? 1.6) : 0, instance.z);
     built.rotation.y = instance.rot ?? 0;
+    // A copy wears the colourway too, the same way `copyAsset` gives it the
+    // right asset — a second menu board in the shop's cream while the first is
+    // in walnut is the fault that rule was written to stop.
+    const instanceTint = item?.slot ? chosenTints(choice)[item.slot] : undefined;
+    if (instanceTint) applyTint(built, instanceTint);
     built.userData.furniture = {
       // Instances are not rows of CAFE_LAYOUT; a lookup by this index must
       // fail rather than return somebody else's furniture.
-      index: -1000 - instances.indexOf(instance),
+      index: INSTANCE_INDEX_BASE - instances.indexOf(instance),
       asset,
       // **The catalogue's name, not the asset's.** An instance is not a row of
       // `CAFE_LAYOUT`, so it has no `slot` to look a category up from, and

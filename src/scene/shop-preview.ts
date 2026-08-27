@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { loadCafeAssets } from "@/scene/asset-library";
+import { applyTint, loadCafeAssets } from "@/scene/asset-library";
 import { createPreviewStage } from "@/scene/preview-stage";
 
 /**
@@ -28,8 +28,15 @@ const FILL = 1.5;
 export interface ShopPreview {
   /** Swipe to turn it. Adds to the turntable rather than replacing it. */
   swivel(deltaRadians: number): void;
-  /** Show this asset. Null clears. */
-  setItem(assetName: string | null): void;
+  /**
+   * Show this asset. Null clears.
+   *
+   * `tint` is the wall pieces' colourway — the stage is where a colour is
+   * chosen, so a piece has to appear here in the finish it will wear in the
+   * room. §9: a picker that lies is a broken control, not a cosmetic
+   * difference.
+   */
+  setItem(assetName: string | null, tint?: string | null): void;
   /** Draw into a screen-space rect (CSS pixels, origin top-left). */
   render(renderer: THREE.WebGLRenderer, rect: DOMRect, now: number): void;
   dispose(): void;
@@ -84,10 +91,10 @@ export function createShopPreview(environment: THREE.Texture | null): ShopPrevie
   /** Swipe offset, added to the turntable so touching it never stops it. */
   let manualSpin = 0;
 
-  async function load(name: string): Promise<void> {
+  async function load(name: string, key: string, tint: string | null): Promise<void> {
     const assets = await loadCafeAssets();
     // A slower tap may have moved on while this awaited.
-    if (requested !== name) return;
+    if (requested !== key) return;
     if (current) pivot.remove(current);
 
     const object = assets.create(name);
@@ -95,6 +102,7 @@ export function createShopPreview(environment: THREE.Texture | null): ShopPrevie
       current = null;
       return;
     }
+    if (tint) applyTint(object, tint);
     // Centre it on the pivot so it spins about itself rather than orbiting.
     const box = new THREE.Box3().setFromObject(object);
     const centre = box.getCenter(new THREE.Vector3());
@@ -110,19 +118,22 @@ export function createShopPreview(environment: THREE.Texture | null): ShopPrevie
       manualSpin += deltaRadians;
     },
 
-    setItem(assetName) {
+    setItem(assetName, tint = null) {
       // **Idempotent, because the caller re-applies every frame.** The panel
       // refreshes its whole view each tick (prices grey in as the till fills),
       // so without this guard the same piece was cloned out of the asset
-      // library thirty times a second for as long as the shop was open.
-      if (requested === assetName) return;
-      requested = assetName;
+      // library thirty times a second for as long as the shop was open. The
+      // tint is part of the key: pressing a swatch changes the colour without
+      // changing the asset, and that has to rebuild.
+      const key = assetName === null ? null : `${assetName}|${tint ?? ""}`;
+      if (requested === key) return;
+      requested = key;
       if (!assetName) {
         if (current) pivot.remove(current);
         current = null;
         return;
       }
-      void load(assetName);
+      void load(assetName, key!, tint);
     },
 
     render(renderer, rect, now) {

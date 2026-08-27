@@ -16,21 +16,51 @@ export const ECONOMY_CONFIG = {
   baseSeatCount: 5,
 
   /**
-   * The till only holds so much. Money stops accruing at this ceiling.
+   * **What the till holds before it stops taking money.**
    *
-   * This is what actually *guarantees* the readable-money rule (§0). Without
-   * it, any idle game accumulates forever once everything is bought — the
-   * balance sim reached £34 million in thirty days purely by hoarding, which
-   * is exactly the "figures such as £5 million" problem. Nothing is ever lost
-   * and nothing is taken away; the till simply fills up, which is a gentle nudge
-   * to go and spend it on something lovely.
+   * Ellis, 2026-08-26: *"lets make a till feature that collects up to 1k at
+   * first and this is where all the money goes, u tap to collect to ur bank
+   * account. that way u cant just go offline for 4 days and come back to being
+   * rich. the limit for money is 9999 which it shouldnt be there should be no
+   * limit."*
    *
-   * Four digits, deliberately: money should never need abbreviating.
+   * This replaces the old £9,999 ceiling **on the bank**, and the swap is the
+   * whole idea rather than a tweak. Before, the thing that stopped a café
+   * hoarding for ever was a cap on how much you could *own* — which is a wall,
+   * and a strange one: a successful café was punished for having succeeded.
+   * Now the cap is on how much can pile up **uncollected**, so what is bounded
+   * is the reward for *being away* rather than the reward for playing. Four
+   * days offline and four hours offline both come home to a full till; the
+   * bank itself has no ceiling at all.
+   *
+   * It grows: `tillCapacityFor` reads the `till` upgrade, so a bigger café is
+   * a café you have to empty less often. Emptying it must never become the
+   * game — see `data/upgrades.ts`.
    */
-  tillCapacity: 9999,
+  tillCapacity: 1000,
 
   /** Starting money so the first purchase is reachable quickly (protects D1 pacing). */
   startingMoney: 40,
+
+  /**
+   * A parting gift from the guide, paid once, when the walkthrough ends.
+   *
+   * Ellis, 2026-08-23: *"i want to gift the player 1000$ to get started at the
+   * end of the tutorial"* — then, on seeing what it bought, *"its just way too
+   * slow. but fine lets call it 500."*
+   *
+   * **£500 is the number, and the measurement is why.** At £1,000 the gift
+   * covered a bed *and* a cat four times over (£898 to the fourth cat, £1,556
+   * to the fifth), so the walkthrough ended with most of the collection ladder
+   * already affordable — and collection is the game's main hook (§2, pillar 3).
+   * At £500 it covers the third cat and its bed with change, which is a real
+   * head start that still leaves the ladder to climb.
+   *
+   * **Paid once ever, not once per walkthrough.** It rides on `finishTutorial`,
+   * which is a one-shot guarded by `player.tutorialDone` — so "show me round
+   * again" is a tour, never a payday. See `state/store.ts`.
+   */
+  welcomeGift: 500,
 
   /**
    * Slowest time between visitor spawn attempts, with one common cat in the

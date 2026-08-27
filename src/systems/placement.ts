@@ -259,6 +259,35 @@ export function footprintAt(size: { x: number; z: number }, x: number, z: number
  */
 const NESTLE = 0.3;
 
+/**
+ * The most a *small* piece may be pushed into another before it counts.
+ *
+ * **A fixed 0.3 is a licence to stack anything small.** Slack is subtracted
+ * from the two pieces' combined reach, so it is only "a shared edge forgiven"
+ * when both pieces are large compared to it. A cat bed's half-extent is about
+ * a quarter of a unit — so at 0.3 one could be dropped almost exactly on top
+ * of a floor cushion and pass, which is how Ellis, 2026-08-26, saw *"characters
+ * sitting on a cat bed on top of a cat"*: the guest sits where the layout says
+ * the cushion is, and the cat sits in the bed occupying the same square.
+ *
+ * So the allowance is capped by the smallest half-extent in the pair. Big
+ * furniture keeps the full 0.3 — the stool still tucks into the angled counter,
+ * the side table still nestles into the armchair's arm, which is what the
+ * constant was raised to 0.3 for in the first place — while two small things
+ * are held nearly to their real edges, where the box is a good description of
+ * the shape anyway.
+ */
+function nestleFor(a: Turned, b: Turned): number {
+  const smallest = Math.min(a.halfX, a.halfZ, b.halfX, b.halfZ);
+  // **0.6, and the two ends of the range pick it, not taste.** A unit-square
+  // piece has to keep the whole 0.3 (0.5 × 0.6 = 0.3) or the side table stops
+  // nestling into the armchair and the layout cannot be rebuilt by hand; a
+  // half-unit piece must get well under 0.25, or half-on-top still passes.
+  // Anything from about 0.5 to 0.8 satisfies both — 0.6 sits clear of each
+  // boundary rather than exactly on one.
+  return Math.min(NESTLE, smallest * 0.6);
+}
+
 function overlaps(
   a: Footprint,
   b: Footprint,
@@ -266,7 +295,7 @@ function overlaps(
   aTurned?: Turned,
   bTurned?: Turned,
 ): boolean {
-  if (aTurned && bTurned) return turnedOverlap(aTurned, bTurned, slack);
+  if (aTurned && bTurned) return turnedOverlap(aTurned, bTurned, Math.min(slack, nestleFor(aTurned, bTurned)));
   return (
     a.minX < b.maxX - slack &&
     a.maxX > b.minX + slack &&
@@ -286,15 +315,78 @@ function distanceToSegment(p: Point, a: Point, b: Point): number {
   return Math.hypot(p.x - (a.x + t * dx), p.z - (a.z + t * dz));
 }
 
-/** Does this box sit on any leg of the guests' walking route? */
-function blocksRoute(box: Footprint, route: Point[], clearance: number): boolean {
-  const centre = { x: (box.minX + box.maxX) / 2, z: (box.minZ + box.maxZ) / 2 };
-  // Treat the box as a disc of its half-diagonal. Generous on purpose: guests
-  // have width, and clipping a guest through a plant pot is worse than
-  // refusing a placement that was marginal anyway.
-  const radius = Math.hypot(box.maxX - box.minX, box.maxZ - box.minZ) / 2;
+/** Does a segment cross a box centred on the origin? Slab clipping. */
+function segmentHitsBox(p: Point, q: Point, halfX: number, halfZ: number): boolean {
+  let near = 0;
+  let far = 1;
+  const spans: [number, number, number][] = [
+    [p.x, q.x - p.x, halfX],
+    [p.z, q.z - p.z, halfZ],
+  ];
+  for (const [from, delta, half] of spans) {
+    if (Math.abs(delta) < 1e-9) {
+      if (from < -half || from > half) return false;
+      continue;
+    }
+    const a = (-half - from) / delta;
+    const b = (half - from) / delta;
+    near = Math.max(near, Math.min(a, b));
+    far = Math.min(far, Math.max(a, b));
+    if (near > far) return false;
+  }
+  return true;
+}
+
+/**
+ * Shortest distance from a turned rectangle to a line segment. Zero if they
+ * touch.
+ *
+ * **This replaced a disc, and the disc is what made the walkway rule feel
+ * arbitrary** (Ellis, 2026-08-26: *"the pathway that people walk through
+ * making objects unplacable can be innacruate or random like i cant place a
+ * furniture somewhere they nobody even needs to walk"*). The old test took the
+ * piece's half-*diagonal* as a radius, so a 1.16 × 1.02 cat climber carried a
+ * 0.77-unit circle round its centre and then had the guests' clearance added
+ * on top of that — a metre and a bit of forbidden floor in a room four metres
+ * across, in a *circle*, round a piece that is a rectangle. Worse, the radius
+ * came off the axis-aligned bounds, so turning a piece 45° grew its no-go
+ * zone by a third without changing the piece at all.
+ *
+ * Exact costs almost nothing here — this runs once per pointer move — and it
+ * is the difference between a rule the player can see (*that would be in the
+ * doorway*) and one they cannot (*that is within a metre of the doorway*).
+ */
+export function rectToSegment(rect: Turned, a: Point, b: Point): number {
+  const [ax, az] = axesOf(rect);
+  // Into the rectangle's own frame, where it is an axis-aligned box at the
+  // origin and the whole thing is two slab tests and four corners.
+  const local = (p: Point): Point => {
+    const dx = p.x - rect.x;
+    const dz = p.z - rect.z;
+    return { x: dx * ax.x + dz * ax.z, z: dx * az.x + dz * az.z };
+  };
+  const p = local(a);
+  const q = local(b);
+  const { halfX, halfZ } = rect;
+  if (segmentHitsBox(p, q, halfX, halfZ)) return 0;
+
+  const toBox = (v: Point): number =>
+    Math.hypot(Math.max(0, Math.abs(v.x) - halfX), Math.max(0, Math.abs(v.z) - halfZ));
+  // Two convex shapes that miss each other are closest at a vertex of one and
+  // a point on an edge of the other, so these six candidates are exhaustive.
+  let best = Math.min(toBox(p), toBox(q));
+  for (const sx of [-1, 1]) {
+    for (const sz of [-1, 1]) {
+      best = Math.min(best, distanceToSegment({ x: sx * halfX, z: sz * halfZ }, p, q));
+    }
+  }
+  return best;
+}
+
+/** Does this piece sit on any leg of the guests' walking route? */
+function blocksRoute(box: Turned, route: Point[], clearance: number): boolean {
   for (let i = 1; i < route.length; i++) {
-    if (distanceToSegment(centre, route[i - 1], route[i]) < radius + clearance) return true;
+    if (rectToSegment(box, route[i - 1], route[i]) < clearance) return true;
   }
   return false;
 }
@@ -346,19 +438,67 @@ function contains(surface: Footprint, x: number, z: number, tolerance: number): 
  */
 const OVERHANG = 0.125;
 
-function supported(box: Footprint, surfaces: Footprint[], turned?: Turned): boolean {
+/**
+ * How far past a walled edge of the floor a piece may reach. Nothing.
+ *
+ * **A wall has no lip to hang over, and that is the whole of the fix** (Ellis,
+ * 2026-08-26: *"sometimes i can place stuff inside other things and part of
+ * walls"*). `OVERHANG` is a *proportion*, so the bigger the piece the further
+ * it was allowed past the floor's edge — a quarter of its half-extent, which
+ * for an armchair is 0.22 and for the cat climber 0.29. Over the open lip of
+ * the slab that is right and is what the rule was written for; over the −x or
+ * −z edge it walks the piece straight into the plaster.
+ *
+ * Measured rather than guessed, and the measurement is the good news: **at
+ * furniture height every wall in every style has its inner face 0.05 *inside*
+ * the tile edge.** The window wall's famous 0.68 thickness is the sill ledge,
+ * which does not begin until y ≈ 0.6 — below it there is the same 0.30 of
+ * plaster as anywhere else. So a piece that stays within 0.02 of the tile edge
+ * is at worst 0.07 into the wall, which cannot be seen, and the authored
+ * pieces that deliberately tuck under the sill (the side table at z −1.96, the
+ * cat climber at −1.93) still go back exactly where the layout puts them.
+ */
+const WALL_BITE = 0.02;
+
+/** The rectangle a footprint describes, for callers that give no angle. */
+function rectOf(box: Footprint, turned?: Turned): Turned {
+  return (
+    turned ??
+    turnedBox(
+      { x: box.maxX - box.minX, z: box.maxZ - box.minZ },
+      (box.minX + box.maxX) / 2,
+      (box.minZ + box.maxZ) / 2,
+      0,
+    )
+  );
+}
+
+function supported(
+  box: Footprint,
+  surfaces: Footprint[],
+  turned?: Turned,
+  walls: WallFace[] = [],
+): boolean {
   const tolerance = 0.02;
-  const corners: Point[] = turned
-    ? cornersOf({ ...turned, halfX: turned.halfX * (1 - 2 * OVERHANG), halfZ: turned.halfZ * (1 - 2 * OVERHANG) })
-    : cornersOf(
-        turnedBox(
-          { x: (box.maxX - box.minX) * (1 - 2 * OVERHANG), z: (box.maxZ - box.minZ) * (1 - 2 * OVERHANG) },
-          (box.minX + box.maxX) / 2,
-          (box.minZ + box.maxZ) / 2,
-          0,
-        ),
-      );
-  return corners.every(({ x, z }) => surfaces.some((s) => contains(s, x, z, tolerance)));
+  const real = rectOf(box, turned);
+  const inset = cornersOf({
+    ...real,
+    halfX: real.halfX * (1 - 2 * OVERHANG),
+    halfZ: real.halfZ * (1 - 2 * OVERHANG),
+  });
+  if (!inset.every(({ x, z }) => surfaces.some((s) => contains(s, x, z, tolerance)))) return false;
+
+  // …and where the floor ends in a wall rather than in open air, the *real*
+  // corners have to respect it.
+  for (const corner of cornersOf(real)) {
+    for (const wall of walls) {
+      const along = wall.axis === "x" ? corner.z : corner.x;
+      if (along < wall.from || along > wall.to) continue;
+      const across = wall.axis === "x" ? corner.x : corner.z;
+      if (across < wall.at - WALL_BITE) return false;
+    }
+  }
+  return true;
 }
 
 /** The piece being placed. */
@@ -414,13 +554,22 @@ export function checkPlacement(
     return { ok: true };
   }
 
-  if (!supported(candidate, rules.surfaces, moving.turned)) {
+  if (!supported(candidate, rules.surfaces, moving.turned, rules.walls)) {
     return { ok: false, reason: "off-floor" };
   }
   if (moving.flat) return { ok: true };
 
   for (const other of obstacles) {
     if (other.flat) continue;
+    // **A thing hanging on a wall is not standing on the floor.** The branch
+    // above already says a hanging piece only ever clashes with other hanging
+    // pieces; this is the converse, and its absence was the asymmetry that
+    // gave it away — the floor under the menu board, the shelves and the
+    // hanging shelf was dead ground you could not put a chair on, for no
+    // reason a player could see (Ellis, 2026-08-26: *"i cant place stuff in
+    // blank spots"*). Everything the room hangs sits at y > 1.2, well over
+    // anything the shop sells to stand on the ground.
+    if (other.wall) continue;
     if (moving.id !== undefined && other.id === moving.id) continue;
     if (overlaps(candidate, other, NESTLE, moving.turned, other.turned)) {
       return { ok: false, reason: "overlaps" };
@@ -429,21 +578,27 @@ export function checkPlacement(
 
   // A seat is allowed to stand on the walking route — that is what the café's
   // own cushion by the door does. Everything else has to keep out of the way.
-  if (!moving.seat && blocksRoute(candidate, route, rules.routeClearance)) {
+  if (!moving.seat && blocksRoute(rectOf(candidate, moving.turned), route, rules.routeClearance)) {
     return { ok: false, reason: "blocks-walkway" };
   }
 
   if (moving.seat && rules.approachFrom) {
     const centre = { x: (candidate.minX + candidate.maxX) / 2, z: (candidate.minZ + candidate.maxZ) / 2 };
     for (const other of obstacles) {
-      if (other.flat || other.seating) continue;
+      if (other.flat || other.seating || other.wall) continue;
       if (moving.id !== undefined && other.id === moving.id) continue;
-      // Sample the approach rather than doing exact segment/box maths: the
-      // boxes are small and this runs once per pointer move, not per frame.
-      for (let t = 0.05; t < 0.95; t += 0.05) {
-        const x = rules.approachFrom.x + (centre.x - rules.approachFrom.x) * t;
-        const z = rules.approachFrom.z + (centre.z - rules.approachFrom.z) * t;
-        if (contains(other, x, z, -0.06)) return { ok: false, reason: "unreachable" };
+      // **The real rectangle, not the box round it.** This used to sample the
+      // approach against `other`'s axis-aligned bounds, and the café's counter
+      // is authored at an angle — so its bounds reach across most of the room
+      // and reported perfectly good chairs as unreachable. Same fault the
+      // collision test had before `Turned` existed, left behind in the one
+      // check that did not go through `overlaps`.
+      const rect = rectOf(other, other.turned);
+      // Pulled in a little, so a guest may brush the corner of something on
+      // the way to their chair rather than being stopped by it.
+      const squeeze = { ...rect, halfX: Math.max(0, rect.halfX - 0.06), halfZ: Math.max(0, rect.halfZ - 0.06) };
+      if (rectToSegment(squeeze, rules.approachFrom, centre) <= 0) {
+        return { ok: false, reason: "unreachable" };
       }
     }
   }

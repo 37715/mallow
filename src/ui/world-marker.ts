@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { icon } from "@/ui/icons";
+import { markArt, type MarkArt } from "@/ui/chore-art";
 
 /**
  * A sparkle floating on something in the room that wants tapping.
@@ -26,9 +26,40 @@ export interface WorldMark {
   id: string;
   /** The verb on the pill. */
   label: string;
+  /** Which little picture it wears — the thing that needs doing (`ui/chore-art.ts`). */
+  art: MarkArt;
   /** Where in the room it floats, in world units. */
   at: { x: number; y: number; z: number };
 }
+
+/**
+ * How far off the anchor the badge floats, in CSS pixels.
+ *
+ * **The marker used to sit centred on the thing it was about**, which put a
+ * pill straight across the glass it was asking you to clean. Ellis,
+ * 2026-08-17: *"appear in better spot not in the way of stuff."* So it stands
+ * off, with a stem back to the point — the map-pin arrangement, which is the
+ * one layout that can point at something without covering it. The anchor still
+ * has to be the *object*: the whole idea is that the café asks on the thing.
+ */
+const LIFT_PX = 42;
+
+/**
+ * Which side of the anchor the badge takes, as a fraction of screen height.
+ *
+ * **Up the screen means further into the room**, because the café is an
+ * isometric diorama seen from one corner — so "float above it", the obvious
+ * choice and the first one built, put a floor job's pill straight over the
+ * counter and the till. Anything low on screen is better served hanging
+ * *below*, out over the near floor and the empty backdrop.
+ *
+ * Two thresholds rather than one, and that is the whole reason this is not a
+ * single `> 0.5`: the player can pan, and an anchor parked exactly on a single
+ * threshold would flip sides every frame. The band between these is where it
+ * keeps whatever side it already had.
+ */
+const FLIP_BELOW = 0.56;
+const FLIP_ABOVE = 0.44;
 
 export interface WorldMarker {
   /** Show a mark, or `null` for none. */
@@ -63,18 +94,30 @@ export function createWorldMarker(
   button.className = "chore-marker";
   button.type = "button";
   button.setAttribute("aria-label", "something needs doing");
-  const spark = document.createElement("span");
-  spark.className = "chore-marker-spark";
-  spark.appendChild(icon("sparkle"));
+  /**
+   * The picture, and the only part of this that is not slate.
+   *
+   * Its own element rather than a background on the button, because the art is
+   * an SVG that fills its box edge to edge and the badge clips it to a rounded
+   * square — §9's "signage is dark" still holds for the pill; the badge is the
+   * one warm, coloured thing on it, the way a photograph sits on a menu board.
+   */
+  const badge = document.createElement("span");
+  badge.className = "chore-marker-art";
   const label = document.createElement("span");
   label.className = "chore-marker-label";
-  button.append(spark, label);
+  /** The stem, so a badge floating above the job still clearly points at it. */
+  const stem = document.createElement("span");
+  stem.className = "chore-marker-stem";
+  button.append(badge, label, stem);
   layer.appendChild(button);
   root.appendChild(layer);
 
   const ndc = new THREE.Vector3();
   const anchor = new THREE.Vector3();
   let current: WorldMark | null = null;
+  /** Which side of the anchor the badge is on. See `FLIP_BELOW`. */
+  let below = false;
 
   button.addEventListener("click", (e) => {
     e.stopPropagation();
@@ -86,11 +129,35 @@ export function createWorldMarker(
       // Both null is the common case — every frame with nothing to show — so
       // this still has to be cheap. It is correct now only because the layer
       // starts hidden; see the note there.
-      if (mark?.id === current?.id) return;
+      if (mark?.id === current?.id) {
+        /**
+         * **Same thing, possibly a different number on it.**
+         *
+         * The id guard is about *identity* — it stops the arrival animation
+         * replaying and the badge SVG being rebuilt sixty times a second — and
+         * it was written when every label was a fixed phrase ("give it a
+         * wipe"). The till's is live: it says how much is in the drawer, which
+         * climbs while you watch. Skipping the whole update froze it at
+         * whatever it happened to be when the marker appeared, so the pill
+         * offered £640 long after there was £900 in the till.
+         *
+         * Compared as strings, so this writes only when the pounds actually
+         * tick over rather than on every frame.
+         */
+        if (mark && current && mark.label !== current.label) {
+          label.textContent = mark.label;
+          current = mark;
+        }
+        return;
+      }
       current = mark;
       layer.style.display = mark ? "" : "none";
       if (mark) {
         label.textContent = mark.label;
+        // Replaced wholesale rather than diffed: each drawing carries its own
+        // gradient ids (see `chore-art.ts`), so reusing a node across two
+        // different jobs would leave the old defs behind.
+        badge.replaceChildren(markArt(mark.art));
         anchor.set(mark.at.x, mark.at.y, mark.at.z);
         // Re-run the entrance every time one comes due, so it reads as
         // arriving rather than as having always been there.
@@ -113,7 +180,20 @@ export function createWorldMarker(
       button.style.visibility = "visible";
       const x = (ndc.x * 0.5 + 0.5) * window.innerWidth;
       const y = (-ndc.y * 0.5 + 0.5) * window.innerHeight;
-      button.style.transform = `translate(-50%, -50%) translate(${x}px, ${y}px)`;
+
+      // Which side has room — see `FLIP_BELOW`. Sticky between the two
+      // thresholds so panning cannot make it flicker.
+      const fraction = y / window.innerHeight;
+      if (fraction > FLIP_BELOW) below = true;
+      else if (fraction < FLIP_ABOVE) below = false;
+      button.classList.toggle("chore-marker-below", below);
+
+      // The translate order matters: the percentage pair resolves against the
+      // element's own size, so it has to come first for the pixel offsets to
+      // stay pixels.
+      const anchorY = below ? "0%" : "-100%";
+      const offsetY = below ? y + LIFT_PX : y - LIFT_PX;
+      button.style.transform = `translate(-50%, ${anchorY}) translate(${x}px, ${offsetY}px)`;
     },
 
     dispose() {

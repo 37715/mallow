@@ -2,9 +2,11 @@ import * as THREE from "three";
 import type { Visitor } from "@/systems/visitors";
 import {
   Character,
+  appearanceFromSeed,
   loadCharacterAssets,
   type CharacterAssets,
 } from "@/entities/character-library";
+import { ALL_REFRESHMENTS, type Refreshments } from "@/data/shop";
 import {
   COUNTER_FACING,
   COUNTER_POSITION,
@@ -16,8 +18,89 @@ import {
   SEAT_STAND_POSITIONS,
 } from "@/scene/room";
 
-function easeInOut(t: number): number {
-  return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+/**
+ * **How fast a guest walks, in world units per second — a speed, not a
+ * timetable.**
+ *
+ * Ellis, 2026-08-26: *"sometimes they walk super fast or move fast without the
+ * walk animation playing."* Both halves came from the same thing: every leg
+ * used to be a fixed *duration* over a variable *distance*. Measured on the
+ * home tile alone, the counter→seat leg was 840 ms whatever the distance —
+ * which is 0.29 u/s to the near bar stool and **2.71 u/s to the armchair**, a
+ * ninefold spread inside one small room. Expansion made it worse, because the
+ * door moves out and the schedule does not.
+ *
+ * So the guest is given a speed and the *schedule waits for them*: they sit
+ * when they arrive, not when the clock says they should be sitting. The
+ * economy is unaffected — pay happens at the counter and the dwell still runs
+ * to its own clock; arriving a moment late just means a moment less sitting,
+ * out of six seconds.
+ *
+ * 1.9 is the pace the old timings implied for the two legs that were roughly
+ * right (door→counter at 1.95, seat→door at 1.5–2.6), so a home-tile café
+ * looks exactly as it did and only the outliers change.
+ */
+const WALK_SPEED = 1.9;
+
+/**
+ * How late a guest may be before the walk is abandoned and they are simply
+ * put in the chair.
+ *
+ * It is the safety valve for time that passed while nothing was drawing — a
+ * backgrounded app, a locked phone — where the alternative is a guest hurrying
+ * across a café to a seat they should have left already. Comfortably longer
+ * than any real walk in a café this size, so it never fires during play.
+ */
+const LATE_SNAP_MS = 4000;
+
+/** Which route a guest is currently walking. */
+export type Leg = "in" | "toSeat" | "out";
+
+/**
+ * How far along their current route a guest is.
+ *
+ * Kept per visitor here rather than derived from `now`, because that is the
+ * whole point: distance travelled is the state, and the clock no longer
+ * decides where anybody is standing.
+ */
+export interface Walk {
+  leg: Leg;
+  travelled: number;
+}
+
+/** A guest walks these in order, once each. */
+const LEG_ORDER: Record<Leg, number> = { in: 0, toSeat: 1, out: 2 };
+
+/**
+ * Has this guest finished the given leg?
+ *
+ * **A leg they have already left behind counts as finished, and missing that
+ * is what made guests judder at the counter** (Ellis, 2026-08-27: *"character
+ * went up to desk, went to walk off again and start spasming out glitching
+ * cant get out for ages super jittery crazy"*).
+ *
+ * The old test was `walk.leg === leg && travelled >= total`, which answers a
+ * subtly different question — *are they on this leg and done with it* — and is
+ * false in **two** unrelated situations: before the leg is finished, and after
+ * the walk has moved past it. `positionVisitor` asks in order, so as soon as a
+ * guest started the walk to their chair, the earlier `arrived("in")` test went
+ * false again, the walk-in branch re-fired, and it reset the walk to the start
+ * of the in-route. Next frame the same thing happened in reverse. Measured in
+ * the running game: **20 leg changes a second for the whole seven seconds they
+ * should have been sitting down**, and since `stride` starts the walk clip on
+ * every leg change, the animation restarted from frame 0 twenty times a second
+ * — which is the spasm. Nobody ever sat down; they stood at the counter
+ * vibrating until their leave timer fired.
+ *
+ * Pure and exported so this is testable without a renderer (§14) — the fault
+ * lived inside a per-frame method on a class full of `THREE.Object3D`s, which
+ * is exactly the shape of bug that rule exists to catch.
+ */
+export function legReached(walk: Walk | undefined, leg: Leg, total: number): boolean {
+  if (!walk) return false;
+  if (LEG_ORDER[walk.leg] > LEG_ORDER[leg]) return true;
+  if (walk.leg !== leg) return false;
+  return walk.travelled >= total - 1e-4;
 }
 
 /**
@@ -39,17 +122,15 @@ const SEATED_MOODS = [
   "delighted",
 ] as const;
 
-/**
- * Walk a polyline, **parametrised by distance rather than by leg**.
- *
- * Splitting `t` evenly between legs would make a guest sprint the long leg
- * across the room and dawdle the short one over the doormat, because the legs
- * are nowhere near equal length. Measuring along the route keeps the pace
- * constant, which is the difference between "walking in" and "teleporting in
- * stages". Easing is applied once, over the whole trip, so they still start
- * and stop gently (§10).
- */
-function walkRoute(out: THREE.Vector3, points: THREE.Vector3[], t: number): void {
+/** How long a polyline is, in world units. */
+function routeLength(points: THREE.Vector3[]): number {
+  let total = 0;
+  for (let i = 1; i < points.length; i++) total += points[i].distanceTo(points[i - 1]);
+  return total;
+}
+
+/** Place `out` a given *distance* along a polyline. */
+function walkRouteBy(out: THREE.Vector3, points: THREE.Vector3[], distance: number): void {
   const lengths: number[] = [];
   let total = 0;
   for (let i = 1; i < points.length; i++) {
@@ -62,7 +143,7 @@ function walkRoute(out: THREE.Vector3, points: THREE.Vector3[], t: number): void
     return;
   }
 
-  let travelled = easeInOut(THREE.MathUtils.clamp(t, 0, 1)) * total;
+  let travelled = THREE.MathUtils.clamp(distance, 0, total);
   for (let i = 0; i < lengths.length; i++) {
     if (travelled <= lengths[i] || i === lengths.length - 1) {
       const f = lengths[i] < 1e-6 ? 1 : THREE.MathUtils.clamp(travelled / lengths[i], 0, 1);
@@ -107,6 +188,8 @@ export class VisitorManager {
   private readonly seated = new Set<string>();
   /** The same, for the pause at the counter. */
   private readonly ordering = new Set<string>();
+  /** How far each guest is along the route they are currently walking. */
+  private readonly walks = new Map<string, Walk>();
   /**
    * Where the chairs currently are. Live rather than a module constant,
    * because the player can drag a seat across the room and the guest walking
@@ -120,6 +203,20 @@ export class VisitorManager {
    * it, or they end up sitting sideways in it (`seatFacings`).
    */
   private facings: number[] = SEAT_FACINGS;
+
+  /**
+   * What the café can put in a guest's hand (`servedRefreshments`).
+   *
+   * Told rather than read, so this class stays free of the store — and live,
+   * because buying the cake display should start putting cake in hands without
+   * a reload. Only affects guests built *after* the purchase: re-dressing a
+   * customer who is already sitting there with a coffee would be worse.
+   */
+  private served: Refreshments = ALL_REFRESHMENTS;
+
+  setServed(served: Refreshments): void {
+    this.served = served;
+  }
 
   /** Re-aim guests after furniture moved *or turned*. */
   setSeats(seats: THREE.Vector3[], facings: number[]): void {
@@ -160,47 +257,69 @@ export class VisitorManager {
       this.charactersById.delete(id);
       this.seated.delete(id);
       this.ordering.delete(id);
+      this.walks.delete(id);
     }
 
     for (const visitor of visitors) {
       let character = this.charactersById.get(visitor.id);
       if (!character) {
         if (!this.assets) continue; // pack still loading
-        character = new Character(this.assets, visitor.seatIndex + visitor.spawnedAt);
+        character = new Character(
+          this.assets,
+          appearanceFromSeed(visitor.seatIndex + visitor.spawnedAt, this.served),
+        );
         character.walk();
         this.group.add(character.group);
         this.charactersById.set(visitor.id, character);
       }
-      this.positionVisitor(character, visitor, now);
+      this.positionVisitor(character, visitor, now, delta);
       character.update(delta);
     }
   }
 
-  private positionVisitor(character: Character, visitor: Visitor, now: number): void {
+  private positionVisitor(
+    character: Character,
+    visitor: Visitor,
+    now: number,
+    delta: number,
+  ): void {
     const mesh = character.group;
     const seatPos = this.seats[visitor.seatIndex] ?? this.door;
+    const inRoute = [this.door, this.threshold, DOOR_LOBBY_POSITION, COUNTER_POSITION];
 
-    if (now < visitor.orderedAt) {
-      // In through the door and up to the counter.
-      const t = THREE.MathUtils.clamp(
-        (now - visitor.spawnedAt) / Math.max(1, visitor.orderedAt - visitor.spawnedAt),
-        0,
-        1,
-      );
-      const before = mesh.position.clone();
-      walkRoute(mesh.position, [this.door, this.threshold, DOOR_LOBBY_POSITION, COUNTER_POSITION], t);
-      // Face the way they're actually travelling, so they turn at the door
-      // instead of walking in sideways staring at their chair.
-      faceTravel(mesh, before);
+    /**
+     * **They have got out again**, either from a chair or straight from the
+     * counter with a cup. Checked first because it outranks everything: a
+     * guest whose chair has just been sold is told to leave mid-walk
+     * (`systems/visitors.ts`), and finishing the walk to a chair that is no
+     * longer there would be the bug that fix exists to prevent.
+     */
+    const leaving = visitor.takeaway ? now >= visitor.servedAt : now >= visitor.leavingAt;
+
+    if (leaving) {
+      if (this.seated.delete(visitor.id) || this.ordering.delete(visitor.id)) {
+        character.express("happy"); // leaving pleased, which is the whole game
+      }
+      const from = visitor.takeaway ? COUNTER_POSITION : seatPos;
+      this.stride(character, visitor, "out", [from, DOOR_LOBBY_POSITION, this.threshold, this.door], delta, now >= visitor.doneAt);
+      return;
+    }
+
+    // In through the door and up to the counter.
+    if (!this.arrived(visitor, "in", inRoute)) {
       this.ordering.delete(visitor.id);
-    } else if (now < visitor.servedAt) {
-      /**
-       * **At the counter, being served.**
-       *
-       * They stand still and face the barista — the one moment a guest and the
-       * player's own character are actually dealing with each other, which is
-       * the whole reason this phase exists (`systems/visitors.ts`).
-       */
+      this.stride(character, visitor, "in", inRoute, delta, now >= visitor.servedAt);
+      return;
+    }
+
+    /**
+     * **At the counter, being served.**
+     *
+     * They stand still and face the barista — the one moment a guest and the
+     * player's own character are actually dealing with each other, which is
+     * the whole reason this phase exists (`systems/visitors.ts`).
+     */
+    if (now < visitor.servedAt) {
       mesh.position.copy(COUNTER_POSITION);
       mesh.rotation.set(0, COUNTER_FACING, 0);
       if (!this.ordering.has(visitor.id)) {
@@ -209,52 +328,79 @@ export class VisitorManager {
         character.idle();
         character.express("happy");
       }
-    } else if (!visitor.takeaway && now < visitor.seatedAt) {
-      // Drink in hand, crossing to their chair.
-      const t = THREE.MathUtils.clamp(
-        (now - visitor.servedAt) / Math.max(1, visitor.seatedAt - visitor.servedAt),
-        0,
-        1,
-      );
-      const before = mesh.position.clone();
-      walkRoute(mesh.position, [COUNTER_POSITION, seatPos], t);
-      faceTravel(mesh, before);
-      if (this.ordering.delete(visitor.id)) character.walk();
-    } else if (!visitor.takeaway && now < visitor.leavingAt) {
-      mesh.position.copy(seatPos);
-      // **Aimed every frame, not once on sitting down.** The position is
-      // already re-read every frame, so a chair dragged across the room takes
-      // its guest with it — but the facing used to be set only on the
-      // transition into the chair, which meant turning a chair under somebody
-      // left them sitting sideways in it until they got up and a new guest
-      // arrived. It is one assignment; there is no reason for it to be
-      // conditional, and making it conditional is what let the two drift.
-      mesh.rotation.set(0, this.facings[visitor.seatIndex] ?? 0, 0);
-      if (!this.seated.has(visitor.id)) {
-        this.seated.add(visitor.id);
-        character.sit(SEAT_KINDS[visitor.seatIndex] ?? "floor");
-        // Settled with a drink — the one moment a guest has an opinion. Keyed
-        // off the same seed as their appearance so a given guest is consistent
-        // for their whole visit rather than re-rolling on every sync.
-        const seed = Math.abs(Math.round(visitor.seatedAt + visitor.seatIndex));
-        character.express(SEATED_MOODS[seed % SEATED_MOODS.length]);
-      }
-    } else {
-      // Out again — from their chair, or straight from the counter with a cup.
-      if (this.seated.delete(visitor.id) || this.ordering.delete(visitor.id)) {
-        character.walk();
-        character.express("happy"); // leaving pleased, which is the whole game
-      }
-      const t = THREE.MathUtils.clamp(
-        (now - visitor.leavingAt) / Math.max(1, visitor.doneAt - visitor.leavingAt),
-        0,
-        1,
-      );
-      const before = mesh.position.clone();
-      // A takeaway leaves from the counter, not from a chair they never sat in.
-      const from = visitor.takeaway ? COUNTER_POSITION : seatPos;
-      walkRoute(mesh.position, [from, DOOR_LOBBY_POSITION, this.threshold, this.door], t);
-      faceTravel(mesh, before);
+      return;
+    }
+
+    // Drink in hand, crossing to their chair.
+    if (!this.arrived(visitor, "toSeat", [COUNTER_POSITION, seatPos])) {
+      this.ordering.delete(visitor.id);
+      this.stride(character, visitor, "toSeat", [COUNTER_POSITION, seatPos], delta, now >= visitor.seatedAt + LATE_SNAP_MS);
+      return;
+    }
+
+    mesh.position.copy(seatPos);
+    // **Aimed every frame, not once on sitting down.** The position is
+    // already re-read every frame, so a chair dragged across the room takes
+    // its guest with it — but the facing used to be set only on the
+    // transition into the chair, which meant turning a chair under somebody
+    // left them sitting sideways in it until they got up and a new guest
+    // arrived. It is one assignment; there is no reason for it to be
+    // conditional, and making it conditional is what let the two drift.
+    mesh.rotation.set(0, this.facings[visitor.seatIndex] ?? 0, 0);
+    if (!this.seated.has(visitor.id)) {
+      this.seated.add(visitor.id);
+      character.sit(SEAT_KINDS[visitor.seatIndex] ?? "floor");
+      // Settled with a drink — the one moment a guest has an opinion. Keyed
+      // off the same seed as their appearance so a given guest is consistent
+      // for their whole visit rather than re-rolling on every sync.
+      const seed = Math.abs(Math.round(visitor.seatedAt + visitor.seatIndex));
+      character.express(SEATED_MOODS[seed % SEATED_MOODS.length]);
     }
   }
+
+  /** Has this guest finished walking the given leg? See `legReached`. */
+  private arrived(visitor: Visitor, leg: Leg, route: THREE.Vector3[]): boolean {
+    return legReached(this.walks.get(visitor.id), leg, routeLength(route));
+  }
+
+  /**
+   * Move a guest along a route at walking pace, and keep the walk clip playing.
+   *
+   * **The clip is started on every leg change, from one place.** It used to be
+   * restored by deleting the guest from a bookkeeping `Set` and acting on
+   * whether that returned true — so a guest who never made it into the set (a
+   * backgrounded tab, a phase shorter than a frame, a body that appeared after
+   * its own walk-in) slid across the café in an idle pose. Ellis, 2026-08-26:
+   * *"sometimes they … move fast without the walk animation playing."*
+   *
+   * `snap` finishes the leg instantly. That is for a guest whose schedule has
+   * already moved on — resuming from the background, or a body built after the
+   * pack finished loading — because the alternative is watching somebody
+   * moonwalk across the room to catch up with a clock that left without them.
+   */
+  private stride(
+    character: Character,
+    visitor: Visitor,
+    leg: Leg,
+    route: THREE.Vector3[],
+    delta: number,
+    snap: boolean,
+  ): void {
+    let walk = this.walks.get(visitor.id);
+    if (!walk || walk.leg !== leg) {
+      walk = { leg, travelled: 0 };
+      this.walks.set(visitor.id, walk);
+      character.walk();
+    }
+    const total = routeLength(route);
+    walk.travelled = snap ? total : Math.min(total, walk.travelled + delta * WALK_SPEED);
+
+    const mesh = character.group;
+    const before = mesh.position.clone();
+    walkRouteBy(mesh.position, route, walk.travelled);
+    // Face the way they're actually travelling, so they turn at the door
+    // instead of walking in sideways staring at their chair.
+    faceTravel(mesh, before);
+  }
+
 }

@@ -23,6 +23,8 @@ import {
   type CatDefinition,
 } from "@/data/cats";
 import { UPGRADE_DEFINITIONS } from "@/data/upgrades";
+import { tillCapacity, tillFullness, tillIsFull } from "@/systems/till";
+import { emitGameEvent } from "@/core/events";
 import { levelProgress } from "@/data/progression";
 import { CAT_BED_ITEM, bedAsset, bedCost, beds, freeBeds } from "@/data/beds";
 import {
@@ -51,6 +53,7 @@ import {
   CUSTOMISATION,
   SLOT_CATEGORY,
   chosenAssets,
+  chosenTints,
   isUnlocked,
   type CustomisableSlot,
   type CustomisationCategory,
@@ -67,7 +70,6 @@ import {
 import { CAFE_LAYOUT, MOVABLE, MOVABLE_LABELS, type Placement } from "@/data/cafe-layout";
 import { tidyAssetName } from "@/scene/furniture-picker";
 import type { ShopPreview } from "@/scene/shop-preview";
-import { ECONOMY_CONFIG } from "@/data/economy";
 import {
   hasAffordableUpgrade,
   levelOf,
@@ -81,6 +83,7 @@ import {
   initAudio,
   isMuted,
   playPurchase,
+  playChirp,
   playReveal,
   playTap,
   setMuted,
@@ -141,8 +144,16 @@ export interface MountedUI {
   attachGraphics: (apply: (level: GraphicsLevel) => void) => void;
   /** Hand the HUD the renderer's backdrop painter (§ data/backdrops.ts). */
   attachBackdrop: (apply: (id: string) => void) => void;
-  /** Hand the HUD a way to start the walkthrough again from settings. */
-  attachTutorial: (replay: () => void) => void;
+  /**
+   * Is the guide on screen? The chore marker keeps out of her way while she is.
+   *
+   * Told rather than derived: `player.tutorialDone` used to stand in for this,
+   * and it stopped being able to the moment a replay left the flag alone (see
+   * `replayTutorial` in main.ts, now dev-only). A second thing tugging at the
+   * attention mid-sentence is exactly the noise the walkthrough exists to
+   * avoid.
+   */
+  setGuideTalking: (talking: boolean) => void;
   /**
    * Hand the HUD the world marker that offers a chore (`ui/chore-marker.ts`).
    * The HUD decides *which* job is due; the marker decides where it floats.
@@ -304,15 +315,56 @@ export function mountUI(root: HTMLElement): MountedUI {
   const top = el("div", "hud-top");
   top.appendChild(leftColumn);
   const stack = el("div", "hud-top-stack");
+  // **The bank: what you own, with no ceiling on it** (2026-08-26). It used to
+  // carry the fill bar, back when money itself was capped at £9,999; the bar
+  // has moved down to the till, which is the thing that actually fills up now.
   const moneyPill = el("div", "money-pill");
-  // The till has a ceiling (§8), so show how full it is. The bar is the one
-  // place the HUD says something the number alone can't.
-  const tillFill = el("div", "till-fill");
   const moneyValue = el("span", "money-value");
-  moneyPill.appendChild(tillFill);
   moneyPill.appendChild(moneyValue);
   stack.appendChild(moneyPill);
+
+  /**
+   * The till: takings waiting to be collected (`systems/till.ts`).
+   *
+   * A button, because tapping it is the whole mechanic — and therefore it
+   * needs `color` and `font` set explicitly, since a `<button>` inherits
+   * neither and would otherwise draw its label in system blue and the platform
+   * sans (§9).
+   *
+   * It sits under the bank rather than in the room. The tip jar is a world
+   * marker and that works because it is *occasional* — the till is where every
+   * penny the café earns arrives, so it has to be legible at a glance without
+   * hunting for it, and visible while the player is looking at anything.
+   */
+  const tillButton = el("button", "till-pill") as HTMLButtonElement;
+  tillButton.dataset.guide = "till";
+  const tillFill = el("div", "till-fill");
+  const tillLabel = el("span", "till-label");
+  const tillValueLine = el("span", "till-value");
+  tillButton.appendChild(tillFill);
+  const tillText = el("span", "till-text");
+  tillText.appendChild(tillLabel);
+  tillText.appendChild(tillValueLine);
+  tillButton.appendChild(tillText);
+  stack.appendChild(tillButton);
   top.appendChild(stack);
+
+  tillButton.addEventListener("click", () => {
+    initAudio();
+    const taken = gameStore.getState().collectTill();
+    // **Never fail silently on a tap** (§9). An empty till is a rule, not a
+    // breakage, so it says what it is waiting for instead of sitting inert.
+    if (taken <= 0) {
+      tillButton.classList.remove("refused");
+      void tillButton.offsetWidth;
+      tillButton.classList.add("refused");
+      window.setTimeout(() => tillButton.classList.remove("refused"), 900);
+      playTap();
+      return;
+    }
+    playPurchase();
+    emitGameEvent("tillCollected", { amount: taken });
+  });
 
   // A settings cog, not a mute button. Muting is *a* setting rather than the
   // only one worth a permanent slot in the corner (Ellis, 2026-08-12), and a
@@ -1188,7 +1240,7 @@ export function mountUI(root: HTMLElement): MountedUI {
       const stats = currentCafeStats(state);
       seatsValue.textContent = String(stats.seatCount);
       guestValue.textContent = `${Math.round(stats.dwellDurationMs / 1000)}s`;
-      tillValue.textContent = formatMoney(ECONOMY_CONFIG.tillCapacity);
+      tillValue.textContent = formatMoney(tillCapacity(state.upgrades));
       for (const refresh of refreshers) refresh();
     }
 
@@ -1335,13 +1387,23 @@ export function mountUI(root: HTMLElement): MountedUI {
     },
   ];
   /** Which asset stands in for a colourway category on the stage. */
-  const STYLE_PREVIEW_SLOT: Record<string, string> = {
+  const STYLE_PREVIEW_SLOT: Record<string, CustomisableSlot> = {
     walls: "wallWindow",
     floor: "floor",
     sofa: "sofa",
     carpet: "carpet",
     catBed: "catBed",
+    woodwork: "wallWood",
   };
+
+  /**
+   * What to spin for a category whose colourways are tints rather than assets.
+   *
+   * `chosenAssets` deliberately has no row for `wallWood` — the slot covers a
+   * board and two shelf planks, and naming one asset there would turn all
+   * three into it. So the *preview* has to name its hero piece here instead.
+   */
+  const STYLE_PREVIEW_ASSET: Record<string, string> = { woodwork: "Blackboard_Large" };
 
   type ShopPage =
     | { key: string; kind: "bed" }
@@ -1413,7 +1475,8 @@ export function mountUI(root: HTMLElement): MountedUI {
   let applyGraphics: ((level: GraphicsLevel) => void) | null = null;
   let applyBackdrop: ((id: string) => void) | null = null;
   let choreMarker: ((chore: Chore | null) => void) | null = null;
-  let replayTutorial: (() => void) | null = null;
+  /** Is the guide mid-walkthrough? Chores wait until she has gone. */
+  let guideTalking = false;
   /** The walkthrough task the arrow is currently guiding, or null. */
   let pointedTask: string | null = null;
 
@@ -1683,8 +1746,37 @@ export function mountUI(root: HTMLElement): MountedUI {
         const copies = state.instances.filter((i) => i.item === item.id);
         startPlacing(item.place ?? copies[copies.length - 1]?.id ?? item.id);
       });
+      /**
+       * Sell one back, for half (Ellis, 2026-08-26: *"i want to be able to
+       * sell furniture too."*).
+       *
+       * Quiet rather than loud, beside "move one": a shop's job is to sell
+       * you things, and a big red SELL on every page would make the catalogue
+       * read as a list of regrets. It only appears once you own one.
+       */
+      const sell = el("button", "shop-buy-again", "sell one") as HTMLButtonElement;
+      sell.addEventListener("click", () => {
+        initAudio();
+        const refund = gameStore.getState().sellShopItem(item.id);
+        if (refund <= 0) {
+          // **Never fail silently on a tap** (§9). The only refusal is a cat
+          // bed somebody is living in, so say that rather than doing nothing.
+          playTap();
+          blurb.textContent = "every bed has a cat in it — nowhere to move them.";
+          window.setTimeout(show, 1800);
+          return;
+        }
+        playPurchase();
+        // The pager may have lost a page (the arrange tab lists copies), so
+        // rebuild rather than leaving a card for something that has gone.
+        pages = pagesFor(shopCategory ?? ARRANGE_TAB);
+        shopIndex = Math.min(shopIndex, Math.max(0, pages.length - 1));
+        builtKey = "";
+        show();
+      });
       action.appendChild(buy);
       action.appendChild(move);
+      action.appendChild(sell);
 
       refreshAction = () => {
         const state = gameStore.getState();
@@ -1696,6 +1788,12 @@ export function mountUI(root: HTMLElement): MountedUI {
         buyLabel.textContent = count === 0 ? "add to café" : !unlocked ? "locked" : "one more";
         tag.textContent = unlocked ? formatMoney(price) : "";
         move.hidden = count === 0;
+        sell.hidden = count === 0;
+        // The price of the one that would actually go — the newest copy, or
+        // the piece itself. Shown, because "half of what?" is the first thing
+        // anybody asks and the copy curve makes it a real question.
+        const back = Math.round((count <= 1 ? item.price : copyPrice(item, count)) / 2);
+        sell.textContent = `sell one · ${formatMoney(back)}`;
         blurb.textContent =
           count === 0
             ? item.blurb
@@ -1874,7 +1972,10 @@ export function mountUI(root: HTMLElement): MountedUI {
       } else if (page.kind === "copy") {
         name.textContent = page.item.name;
         blurb.textContent = "one of yours. move it, or sell it back for half.";
-        shopPreview?.setItem(copyAsset(page.item));
+        shopPreview?.setItem(
+          copyAsset(page.item, state.customisation),
+          (page.item.slot && chosenTints(state.customisation)[page.item.slot]) || null,
+        );
       } else if (page.kind === "move") {
         const asset = page.piece.slot
           ? (chosenAssets(state.customisation)[page.piece.slot] ?? page.piece.asset)
@@ -1882,14 +1983,20 @@ export function mountUI(root: HTMLElement): MountedUI {
         name.textContent =
           (page.piece.id ? MOVABLE_LABELS[page.piece.id] : undefined) ?? tidyAssetName(asset);
         blurb.textContent = "drag it onto a block, anywhere it fits.";
-        shopPreview?.setItem(asset);
+        shopPreview?.setItem(
+          asset,
+          (page.piece.slot && chosenTints(state.customisation)[page.piece.slot]) || null,
+        );
       } else if (page.kind === "item") {
         const unlocked = !page.item.unlock || page.item.unlock.met(currentProgress(state));
         name.textContent = page.item.name;
         blurb.textContent = unlocked
           ? `${page.item.blurb} +${page.item.appeal.toFixed(1)} appeal`
           : (page.item.unlock?.label ?? "locked");
-        shopPreview?.setItem(unlocked ? page.item.preview : null);
+        shopPreview?.setItem(
+          unlocked ? page.item.preview : null,
+          (page.item.slot && chosenTints(state.customisation)[page.item.slot]) || null,
+        );
       } else {
         name.textContent = page.category.name;
         // **Say how many it changes.** A colourway belongs to a *slot*, not to
@@ -1911,7 +2018,11 @@ export function mountUI(root: HTMLElement): MountedUI {
         const shown = peeking
           ? { ...state.customisation, [page.category.id]: peeking }
           : state.customisation;
-        shopPreview?.setItem(chosenAssets(shown)[STYLE_PREVIEW_SLOT[page.category.id]] ?? null);
+        const slot = STYLE_PREVIEW_SLOT[page.category.id];
+        shopPreview?.setItem(
+          chosenAssets(shown)[slot] ?? STYLE_PREVIEW_ASSET[page.category.id] ?? null,
+          chosenTints(shown)[slot] ?? null,
+        );
       }
 
       if (page.key !== builtKey) {
@@ -2262,29 +2373,6 @@ export function mountUI(root: HTMLElement): MountedUI {
 
     // --- Show me round again ----------------------------------------------
     //
-    // The walkthrough runs once, on a first morning. Without this there is no
-    // way back to it — and an existing café never saw it at all, because save
-    // v20 marks anyone who had already played as done. That guard is right
-    // (nobody five levels in wants telling what the shop button is) but it
-    // must not be the *only* answer, or the feature is unreachable for exactly
-    // the person who asked for it.
-    const guideRow = el("div", "setting-row");
-    const guideLabel = el("div", "setting-label");
-    guideLabel.appendChild(el("div", "setting-name", "show me round again"));
-    guideLabel.appendChild(
-      el("div", "setting-hint", "mal comes back and walks you through the place."),
-    );
-    guideRow.appendChild(guideLabel);
-    const guideButton = el("button", "setting-toggle") as HTMLButtonElement;
-    guideButton.appendChild(icon("cup"));
-    guideButton.addEventListener("click", () => {
-      playTap();
-      closePanel();
-      replayTutorial?.();
-    });
-    guideRow.appendChild(guideButton);
-    panel.appendChild(guideRow);
-
     // --- The colour outside ----------------------------------------------
     const backdropRow = el("div", "setting-row setting-row-stacked");
     const backdropLabel = el("div", "setting-label");
@@ -2379,11 +2467,20 @@ export function mountUI(root: HTMLElement): MountedUI {
     const card = el("div", "reveal-card");
     card.appendChild(el("div", "reveal-title", "welcome back"));
     card.appendChild(el("div", "welcome-earned", `+${formatMoney(earned)}`));
+    // **Say where it went, and say when the drawer filled.** The money is in
+    // the till, not the bank, so a card that read "+$400" and left the balance
+    // unchanged would look like a bug. And a full till is the *reason* a long
+    // trip earns no more than a short one — the player should learn that from
+    // the card rather than by comparing two absences.
+    const state = gameStore.getState();
+    const full = tillIsFull(state.till, tillCapacity(state.upgrades));
     card.appendChild(
       el(
         "div",
         "reveal-flavor",
-        `your cats kept the café cosy while you were away (${formatDuration(awayMs)}).`,
+        full
+          ? `your cats kept the café going while you were away (${formatDuration(awayMs)}) — the till is full, so it stopped there.`
+          : `your cats kept the café cosy while you were away (${formatDuration(awayMs)}). it's waiting in the till.`,
       ),
     );
     const confirm = el("button", "reveal-confirm", "thanks, everyone") as HTMLButtonElement;
@@ -2455,6 +2552,10 @@ export function mountUI(root: HTMLElement): MountedUI {
       close();
       if (!cat) return;
       playReveal(REVEAL_INTENSITY[catDefinition(cat.definitionId).rarity] ?? 0.3);
+      // …and the cat says hello, a beat after the chime, so the two read as
+      // one arrival rather than as two sounds. The chirrup rather than the
+      // meow: this is the friendly one (`audio/cat.ts`).
+      window.setTimeout(playChirp, 520);
       showAdoptionModal(cat);
     });
 
@@ -2543,8 +2644,10 @@ export function mountUI(root: HTMLElement): MountedUI {
     // attention while she is mid-sentence is exactly the noise the walkthrough
     // exists to avoid (Ellis, 2026-08-26: *"the wipe the window pop up is
     // there right from as soon as i start the tutorial rather than after it"*).
-    const due = state.player.tutorialDone
-      ? (dueChores(state.chores, state.openedAt, Date.now())[0] ?? null)
+    // A replay leaves `tutorialDone` alone, so "she is on screen" is its own
+    // flag now rather than something inferred from the save.
+    const due = state.player.tutorialDone && !guideTalking
+      ? (dueChores(state.chores, state.openedAt, Date.now(), state)[0] ?? null)
       : null;
     choreMarker?.(due);
   }
@@ -2557,9 +2660,19 @@ export function mountUI(root: HTMLElement): MountedUI {
     const state = gameStore.getState();
     const { money, cats, upgrades } = state;
     moneyValue.textContent = formatMoney(money);
-    const fullness = Math.min(1, money / ECONOMY_CONFIG.tillCapacity);
+
+    // The till, and the one thing the bar says that the number cannot: how
+    // close the café is to having nowhere to put the next coin.
+    const capacity = tillCapacity(upgrades);
+    const fullness = tillFullness(state.till, capacity);
+    const full = tillIsFull(state.till, capacity);
     tillFill.style.transform = `scaleX(${fullness.toFixed(3)})`;
-    moneyPill.classList.toggle("till-full", fullness >= 0.999);
+    tillButton.classList.toggle("till-full", full);
+    tillButton.classList.toggle("till-empty", state.till < 1);
+    // Short, because the pill is a phone-width HUD chip: the *fill* says
+    // full, the word only has to name what the number is.
+    tillLabel.textContent = full ? "till full" : "till";
+    tillValueLine.textContent = formatMoney(state.till);
 
     // How many cats are content, so the effect of petting is visible — an
     // unexplained multiplier may as well not exist.
@@ -2640,8 +2753,9 @@ export function mountUI(root: HTMLElement): MountedUI {
     attachBackdrop(apply) {
       applyBackdrop = apply;
     },
-    attachTutorial(replay) {
-      replayTutorial = replay;
+    setGuideTalking(talking) {
+      guideTalking = talking;
+      syncChores();
     },
     attachChores(show) {
       choreMarker = show;

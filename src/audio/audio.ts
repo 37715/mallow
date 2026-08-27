@@ -3,13 +3,33 @@
  *
  * Every sound here is **synthesised at runtime with WebAudio**: no files, no
  * downloads, no licensing questions, and nothing to load before first paint.
- * That's a deliberate trade — a real composer's ambient bed would sound better
- * and should replace `startAmbient()` in the M4 art pass. The sfx are cheap
- * enough to be worth keeping.
+ *
+ * **That used to be a compromise and it is now the plan.** This header said for
+ * months that a real composer's bed should replace `startAmbient()`; Ellis went
+ * looking — *"i cant find a single ost i like on those marketplace sites"* —
+ * and the answer turned out to be to write one instead (`audio/music.ts`). A
+ * bought loop is a fixed two minutes that gets recognised, and then resented,
+ * in a game meant to be left running. A generated piece has neither problem.
+ *
+ * This file is the plumbing and the effects; the two things with real DSP in
+ * them live next door, because both are long enough to be read on their own:
+ *
+ * - `audio/music.ts` — the soundtrack. Chords, bass, melody, a generated room.
+ * - `audio/cat.ts` — the voice. Meow and chirrup, by formant synthesis.
+ *
+ * **There is a way to listen to all of it**: `node tools/render-audio.mjs cafe
+ * 60 out.wav` bounces the mix to a file. Use it before changing anything here.
+ * Audio had no equivalent of `tools/shot.mjs` until 2026-08-27, and the cost of
+ * that shows up in this file's history — the purr was shipped as a diesel
+ * engine twice, and a note claiming a synthesised meow was impossible went
+ * unchallenged for weeks. Nobody had heard either one.
  *
  * Everything is gentle by construction: soft attacks, no transients that could
  * startle, and a master gain low enough to sit under a podcast.
  */
+
+import { chirp, meow, renderCry } from "@/audio/cat";
+import { startMusic, type MusicHandle } from "@/audio/music";
 
 const MASTER_VOLUME = 0.3;
 const MUTE_KEY = "mallow-muted";
@@ -18,8 +38,100 @@ let ctx: AudioContext | null = null;
 let master: GainNode | null = null;
 /** The ambient bed's own gain, so music mutes without muting the sfx. */
 let musicGain: GainNode | null = null;
+let music: MusicHandle | null = null;
 let ambientGain: GainNode | null = null;
 let muted = readMuted();
+/** Held so it is never garbage-collected — see `keepMediaSessionAwake`. */
+let keepalive: HTMLAudioElement | null = null;
+
+/**
+ * A one-second silent WAV, built here rather than shipped.
+ *
+ * Bytes, not a file: this module's whole premise is that there is nothing to
+ * download (§10), and a 44-byte header plus a run of zeros does not deserve to
+ * become the first asset that breaks that.
+ */
+function silentWav(): string {
+  const rate = 8000;
+  const frames = rate; // one second, looped
+  const size = 44 + frames * 2;
+  const buffer = new ArrayBuffer(size);
+  const view = new DataView(buffer);
+  const text = (at: number, s: string): void => {
+    for (let i = 0; i < s.length; i++) view.setUint8(at + i, s.charCodeAt(i));
+  };
+  text(0, "RIFF");
+  view.setUint32(4, size - 8, true);
+  text(8, "WAVE");
+  text(12, "fmt ");
+  view.setUint32(16, 16, true); // PCM header length
+  view.setUint16(20, 1, true); // PCM
+  view.setUint16(22, 1, true); // mono
+  view.setUint32(24, rate, true);
+  view.setUint32(28, rate * 2, true); // bytes per second
+  view.setUint16(32, 2, true); // block align
+  view.setUint16(34, 16, true); // bits per sample
+  text(36, "data");
+  view.setUint32(40, frames * 2, true);
+  // The samples are already zero, which for 16-bit PCM is silence.
+  return URL.createObjectURL(new Blob([buffer], { type: "audio/wav" }));
+}
+
+/**
+ * Play a silent loop through a real `<audio>` element, for ever.
+ *
+ * **This is what makes the game audible on an iPhone with the ringer off, and
+ * it took three attempts to find.** The app sets its `AVAudioSession` category
+ * to `.playback` (`ios/App/App/AppDelegate.swift`), which is the documented way
+ * to ignore the hardware silent switch — and on its own it did not work.
+ *
+ * The reason is that a WKWebView renders in its own process, and **WebKit
+ * chooses an audio session category to suit what the page appears to be
+ * doing**. A page that only ever uses WebAudio, with no media element anywhere
+ * in it, does not read as media playback, so WebKit's choice overrides the
+ * app's and the ringer switch wins. Giving it an actual `<audio>` element that
+ * is genuinely playing is what puts the page in the media-playback bucket; the
+ * app's `.playback` category then applies to everything, WebAudio included.
+ *
+ * Three details that matter:
+ *
+ * - **The content is silent, but the volume is 1.** WebKit is looking at
+ *   whether the element is playing, not whether it is audible, and an element
+ *   muted to zero is the one thing likely to be discounted.
+ * - **It must start inside a user gesture**, like everything else here — which
+ *   is why it lives in `initAudio()` rather than at module load.
+ * - **It loops for ever rather than being re-triggered.** A gap is a moment
+ *   with no media playing, and that is a moment WebKit can reconsider.
+ *
+ * Costs nothing measurable: 8 kHz mono silence is 16 kB of zeros in memory and
+ * no decoding work worth naming.
+ */
+function keepMediaSessionAwake(): void {
+  if (keepalive) {
+    if (keepalive.paused) void keepalive.play().catch(() => {});
+    return;
+  }
+  try {
+    const element = new Audio(silentWav());
+    element.loop = true;
+    element.volume = 1;
+    element.setAttribute("playsinline", "");
+    // **In the document, not just in a variable.** `new Audio()` gives a
+    // detached element, and WebKit has historically been fussier about those
+    // than about ones in the tree. It costs a hidden node; it removes a
+    // plausible reason for the whole thing to quietly not count. Appended to
+    // `body` rather than `#ui-root`, which `mountUI` clears.
+    element.hidden = true;
+    document.body.appendChild(element);
+    void element.play().catch(() => {
+      // Blocked (no gesture yet, or the platform said no). The sound still
+      // works with the ringer on, so this is a downgrade, never a failure.
+    });
+    keepalive = element;
+  } catch {
+    // No HTMLAudioElement at all. Nothing to do; WebAudio carries on.
+  }
+}
 
 function readMuted(): boolean {
   try {
@@ -71,6 +183,14 @@ export function setMusicMuted(next: boolean): void {
     musicGain.gain.cancelScheduledValues(ctx.currentTime);
     musicGain.gain.setTargetAtTime(next ? 0 : 1, ctx.currentTime, 0.25);
   }
+  // **The fade and the stop are both needed.** The gain ramp is what makes
+  // muting sound deliberate rather than like a dropout; stopping the scheduler
+  // is what stops a silenced café running a piano for nobody. Delayed by the
+  // length of the fade so the last chord gets to ring out through it.
+  if (music) {
+    if (next) window.setTimeout(() => music?.setPlaying(false), 800);
+    else music.setPlaying(true);
+  }
 }
 
 /**
@@ -78,6 +198,11 @@ export function setMusicMuted(next: boolean): void {
  * from the first tap rather than at boot. Safe to call repeatedly.
  */
 export function initAudio(): void {
+  // Both halves of "audible on a phone with the ringer off" — see
+  // `keepMediaSessionAwake`. Re-run on every call, because a resume from the
+  // background can leave the element paused.
+  keepMediaSessionAwake();
+
   if (ctx) {
     if (ctx.state === "suspended") void ctx.resume();
     return;
@@ -99,6 +224,12 @@ export function initAudio(): void {
   musicGain.connect(master);
 
   startAmbient();
+  // **The bed stays underneath the tune.** They do different jobs: the music
+  // is the thing you notice, the room tone is what stops the gaps between
+  // phrases sounding like the sound has broken. Both hang off `musicGain`, so
+  // one switch silences the pair.
+  music = startMusic(ctx, musicGain);
+  if (musicMuted) music.setPlaying(false);
   void loadSamples();
 }
 
@@ -174,6 +305,7 @@ function tone(
 const SAMPLE_PATHS: Record<string, string[]> = {
   purr: ["/audio/purr.mp3", "/audio/purr.ogg"],
   meow: ["/audio/meow-1.mp3", "/audio/meow-2.mp3", "/audio/meow-3.mp3"],
+  chirp: ["/audio/chirp-1.mp3", "/audio/chirp-2.mp3"],
 };
 
 /** Decoded samples, keyed as above. Absent means "not loaded, or not there". */
@@ -252,7 +384,11 @@ function startAmbient(): void {
   if (!ctx || !master || ambientGain) return;
 
   ambientGain = ctx.createGain();
-  ambientGain.gain.value = 0.16;
+  // **Dropped from 0.16 when the music landed** (2026-08-27). The bed used to be
+  // the whole soundtrack; it is now a floor under one, and two things competing
+  // for the same quiet register is how a mix turns to mud. Quiet enough that
+  // what it does is fill the gaps between phrases.
+  ambientGain.gain.value = 0.09;
   ambientGain.connect(musicGain ?? master);
 
   const warmth = ctx.createBiquadFilter();
@@ -450,13 +586,27 @@ export function playPurr(): void {
 
 
 /**
- * A meow. Recording only — there is no synthesised fallback, because a
- * synthesised meow is worse than silence and this is a sound the game has
- * never had. Drop a file in and cats start speaking; until then, nothing.
+ * A meow. A recording wins if one has been dropped in (`SAMPLE_PATHS`);
+ * otherwise it is synthesised, and has been since 2026-08-27.
+ *
+ * **The note that used to sit here said a synthesised meow was worse than
+ * silence, and it was wrong.** It generalised from the purr — three failed
+ * attempts at shaping noise into an animal — without noticing that the two
+ * sounds are made in completely different ways. A purr is unvoiced; a meow has
+ * a pitch, which puts it in the one corner of this problem that is easy. See
+ * `audio/cat.ts`.
  */
 export function playMeow(): void {
   if (!ctx || !master) return;
-  playSample("meow", 0.85);
+  if (playSample("meow", 0.85)) return;
+  renderCry(ctx, master, meow());
+}
+
+/** The pleased-to-see-you chirrup. See `chirp` in `audio/cat.ts`. */
+export function playChirp(): void {
+  if (!ctx || !master) return;
+  if (playSample("chirp", 0.8)) return;
+  renderCry(ctx, master, chirp());
 }
 
 /** Generic soft UI tap. */

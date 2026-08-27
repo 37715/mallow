@@ -5,9 +5,16 @@
  * into `$1.2K`, `$15.4M`, `$3.07B` — written for the idle game Mallow was
  * before the direction change, where income really did run to billions. §0
  * ended that: *"money stays readable. Target ceilings roughly: early 0–500,
- * mid 500–5k, late 5k–30k. No abbreviations, no millions."* The till is capped
- * at four digits precisely so it never needs shortening, and `$10.00K` on a
- * £9,999 till was the abbreviation outliving the economy that justified it.
+ * mid 500–5k, late 5k–30k. No abbreviations, no millions."*
+ *
+ * **The bank lost its £9,999 ceiling on 2026-08-26** (Ellis: *"the limit for
+ * money is 9999 which it shouldnt be there should be no limit"*), so this is
+ * no longer guaranteed by a cap. It is guaranteed by the *rate* instead: money
+ * only enters the bank when the player empties the till (`systems/till.ts`),
+ * which holds a thousand or two, so a balance climbs at the pace somebody
+ * taps rather than at the pace time passes. Six figures would take months of
+ * daily play. If figures ever do get long enough to need shortening, the thing
+ * to fix is the till, not this file.
  *
  * Thousands get a separator, because `$1260` and `$12600` are the same shape
  * at a glance and a price is a thing you have to read exactly.

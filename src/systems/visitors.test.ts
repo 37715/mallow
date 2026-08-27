@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { phaseOf, tickVisitors, type Visitor } from "@/systems/visitors";
-import { cafeStats } from "@/systems/cafe";
+import { cafeStats, type CafeStats } from "@/systems/cafe";
 import { ECONOMY_CONFIG, visitorPayAmount } from "@/data/economy";
 
 const STATS = cafeStats(1, {});
@@ -160,5 +160,62 @@ describe("tickVisitors", () => {
     const snapshot = before.map((v) => ({ ...v }));
     tickVisitors(before, before[0].leavingAt + 1, 0, STATS);
     expect(before).toEqual(snapshot);
+  });
+});
+
+describe("a chair that leaves the room", () => {
+  /**
+   * The café is an editor, so the seat a guest was assigned on arrival can be
+   * sold while they are in it. Nothing downstream noticed: `seatPositions`
+   * hands back a position for every authored seat whether the café owns it or
+   * not, so the guest carried on sitting in mid-air where the chair had been.
+   * Ellis, 2026-08-26: *"ive seen characters sitting on … just on the floor
+   * before.. should never happen."*
+   */
+  const stats = (seats: number[]): CafeStats => ({
+    ...cafeStats(1, {}),
+    seats,
+    seatCount: seats.length,
+  });
+
+  /** Never a takeaway: the roll is the only randomness in the system. */
+  const SITS = () => 1;
+
+  it("stands its guest up and sends them out", () => {
+    const now = 10_000;
+    // A minute since the last arrival, so one is definitely due.
+    const seated = tickVisitors([], now, now - 60_000, stats([0, 1]), SITS);
+    const guest = seated.visitors.find((v) => !v.takeaway)!;
+    const later = guest.seatedAt + 100;
+
+    const gone = tickVisitors([guest], later, later, stats([1]), SITS);
+    const after = gone.visitors.find((v) => v.id === guest.id);
+    expect(after).toBeDefined();
+    expect(after!.leavingAt).toBeLessThanOrEqual(later);
+    // A whole walk to the door, not whatever was left of the old one.
+    expect(after!.doneAt).toBeGreaterThan(later);
+  });
+
+  it("leaves a guest alone while their chair is still there", () => {
+    const now = 10_000;
+    // A minute since the last arrival, so one is definitely due.
+    const seated = tickVisitors([], now, now - 60_000, stats([0, 1]), SITS);
+    const guest = seated.visitors.find((v) => !v.takeaway)!;
+    const later = guest.seatedAt + 100;
+
+    const same = tickVisitors([guest], later, later, stats([0, 1]), SITS);
+    const after = same.visitors.find((v) => v.id === guest.id);
+    expect(after!.leavingAt).toBe(guest.leavingAt);
+  });
+
+  it("does not disturb a takeaway, who never had a chair", () => {
+    // A takeaway carries seatIndex -1, which is in no café's seat list — so a
+    // naive check would send every one of them home the moment they arrived.
+    const now = 10_000;
+    const spawn = tickVisitors([], now, now - 60_000, stats([0]), () => 0);
+    const takeaway = spawn.visitors.find((v) => v.takeaway)!;
+    const later = now + 50;
+    const after = tickVisitors([takeaway], later, later, stats([0]), SITS).visitors[0];
+    expect(after.doneAt).toBe(takeaway.doneAt);
   });
 });

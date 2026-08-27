@@ -7,6 +7,7 @@ import { DEFAULT_CUSTOMISATION } from "@/data/customisation";
 import { DEFAULT_PLAYER } from "@/data/player";
 import { HOME_WINDOW } from "@/data/expansion";
 import { TIP_JAR_CAPACITY } from "@/data/tips";
+import { tillCapacityFor } from "@/data/upgrades";
 
 /**
  * Save migration is the one place a bug costs a player their cats (§8), so
@@ -390,6 +391,46 @@ describe("loadSave", () => {
     expect(save.money).toBe(400);
   });
 
+  /**
+   * The bug that made a bought chair disappear overnight.
+   *
+   * `sanitizeInstances` dropped everything that was not a cat bed, so every
+   * *copy* of an ordinary shop item survived only until the next load. The
+   * test asserts both halves: a real catalogue item comes back, and an item
+   * the catalogue no longer has still goes — the drop rule the filter was
+   * actually written for.
+   */
+  it("keeps copies of furniture that is not a cat bed", () => {
+    write({
+      version: 25,
+      money: 100,
+      nextCatId: 1,
+      cats: CATS,
+      savedAt: 1,
+      upgrades: {},
+      customisation: {},
+      owned: [],
+      purchased: ["armchair", "low-table"],
+      placements: {},
+      windows: [HOME_WINDOW],
+      instances: [
+        { id: "inst-1", item: "cat-bed-extra", x: 0.5, z: 0.5, rot: 0 },
+        { id: "inst-2", item: "armchair", x: 1, z: -0.5, rot: Math.PI / 4 },
+        { id: "inst-3", item: "low-table", x: -1, z: 1, rot: 0 },
+        { id: "inst-4", item: "gramophone-that-never-shipped", x: 0, z: 0, rot: 0 },
+      ],
+      nextInstanceId: 5,
+      player: { ...DEFAULT_PLAYER, created: true, tutorialDone: true },
+    });
+    const save = loadSave()!;
+    expect(save.instances.map((i) => i.id)).toEqual(["inst-1", "inst-2", "inst-3"]);
+    // …and the copy keeps where it was standing and which way it faced.
+    const armchair = save.instances.find((i) => i.id === "inst-2")!;
+    expect(armchair.x).toBe(1);
+    expect(armchair.z).toBe(-0.5);
+    expect(armchair.rot).toBeCloseTo(Math.PI / 4);
+  });
+
   it("never refunds past the till ceiling", () => {
     write({
       version: 11,
@@ -544,5 +585,57 @@ describe("v23 → v24: the tip jar", () => {
     expect(loadSave()?.tips).toBe(0);
     write({ ...oldSave, version: 24, tips: -5, player: DEFAULT_PLAYER, windows: [HOME_WINDOW] });
     expect(loadSave()?.tips).toBe(0);
+  });
+});
+
+describe("v24 → v25: the till, and the day the bank lost its ceiling", () => {
+  /** A v7 save is the oldest the chain still carries; it migrates all the way. */
+  const oldSave = {
+    version: 7,
+    money: 120,
+    nextCatId: 2,
+    cats: CATS,
+    savedAt: 1000,
+    upgrades: {},
+    customisation: DEFAULT_CUSTOMISATION,
+  };
+
+  it("starts empty — an existing café's takings are already banked", () => {
+    // Inventing a full till would pay twice for the same trade, and would
+    // teach a returning player that the mechanic hands out money by itself.
+    write(oldSave);
+    expect(loadSave()?.till).toBe(0);
+  });
+
+  it("takes nothing off a café sitting at the old £9,999 cap", () => {
+    // The ceiling is gone, not lowered. "Never lose a player's cats" is the
+    // sacred one, but quietly docking somebody's savings is the same promise.
+    write({ ...oldSave, version: 24, money: 9999, tips: 0, player: DEFAULT_PLAYER, windows: [HOME_WINDOW] });
+    expect(loadSave()?.money).toBe(9999);
+  });
+
+  it("clamps a garbage till rather than trusting it", () => {
+    const base = { ...oldSave, version: 24, tips: 0, player: DEFAULT_PLAYER, windows: [HOME_WINDOW] };
+    write({ ...base, till: 1e9 });
+    expect(loadSave()!.till).toBeLessThanOrEqual(tillCapacityFor(Number.MAX_SAFE_INTEGER));
+    write({ ...base, till: Number.NaN });
+    expect(loadSave()?.till).toBe(0);
+    write({ ...base, till: -40 });
+    expect(loadSave()?.till).toBe(0);
+  });
+
+  it("brings a part-full till back exactly as it was left", () => {
+    // Uncollected takings are money the player has earned and not yet been
+    // handed. Rounding them off on load, or dropping them, is a small theft
+    // that would only ever show up as "I'm sure there was more in there".
+    write({
+      ...oldSave,
+      version: 25,
+      till: 275.5,
+      tips: 0,
+      player: DEFAULT_PLAYER,
+      windows: [HOME_WINDOW],
+    });
+    expect(loadSave()?.till).toBe(275.5);
   });
 });

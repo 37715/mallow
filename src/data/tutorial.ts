@@ -22,6 +22,11 @@ import type { TaskId } from "@/systems/tutorial";
  * events, which applies just as well here). `{name}` and `{cafe}` are filled
  * in from the profile, so the guide uses the names the player just chose —
  * which is most of what makes it feel written for them.
+ *
+ * **Three exports are the whole of this file's surface** —
+ * `TUTORIAL_SCRIPT`, `GUIDE_APPEARANCE`, `GUIDE_NAME`. Nothing outside knows
+ * who the guide is or what she says, which is what let a second guide be
+ * swapped in for a build and out again without touching another file.
  */
 
 export interface TutorialLine {
@@ -35,9 +40,9 @@ export interface TutorialLine {
   /**
    * Wait here until the player does this, instead of moving on by itself.
    *
-   * The line is said, then the bubble holds `waitHint` and Mal stands about
-   * until `systems/tutorial.ts` says the task is done. The till is topped up
-   * to exactly what the step costs as it begins, so nothing she asks for is
+   * The line is said, then the bubble holds `waitHint` and the guide stands
+   * about until `systems/tutorial.ts` says the task is done. The till is topped
+   * up to exactly what the step costs as it begins, so nothing they ask for is
    * ever unaffordable.
    */
   task?: TaskId;
@@ -50,7 +55,7 @@ export interface TutorialLine {
  * Lowercase, like every other word the interface says (§9). The exceptions are
  * the two placeholders, because those are text the *player* wrote.
  */
-export const TUTORIAL_SCRIPT: TutorialLine[] = [
+export const MAL_SCRIPT: TutorialLine[] = [
   {
     text: "oh — you must be {name}!",
     gesture: "Social_WaveHello",
@@ -126,13 +131,51 @@ export const TUTORIAL_SCRIPT: TutorialLine[] = [
     expression: "love",
   },
 
-  // --- 3. a drink -----------------------------------------------------------
+  // --- 3. a piece of furniture ----------------------------------------------
+  //
+  // **Furniture before the menu** (Ellis, 2026-08-27: *"id prefer to learn to
+  // place furniture before learning about the custom coffee thing"*). Right,
+  // and for a reason worth writing down: buying-and-placing is the *verb* of
+  // this game — §8's whole editor plan rests on it — while inventing a blend is
+  // a lovely aside in a panel. The introduction should hand over the thing the
+  // player will do a hundred times before the thing they will do four times.
+  //
+  // It also makes the two halves rhyme: the cat bed taught buy-then-place, and
+  // this is the same pair of steps on a piece of furniture, immediately after,
+  // while it is still fresh.
+  {
+    text: "next. everything you put down makes the room nicer, and nicer brings more people in.",
+    gesture: "Social_Relaxed_Thinking",
+    expression: "content",
+  },
+  {
+    text: "and nobody stays long without somewhere to sit. go get that armchair.",
+    gesture: "Social_Stand_Discussion_1",
+    expression: "happy",
+    task: "buy-chair",
+    waitHint: "shop → comfort → armchair",
+  },
+  {
+    text: "by the window is nice. green means it fits, red means move it a bit.",
+    gesture: "Social_Relaxed",
+    expression: "content",
+    task: "place-chair",
+    waitHint: "drag it, then tap the tick",
+  },
+  {
+    text: "that's the whole game, really. buy a thing, put it where you want, watch the place fill up.",
+    gesture: "Social_ThumbsUp",
+    expression: "happy",
+  },
+
+  // --- 4. a drink -----------------------------------------------------------
   //
   // Free, deliberately — `store.createBlend` charges nothing and that must not
-  // change. It is also the first thing in the game the player *authors*, which
-  // is why it belongs in the introduction rather than being discovered later.
+  // change. It is the first thing in the game the player *authors*, which is
+  // why it belongs in the introduction at all rather than being discovered
+  // later; it goes last because it is the least urgent of the four.
   {
-    text: "now the menu. you can invent your own drink — a base, something stirred into it, and a name you pick.",
+    text: "last thing — the menu. you can invent your own drink: a base, something stirred into it, and a name you pick.",
     gesture: "Social_CrossedArms_Thinking",
     expression: "thinking",
   },
@@ -153,36 +196,16 @@ export const TUTORIAL_SCRIPT: TutorialLine[] = [
     task: "invent-drink",
     waitHint: "café → the menu → invent a blend",
   },
+  // **"straight on the board" was a step too clever** (Ellis, 2026-08-27:
+  // *"sounds weird it should just be on the menu"*). There *is* a chalkboard on
+  // the wall, so it read as a reference to a thing — except the board is a
+  // décor item you may not have bought, the drink does not appear on it, and
+  // the player has just been told the word "menu" twice. Say the word they
+  // already know.
   {
-    text: "that's going straight on the board. the better your menu, the more people pay.",
+    text: "lovely. that's on your menu now — the better it gets, the more people pay.",
     gesture: "Social_Stand_YES",
     expression: "delighted",
-  },
-
-  // --- 4. a piece of furniture ---------------------------------------------
-  {
-    text: "last thing. everything you put down makes the room nicer, and nicer brings more people in.",
-    gesture: "Social_Relaxed_Thinking",
-    expression: "content",
-  },
-  {
-    text: "and nobody stays long without somewhere to sit. go get that armchair.",
-    gesture: "Social_Stand_Discussion_1",
-    expression: "happy",
-    task: "buy-chair",
-    waitHint: "shop → comfort → armchair",
-  },
-  {
-    text: "by the window is nice. green means it fits, red means move it a bit.",
-    gesture: "Social_Relaxed",
-    expression: "content",
-    task: "place-chair",
-    waitHint: "drag it, then tap the tick",
-  },
-  {
-    text: "that's the whole game. buy a thing, put it where you want, watch the place fill up.",
-    gesture: "Social_ThumbsUp",
-    expression: "happy",
   },
 
   // --- out ------------------------------------------------------------------
@@ -190,6 +213,15 @@ export const TUTORIAL_SCRIPT: TutorialLine[] = [
     text: "that's it. no rush, nothing to lose — it'll all still be here tomorrow.",
     gesture: "Social_Relaxed",
     expression: "content",
+  },
+  // **The gift is announced here and paid when she leaves** — see
+  // `ECONOMY_CONFIG.welcomeGift` and `store.finishTutorial`. Said rather than
+  // silently deposited, because a till that is suddenly a thousand up with
+  // nobody having mentioned it reads as a bug, not a present.
+  {
+    text: "oh — before i forget. here's a little something to start you off. go and buy something lovely with it.",
+    gesture: "Social_ThumbsUp",
+    expression: "delighted",
   },
   {
     text: "i'll take a coffee when you have a minute. see you soon, {name}.",
@@ -199,8 +231,8 @@ export const TUTORIAL_SCRIPT: TutorialLine[] = [
   },
 ];
 
-/** What the guide is called. She introduces herself in the second line. */
-export const GUIDE_NAME = "mal";
+/** What Mal is called. She introduces herself in the second line. */
+export const MAL_NAME = "mal";
 
 /**
  * Mal's look, fixed rather than random.
@@ -218,7 +250,7 @@ export const GUIDE_NAME = "mal";
  * Skintone 2 is the olive of the pack's six (measured face colour ~202,176,115
  * — see the 2026-08-25 log), rather than the 4 she had, which is a deep brown.
  */
-export const GUIDE_APPEARANCE: Appearance = {
+export const MAL_APPEARANCE: Appearance = {
   hair: 2, // Hair_Long
   top: 2, // Clothes_Top_Hoodie
   legs: 2, // Clothes_Legs_Skirt
@@ -229,6 +261,22 @@ export const GUIDE_APPEARANCE: Appearance = {
   legColour: 1,
   shoeColour: 0,
 };
+
+/**
+ * The three names anything outside this file reads.
+ *
+ * **There was a branch here and there is not any more** (2026-08-27). For one
+ * build in August the guide was Ellis rather than Mal, chosen by a
+ * `const ANNIVERSARY` flag with a second script and a second appearance sitting
+ * beside hers. Ellis: *"put the old tutorial back, no more anniversary
+ * stuff."* Both are deleted rather than switched off — a dead branch in a data
+ * file is a thing every future reader has to decide is dead — and the build
+ * that used them is in the history and in `docs/session-log.md` (2026-08-22),
+ * which is where a keepsake belongs.
+ */
+export const TUTORIAL_SCRIPT: TutorialLine[] = MAL_SCRIPT;
+export const GUIDE_APPEARANCE: Appearance = MAL_APPEARANCE;
+export const GUIDE_NAME = MAL_NAME;
 
 /** Fills `{name}` and `{cafe}` in a line. */
 export function fillLine(text: string, names: { name: string; cafe: string }): string {

@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { menuItems, menuPayMultiplier, pickOrder, salesRanking } from "@/systems/menu";
-import { STARTER_DRINK_ID, baseDrink, blendPay, type CustomDrink } from "@/data/drinks";
+import {
+  INGREDIENTS,
+  STARTER_DRINK_ID,
+  baseDrink,
+  blendPay,
+  nextIngredient,
+  type CustomDrink,
+} from "@/data/drinks";
 
 /**
  * The menu's economics. The load-bearing rule is that the café's multiplier is
@@ -90,5 +97,33 @@ describe("salesRanking", () => {
   it("survives a sales record for a drink no longer on the menu", () => {
     const rows = salesRanking(menuItems([], []), { "blend-99": 400 });
     expect(rows.map((r) => r.id)).toEqual([STARTER_DRINK_ID]);
+  });
+});
+
+/**
+ * What the walkthrough reads to price its "pick a flavour" step. Both halves
+ * of "may this café buy it" matter, and only one of them is about money — an
+ * add-in above the café's level cannot be bought at any price, so quoting it
+ * would top the till up for a jar the shelf still refuses to sell.
+ */
+describe("nextIngredient", () => {
+  it("offers the cheapest thing the café is allowed to buy", () => {
+    const next = nextIngredient([], 1);
+    expect(next?.id).toBe("honey");
+    expect(next?.level).toBeLessThanOrEqual(1);
+  });
+
+  it("skips what is already on the shelf", () => {
+    expect(nextIngredient(["honey"], 2)?.id).not.toBe("honey");
+  });
+
+  it("never offers something the level gate would refuse", () => {
+    // Level 1 knows only honey; taking that away leaves nothing, rather than
+    // the next cheapest jar the café cannot have.
+    expect(nextIngredient(["honey"], 1)).toBeNull();
+  });
+
+  it("runs out when every flavour is owned", () => {
+    expect(nextIngredient(INGREDIENTS.map((i) => i.id), 99)).toBeNull();
   });
 });

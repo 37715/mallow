@@ -17,6 +17,7 @@ import { UPGRADE_DEFINITIONS, type UpgradeId } from "@/data/upgrades";
 import { cafeStats, type CafeStats } from "@/systems/cafe";
 import { liveIncomePerSecond, computeOfflineEarnings } from "@/systems/offline";
 import { levelOf, nextLevelCost, purchaseUpgrade, type UpgradeLevels } from "@/systems/upgrades";
+import { tillCapacity, tillRoom } from "@/systems/till";
 
 const HOUR = 3600;
 const DAY = 24 * HOUR;
@@ -46,6 +47,8 @@ const HABITS: Habit[] = [
 
 interface Player {
   money: number;
+  /** Uncollected takings (`systems/till.ts`). */
+  till: number;
   cats: number;
   catAppealBase: number;
   upgrades: UpgradeLevels;
@@ -111,7 +114,13 @@ function spend(player: Player, onCatAdopted?: () => void): void {
 
 function simulate(habit: Habit, days: number) {
   const player: Player = {
-    money: ECONOMY_CONFIG.startingMoney,
+    // The walkthrough runs before the first minute of play the sim measures,
+    // and it ends with a gift (`ECONOMY_CONFIG.welcomeGift`) — so a simulated
+    // player who did *not* start with it is a player the game no longer has,
+    // and the early-pacing numbers this script exists to print would be for
+    // somebody else.
+    money: ECONOMY_CONFIG.startingMoney + ECONOMY_CONFIG.welcomeGift,
+    till: 0,
     cats: 1,
     catAppealBase: RARITY_CONFIG.common.appeal,
     upgrades: {},
@@ -137,8 +146,15 @@ function simulate(habit: Habit, days: number) {
         statsFor(player, false),
         contentCarriedMs,
       );
-      player.money = Math.min(ECONOMY_CONFIG.tillCapacity, player.money + earned);
-      offlineTotal += earned;
+      // **Into the till, and only what fits** (`systems/till.ts`). This is the
+      // line that makes the sim honest about time away: a habit with long gaps
+      // no longer banks the whole gap, it banks one drawer.
+      const landed = Math.min(earned, tillRoom(player.till, tillCapacity(player.upgrades)));
+      player.till += landed;
+      offlineTotal += landed;
+      // A player who opens the app empties the till — that *is* opening the app.
+      player.money += Math.floor(player.till);
+      player.till -= Math.floor(player.till);
 
       if (habit.pets) player.contentFor = ECONOMY_CONFIG.contentment.durationMs / 1000;
 
@@ -146,8 +162,12 @@ function simulate(habit: Habit, days: number) {
       for (let t = 0; t < habit.minutesPerSession * 60; t += 10) {
         const content = player.contentFor > 0;
         const income = liveIncomePerSecond(statsFor(player, content)) * 10;
-        player.money = Math.min(ECONOMY_CONFIG.tillCapacity, player.money + income);
-        activeTotal += income;
+        // Live income fills the till too, and a present player collects it as
+        // it arrives — which is the asymmetry the whole design rests on: being
+        // there means the drawer never gets a chance to fill up.
+        const taken = Math.min(income, tillRoom(player.till, tillCapacity(player.upgrades)));
+        player.money += taken;
+        activeTotal += taken;
         player.contentFor = Math.max(0, player.contentFor - 10);
         peak = Math.max(peak, player.money);
         const elapsed = day * DAY + session * gapSeconds + t;
@@ -178,8 +198,19 @@ function fmtMoney(n: number): string {
 const DAYS = 30;
 console.log(`
 === PROGRESSION over ${DAYS} simulated days ===
+
+Everyone starts on £${ECONOMY_CONFIG.startingMoney + ECONOMY_CONFIG.welcomeGift} — £${ECONOMY_CONFIG.startingMoney} plus the guide's
+£${ECONOMY_CONFIG.welcomeGift} parting gift, which is what a real player has the moment the
+walkthrough ends. The early columns therefore measure the gift as much as the
+curve; read "full house" as "how long after the tutorial", not "from nothing".
+
+**Income runs through the till** (systems/till.ts), which holds £${ECONOMY_CONFIG.tillCapacity} before
+it stops taking. A present player empties it as it fills, so it never binds on
+them; a habit with long gaps banks one drawer per gap, however long the gap.
+That gap is the whole mechanic — if "offline" here ever scales with time away
+again, the till has stopped working.
 `);
-console.log("habit                        cats  upgrades  peak till  £/min   2nd cat   full house");
+console.log("habit                        cats  upgrades  peak bank  £/min   2nd cat   full house");
 
 for (const habit of HABITS) {
   const { player, peak, catAt } = simulate(habit, DAYS);
@@ -193,7 +224,9 @@ for (const habit of HABITS) {
 }
 
 console.log(
-  `\nTill ceiling is ${fmtMoney(ECONOMY_CONFIG.tillCapacity)} — if "peak till" ever exceeds it, the clamp is broken.`,
+  `\nThe bank has no ceiling (2026-08-26) — what is capped is the till, at ` +
+    `${fmtMoney(ECONOMY_CONFIG.tillCapacity)} before the ${UPGRADE_DEFINITIONS.length > 1 ? "till upgrade" : "upgrade"}. ` +
+    `"peak bank" is now a reading, not a check.`,
 );
 
 console.log(`\n=== IS PLAYING WORTH IT? ===\n`);
@@ -210,6 +243,7 @@ for (const habit of HABITS) {
 // The headline number: does an hour of playing beat an hour of being away?
 const probe: Player = {
   money: 0,
+  till: 0,
   cats: 6,
   catAppealBase: 6 * AVG_CAT_APPEAL,
   upgrades: { brews: 3 },

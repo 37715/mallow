@@ -164,8 +164,8 @@ export const SHOP_ITEMS: ShopItem[] = [
   { id: "counter-treats", name: "Milkshakes & cakes", blurb: "Something to look at while you queue.", category: "counter", price: 90, appeal: 0.3, unlock: null, preview: "Food_Milkshake_Strawberry" },
 
   // --- Decoration ----------------------------------------------------------
-  { id: "blackboard", name: "Menu board", blurb: "Chalked up behind the counter.", category: "decor", price: 80, appeal: 0.3, unlock: null, preview: "Blackboard_Large", wall: true, wallY: 2.373 },
-  { id: "shelves", name: "Wall shelves", blurb: "Beans, cups and a trailing plant.", category: "decor", price: 150, appeal: 0.4, unlock: null, preview: "Shelf_A_Plank", wall: true, wallY: 1.857 },
+  { id: "blackboard", name: "Menu board", blurb: "Chalked up behind the counter.", category: "decor", price: 80, appeal: 0.3, unlock: null, preview: "Blackboard_Large", slot: "wallWood", wall: true, wallY: 2.373 },
+  { id: "shelves", name: "Wall shelves", blurb: "Beans, cups and a trailing plant.", category: "decor", price: 150, appeal: 0.4, unlock: null, preview: "Shelf_A_Plank", slot: "wallWood", wall: true, wallY: 1.857 },
   { id: "plants", name: "Plants", blurb: "Green, and quietly thriving.", category: "decor", price: 110, appeal: 0.4, unlock: catsAtLeast(2), preview: "Plant_Cactus_A_1" },
 
   // --- Outside -------------------------------------------------------------
@@ -198,7 +198,10 @@ export function furnitureAppeal(purchased: string[], copies: string[] = []): num
  * customisation, exactly as the authored placement does (`assetFor`).
  */
 export function copyAsset(item: ShopItem, choice?: Customisation): string {
-  if (item.slot && choice) return chosenAssets(choice)[item.slot];
+  // The fallback matters for the tint-only slots: `wallWood` has no row in
+  // `chosenAssets` on purpose (it covers three different meshes), so without
+  // it a second menu board came back as `undefined` and never built.
+  if (item.slot && choice) return chosenAssets(choice)[item.slot] ?? item.copy ?? item.preview;
   return item.copy ?? item.preview;
 }
 
@@ -208,6 +211,40 @@ export function copyAsset(item: ShopItem, choice?: Customisation): string {
  * Rises per copy, on the same curve the cat bed introduced, so a café full of
  * one cheap thing is a decision rather than the obvious play.
  */
+/**
+ * What the café can actually put in a customer's hand.
+ *
+ * Ellis, 2026-08-26: *"selling cupcakes should be an upgrade not by default."*
+ * Every guest used to be handed a random prop from the character pack —
+ * coffee, milkshake or cupcake — so a café that had bought nothing but a chair
+ * still had people walking out with cake. What is on the counter should be
+ * what people are carrying.
+ *
+ * **Expressed as shop items rather than as a levelled upgrade, deliberately.**
+ * §8's rule for any new lever is "check it isn't better expressed as something
+ * the player can put down and look at" — and here it already *is* one: the
+ * cake display and the tray of milkshakes are furniture in the catalogue, they
+ * cost money, and they depict the exact thing being sold. An upgrade level
+ * called "food" would be a second, invisible way to buy what the counter is
+ * already showing, which is the mistake that retired "cosy touches".
+ */
+export interface Refreshments {
+  /** Cupcakes — the display case, or the tray of cakes and shakes. */
+  cakes: boolean;
+  /** Milkshakes — only the tray has those. */
+  shakes: boolean;
+}
+
+/** Everything on offer: the default for anyone who is not a paying customer. */
+export const ALL_REFRESHMENTS: Refreshments = { cakes: true, shakes: true };
+
+export function servedRefreshments(purchased: string[]): Refreshments {
+  return {
+    cakes: purchased.includes("cake-display") || purchased.includes("counter-treats"),
+    shakes: purchased.includes("counter-treats"),
+  };
+}
+
 export function copyPrice(item: ShopItem, owned: number): number {
   return Math.round(item.price * Math.pow(1.45, Math.max(0, owned)));
 }

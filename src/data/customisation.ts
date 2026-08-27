@@ -66,6 +66,30 @@ export interface CustomisationOption {
   swatch: string;
   price: number;
   unlock: UnlockCondition | null;
+  /**
+   * A colour multiplied over the asset's own texture, for the pieces the pack
+   * ships in exactly one finish.
+   *
+   * **The exception, not the mechanism.** Everywhere else a colourway is an
+   * *asset swap* — the pack draws the sofa five times and the atlas does the
+   * work — and that is much the better way, because the artist chose those
+   * colours. The wall pieces have no twins: `Shelf_A/B/C_Plank` differ in what
+   * is standing on the shelf, not in the wood, and the menu board ships once.
+   * §0 had that filed as "wall pieces have no colourways" for a fortnight.
+   *
+   * So: a multiply, and a gentle one. Ellis, 2026-08-26: *"only a few subtle
+   * colour changes nothing crazy or itll look weird with the textures and
+   * stuff."* Right — the atlas cell is a painted wood grain with its own
+   * highlights, and a strong multiply flattens it into a coloured blob. The
+   * limits are in `customisation.test.ts` rather than in anyone's judgement:
+   * no channel under 0.45, and a luminance over 0.55, so a tint can shift the
+   * finish but can neither crush a hue out of the texture nor halve the shade.
+   *
+   * Written as the sRGB multiply you would type into a paint program:
+   * `Color.set` decodes it into the renderer's linear working space, which is
+   * exactly the conversion that makes the two agree.
+   */
+  tint?: string;
 }
 
 export interface CustomisationCategory {
@@ -175,6 +199,47 @@ export const CUSTOMISATION: CustomisationCategory[] = [
       },
     ],
   },
+  /**
+   * The menu board and the shelves, together, because the pack gives them one
+   * finish between them and a café whose board and shelves disagreed would
+   * look like a mistake rather than a choice.
+   *
+   * Priced low and opened early: this is the smallest change in the menu, and
+   * a category where every option is a variation on "wood" wants to be
+   * something you try, not something you save up for.
+   */
+  {
+    id: "woodwork",
+    name: "The woodwork",
+    hint: "The menu board and the shelves, in one finish.",
+    options: [
+      { id: "Natural", name: "Natural oak", swatch: "#BD7A38", price: 0, unlock: null },
+      {
+        id: "Walnut",
+        name: "Walnut",
+        swatch: "#7F4419",
+        price: 120,
+        unlock: null,
+        tint: "#B08E78",
+      },
+      {
+        id: "Sage",
+        name: "Sage wash",
+        swatch: "#8B6228",
+        price: 200,
+        unlock: furnishedAtLeast(4),
+        tint: "#BCCDB4",
+      },
+      {
+        id: "Blush",
+        name: "Blush wash",
+        swatch: "#A85A28",
+        price: 300,
+        unlock: breedsAtLeast(5),
+        tint: "#E3BDB6",
+      },
+    ],
+  },
   {
     id: "catBed",
     name: "The cat bed",
@@ -215,7 +280,9 @@ export type CustomisableSlot =
   | "wallWindow"
   | "sofa"
   | "carpet"
-  | "catBed";
+  | "catBed"
+  /** The menu board and the shelves. Tint-only — see `CustomisationOption.tint`. */
+  | "wallWood";
 
 /**
  * Which menu a given piece of the room belongs to, so holding a finger on the
@@ -233,6 +300,7 @@ export const SLOT_CATEGORY: Record<CustomisableSlot, string> = {
   sofa: "sofa",
   carpet: "carpet",
   catBed: "catBed",
+  wallWood: "woodwork",
 };
 
 export const DEFAULT_CUSTOMISATION: Customisation = Object.fromEntries(
@@ -287,5 +355,34 @@ export function chosenAssets(choice: Customisation): Record<string, string> {
     sofa: `Sofa_Single_${choice.sofa ?? "Cream"}`,
     carpet: `Carpet_${choice.carpet ?? "Small_Cream"}`,
     catBed: `Cat_Bed_${choice.catBed ?? "A_Cream"}`,
+    // **No `wallWood` row, and that is load-bearing.** Its colourways are
+    // tints, and the slot covers three different meshes — the board and two
+    // shelf planks. Naming one asset here would resolve all three to it, and
+    // `assetFor` falls back to the layout's own asset when a slot is missing,
+    // which is precisely the behaviour wanted. See `chosenTints`.
   };
+}
+
+/**
+ * The tint each slot is currently painted with, for the slots that have one.
+ *
+ * Keyed by slot rather than by category so it reads back exactly the way
+ * `chosenAssets` does — a caller holding a `Placement` has a slot, not a
+ * category, and should not have to know which of the two mechanisms a piece
+ * happens to use.
+ */
+export function chosenTints(choice: Customisation): Partial<Record<CustomisableSlot, string>> {
+  const out: Partial<Record<CustomisableSlot, string>> = {};
+  for (const [slot, categoryId] of Object.entries(SLOT_CATEGORY) as [
+    CustomisableSlot,
+    string,
+  ][]) {
+    const category = categoryById(categoryId);
+    if (!category) continue;
+    const chosen = category.options.find(
+      (option) => option.id === (choice[categoryId] ?? category.options[0].id),
+    );
+    if (chosen?.tint) out[slot] = chosen.tint;
+  }
+  return out;
 }

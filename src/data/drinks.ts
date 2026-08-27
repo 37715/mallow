@@ -196,6 +196,27 @@ export function baseDrink(id: string): BaseDrink | undefined {
   return BASE_DRINKS.find((d) => d.id === id);
 }
 
+/**
+ * The cheapest add-in this café could actually put on the shelf right now, or
+ * `null` if there is nothing left it is allowed to buy.
+ *
+ * Both halves matter, and only one of them is about money: an add-in that is
+ * already owned cannot be bought again, and one above the café's level cannot
+ * be bought at *any* price. The walkthrough asks the player to pick a flavour
+ * and tops the till up to what that costs — so it needs the price of a jar the
+ * player can really reach, and it needs to be told when there is no such jar
+ * (see `taskCost`/`taskPossible` in `systems/tutorial.ts`). Without the level
+ * half it would hand over £90 for something the shelf still refuses to sell.
+ */
+export function nextIngredient(owned: string[], level: number): Ingredient | null {
+  let best: Ingredient | null = null;
+  for (const item of INGREDIENTS) {
+    if (owned.includes(item.id) || item.level > level) continue;
+    if (!best || item.price < best.price) best = item;
+  }
+  return best;
+}
+
 export function ingredient(id: string): Ingredient | undefined {
   return INGREDIENTS.find((i) => i.id === id);
 }

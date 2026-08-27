@@ -12,7 +12,14 @@ import { createCharacterPreview } from "@/scene/character-preview";
 import { createGuidePortrait } from "@/scene/guide-portrait";
 import { mountOnboarding, type Onboarding } from "@/ui/onboarding";
 import { INTERACTIVE_FPS, TARGET_FPS, startLoop, type GameLoop } from "@/core/loop";
-import { gameStore, bootAwayMs, currentCafeStats, setSandbox } from "@/state/store";
+import {
+  gameStore,
+  bootAwayMs,
+  currentCafeStats,
+  firstIngredientIsFree,
+  ownedCount,
+  setSandbox,
+} from "@/state/store";
 import { initAutosave } from "@/state/save";
 import { CatManager } from "@/entities/cat-manager";
 import { Barista } from "@/entities/barista";
@@ -21,9 +28,14 @@ import { DustMotes } from "@/scene/dust";
 import { COUNTER_POSITION, doorPositions, seatFacings, seatPositions, seatStandPositions } from "@/scene/room";
 import { catHomes } from "@/scene/cat-homes";
 import { visitorPayAmount } from "@/data/economy";
+import { servedRefreshments } from "@/data/shop";
 import { createChoreWipe } from "@/ui/chore-wipe";
 import { CHORES_BY_ID } from "@/data/chores";
 import { TIP_JAR_AT, TIP_JAR_ITEM, tipsReady } from "@/data/tips";
+import { TILL_AT, tillWorthCollecting } from "@/data/till";
+import { tillCapacityFor } from "@/data/upgrades";
+import { levelOf } from "@/systems/upgrades";
+import { formatMoney } from "@/ui/format";
 import { createChoreSurface } from "@/scene/chore-surface";
 import { createWorldMarker } from "@/ui/world-marker";
 import { mountUI } from "@/ui/ui";
@@ -32,10 +44,13 @@ import { beds } from "@/data/beds";
 import { loadCharacterAssets } from "@/entities/character-library";
 import { SpeechBubble } from "@/ui/speech-bubble";
 import { SPEECH_MS_PER_CHAR, TutorialGuide } from "@/entities/tutorial-guide";
+import { FIRST_FURNITURE } from "@/systems/tutorial";
+import { MAX_CUSTOM_DRINKS, nextIngredient } from "@/data/drinks";
+import { levelProgress } from "@/data/progression";
 import { FloaterLayer } from "@/ui/floaters";
 import { initAnalytics } from "@/analytics/analytics";
-import { onGameEvent } from "@/core/events";
-import { initAudio, playCoin, playMeow, playPurchase, playPurr, playTap, setMusicMuted } from "@/audio/audio";
+import { emitGameEvent, onGameEvent } from "@/core/events";
+import { initAudio, playChirp, playCoin, playMeow, playPurchase, playPurr, playTap, setMusicMuted } from "@/audio/audio";
 
 async function bootstrap(): Promise<void> {
   const canvas = document.getElementById("scene") as HTMLCanvasElement;
@@ -62,6 +77,7 @@ async function bootstrap(): Promise<void> {
     gameStore.getState().player.backdrop,
     gameStore.getState().instances,
     gameStore.getState().windows,
+    gameStore.getState().upgrades,
   );
 
   // Assigned just below, but the camera controls close over it to raise the
@@ -78,8 +94,12 @@ async function bootstrap(): Promise<void> {
   let shownTiles = gameStore.getState().tiles;
   let shownInstances = gameStore.getState().instances;
   let shownWindows = gameStore.getState().windows;
+  // The till's model follows its upgrade level, so buying one has to rebuild
+  // the room — otherwise the thing you just paid to improve looks identical
+  // until something unrelated happens to trigger a rebuild.
+  let shownUpgrades = gameStore.getState().upgrades;
   gameStore.subscribe(() => {
-    const { customisation, placements, purchased, tiles, instances, windows } =
+    const { customisation, placements, purchased, tiles, instances, windows, upgrades } =
       gameStore.getState();
     if (
       customisation === shownCustomisation &&
@@ -87,7 +107,8 @@ async function bootstrap(): Promise<void> {
       purchased === shownPurchased &&
       tiles === shownTiles &&
       instances === shownInstances &&
-      windows === shownWindows
+      windows === shownWindows &&
+      upgrades === shownUpgrades
     ) {
       return;
     }
@@ -97,7 +118,8 @@ async function bootstrap(): Promise<void> {
     shownTiles = tiles;
     shownInstances = instances;
     shownWindows = windows;
-    void rebuildRoom(customisation, placements, purchased, tiles, instances, windows).then(() => {
+    shownUpgrades = upgrades;
+    void rebuildRoom({ choice: customisation, placements, purchased, tiles, instances, windows, upgrades }).then(() => {
       // Three of the four movable pieces are cat spots, so a moved bed has to
       // take its cat with it.
       // Cat spots depend on *both*: where furniture is, and whether it has
@@ -201,6 +223,23 @@ async function bootstrap(): Promise<void> {
       );
     }
     playCoin();
+  });
+
+  /**
+   * Emptying the till, celebrated over the counter.
+   *
+   * The money moves in the HUD, but the *takings* are a thing that happened in
+   * the café — so the coins come off the counter, which is where a guest paid
+   * them in the first place. Same anchor as a takeaway sale, deliberately: the
+   * two events are the same money at different ends of its journey.
+   */
+  onGameEvent("tillCollected", ({ amount }) => {
+    floaters.spawn(
+      new THREE.Vector3(COUNTER_POSITION.x, 0.85, COUNTER_POSITION.z),
+      camera,
+      "coin",
+      `+$${amount}`,
+    );
   });
 
   // --- Placement mode (§8 "The café editor", step 4) -----------------------
@@ -435,10 +474,20 @@ async function bootstrap(): Promise<void> {
       const position = catManager.worldPositionOf(catId);
       if (position) floaters.burstHearts(position, camera);
       playPurr();
-      // Sometimes they answer. Only sometimes: a cat that meows every single
-      // time you touch it is a doorbell, and the surprise is the charm. Silent
-      // until a recording is dropped in — see `playMeow`.
-      if (Math.random() < 0.3) window.setTimeout(playMeow, 260 + Math.random() * 220);
+      /**
+       * Sometimes they answer. **Only sometimes**: a cat that speaks every
+       * single time you touch it is a doorbell, and the surprise is the charm
+       * — the same reasoning that rate-limits the coin chime (§10).
+       *
+       * Two thirds of the time it is the chirrup rather than the meow, because
+       * this is a cat being *pleased*, and a meow is what a cat says when it
+       * wants something. Both are synthesised now (`audio/cat.ts`); this used
+       * to be silent until a recording was dropped in.
+       */
+      if (Math.random() < 0.4) {
+        const answer = Math.random() < 0.66 ? playChirp : playMeow;
+        window.setTimeout(answer, 260 + Math.random() * 220);
+      }
     },
   });
   attachControls(controls);
@@ -542,26 +591,37 @@ async function bootstrap(): Promise<void> {
    * marks anyone who has already played as done, on the same reasoning as the
    * v11 migration that skipped them past the creator.
    */
-  /** Run it again from settings, whatever the save says. */
+  /**
+   * Run it again from settings, whatever the save says.
+   *
+   * **It does not clear `tutorialDone`, and that is the point.** Clearing it
+   * was the old way in, and it made the replay indistinguishable from a first
+   * morning to everything downstream: `finishTutorial` ran again at the end,
+   * restamping `openedAt` (so every chore's clock restarted) and — once there
+   * was a parting gift to hand out — paying it a second time. A replay is a
+   * *tour*, not a first day. The save says the tour has happened; asking for
+   * another one does not make that untrue.
+   */
   function replayTutorial(): void {
     guide?.dispose();
     guide = null;
-    const player = gameStore.getState().player;
-    gameStore.setState({ player: { ...player, tutorialDone: false } });
-    startTutorial();
+    startTutorial(true);
   }
-  ui.attachTutorial(replayTutorial);
 
   /**
    * Built once and reused, not per playthrough: it holds an assembled
-   * character, and "show me round again" from settings would otherwise clone a
-   * skinned rig every time it was pressed.
+   * character, and replaying the walkthrough would otherwise clone a skinned
+   * rig every time.
    */
   const guidePortrait = createGuidePortrait(environment);
 
-  function startTutorial(): void {
+  function startTutorial(force = false): void {
     const player = gameStore.getState().player;
-    if (player.tutorialDone || guide) return;
+    if ((player.tutorialDone && !force) || guide) return;
+    // The chore marker keeps out of her way while she is talking — on a replay
+    // the save already says the tutorial is done, so `tutorialDone` can no
+    // longer stand in for "is the guide on screen".
+    ui.setGuideTalking(true);
     guide = new TutorialGuide(
       scene,
       { name: player.name, cafe: player.cafeName },
@@ -569,17 +629,39 @@ async function bootstrap(): Promise<void> {
         say: (text, now) => speech.say(text, now),
         quiet: () => speech.hide(),
         finished: () => {
-          gameStore.getState().finishTutorial();
+          // One-shot: it pays the welcome gift and stamps the café's opening
+          // time, and it no-ops on every later replay (`store.finishTutorial`).
+          const gift = gameStore.getState().finishTutorial();
           speech.hide();
           ui.point(null);
+          ui.setGuideTalking(false);
           guide?.dispose();
           guide = null;
+          // **The money has to be *seen* to arrive**, or a thousand pounds is a
+          // number that was already there when the player next looked at the
+          // till. It flies out of the doorway she has just walked through.
+          if (gift > 0) {
+            const { door } = doorPositions(gameStore.getState().tiles);
+            floaters.spawn(
+              new THREE.Vector3(door.x, door.y + 1.5, door.z),
+              camera,
+              "coin",
+              `+$${gift}`,
+            );
+            playPurchase();
+          }
         },
         // The only bits of the game the walkthrough looks at. Built fresh each
         // time it's asked rather than subscribed to, because it's read once per
         // frame and a stale snapshot is what would make a finished step hang.
         snapshot: () => {
           const s = gameStore.getState();
+          // What the shelf would really charge for the next flavour: free for
+          // the very first one (`firstIngredientIsFree`), the jar's price after
+          // that, and null when the café's level allows nothing new — which is
+          // the difference between a step that needs money and one that cannot
+          // be done at all (`taskPossible`).
+          const next = nextIngredient(s.ingredients, levelProgress(s.xp).level);
           return {
             money: s.money,
             beds: beds(s.placements, s.instances).length,
@@ -588,6 +670,9 @@ async function bootstrap(): Promise<void> {
             pieces: s.purchased.length + s.instances.length,
             placements: s.placementsMade,
             ingredients: s.ingredients.length,
+            nextIngredientCost: next ? (firstIngredientIsFree(s) ? 0 : next.price) : null,
+            canBlend: s.customDrinks.length < MAX_CUSTOM_DRINKS,
+            chairs: ownedCount(s, FIRST_FURNITURE),
           };
         },
         grant: (amount) => gameStore.getState().grantTutorialFunds(amount),
@@ -638,7 +723,9 @@ async function bootstrap(): Promise<void> {
     choreWipe.start(chore);
   });
   ui.attachChores((chore) =>
-    choreMarker.set(chore ? { id: chore.id, label: chore.action, at: chore.at } : null),
+    choreMarker.set(
+      chore ? { id: chore.id, label: chore.action, art: chore.art, at: chore.at } : null,
+    ),
   );
 
   /**
@@ -659,6 +746,36 @@ async function bootstrap(): Promise<void> {
       "coin",
       `+$${Math.round(taken)}`,
     );
+  });
+
+  /**
+   * The till, asking to be cashed up.
+   *
+   * Ellis, 2026-08-27: *"ideally the till is a real object that can be
+   * upgraded and tapped on to collect and is visible."* The cashier has stood
+   * on that counter since the room was built from the reference render, and
+   * nothing ever said it was the till — so the money was collected from a chip
+   * in the corner of the screen while the actual object sat there being
+   * scenery.
+   *
+   * **A marker rather than a raycast on the mesh**, for the reason the mover
+   * already documents: the cashier is 0.59 × 0.19 on a counter seen from
+   * across the room, and asking a thumb to hit that is a game of darts. The
+   * marker anchors *on* the object, which is what makes it read as tapping the
+   * till, without requiring the precision of actually doing so.
+   *
+   * The HUD chip still works. It is the readout, and it is the way to collect
+   * when the camera is somewhere else entirely — losing that to make a point
+   * about diegetic controls would be a downgrade nobody asked for.
+   */
+  const tillMarker = createWorldMarker(uiRoot, () => {
+    const taken = gameStore.getState().collectTill();
+    if (taken <= 0) return;
+    playPurchase();
+    // **The same event the HUD chip fires**, which is what pops the coins over
+    // the counter. Two ways to collect must land on one celebration, or the
+    // diegetic one quietly feels worse than the button it was meant to beat.
+    emitGameEvent("tillCollected", { amount: taken });
   });
 
   setOverlay((renderer, now) => {
@@ -722,13 +839,28 @@ async function bootstrap(): Promise<void> {
       store: gameStore,
       catManager,
       barista,
+      /**
+       * The guests, and their walks. §17 asks for a handle on anything
+       * spatial, and this is the one system with a per-frame state machine in
+       * it that nothing could see from outside — which is how a guest could
+       * end up juddering at the counter for a whole visit with no way to ask
+       * why (2026-08-27).
+       */
+      visitorManager,
       getRoomGroup,
       furnitureEditor,
       mover,
       beginPlacing,
       floaters,
-      // Also on the settings panel, for players — this is here so it can be
-      // driven from a script without opening a panel first.
+      /**
+       * **Dev only, and that is now the only door there is.** Ellis,
+       * 2026-08-27: *"remove the option to watch tutorial repeatably"* — so
+       * the settings row is gone. §17's rule that a first-run feature needs a
+       * second-run door still holds, though, and losing it entirely would make
+       * the walkthrough untestable by anyone but a player with a fresh save.
+       * It survives here, where `import.meta.env.DEV` compiles it out of the
+       * shipped app.
+       */
       replayTutorial,
       guide: () => guide,
       // The portrait is only on screen while a panel is open, which makes it
@@ -769,6 +901,9 @@ async function bootstrap(): Promise<void> {
     catManager.animate(now);
     barista.update(Math.min(0.1, (now - lastBaristaFrame) / 1000) || 0.016);
     lastBaristaFrame = now;
+    // What the counter can sell, live: buying the cake display starts putting
+    // cake in hands without a reload (`servedRefreshments`).
+    visitorManager.setServed(servedRefreshments(state.purchased));
     visitorManager.sync(visitors, now);
     // Before the labels: they project from world space, so they need the
     // camera in its final position for this frame or they lag a frame behind.
@@ -810,10 +945,28 @@ async function bootstrap(): Promise<void> {
       const state = gameStore.getState();
       tipMarker.set(
         tipsReady(state.tips) && state.purchased.includes(TIP_JAR_ITEM)
-          ? { id: "tips", label: "empty the jar", at: TIP_JAR_AT }
+          ? { id: "tips", label: "empty the jar", art: "jar" as const, at: TIP_JAR_AT }
           : null,
       );
       tipMarker.update(camera);
+
+      /**
+       * **A quarter full, not full** — see `TILL_PROMPT_FRACTION`. The jar's
+       * rule ("only when it is full") is right for a jar and wrong here: a
+       * player who waits for the brim every time has been throwing away the
+       * capacity they paid to increase, because a full till stops taking.
+       *
+       * The amount is on the pill, because the answer to "is it worth walking
+       * over?" is a number and the player should not have to look somewhere
+       * else for it.
+       */
+      const inTill = Math.floor(state.till);
+      tillMarker.set(
+        tillWorthCollecting(state.till, tillCapacityFor(levelOf(state.upgrades, "till")))
+          ? { id: "till", label: `cash up — ${formatMoney(inTill)}`, art: "till" as const, at: TILL_AT }
+          : null,
+      );
+      tillMarker.update(camera);
     }
     expansionGhosts.update(now);
     builder.sync(camera);

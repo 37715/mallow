@@ -24,12 +24,44 @@ export function isDue(chore: Chore, log: ChoreLog, openedAt: number, now: number
 }
 
 /**
+ * The parts of the café a chore's existence can depend on. See `ChoreNeeds`.
+ *
+ * A narrow shape rather than the whole state, so this stays pure and a test
+ * can describe a café in two lines.
+ */
+export interface ChoreSubjects {
+  purchased: string[];
+  windows: string[];
+}
+
+/**
+ * Has the café actually got the thing this job is about?
+ *
+ * **Required at every call site rather than defaulting to "yes".** A default
+ * would let a caller quietly reintroduce the bug this exists to stop — a
+ * marker pointing at a table nobody owns — and the compiler is the only thing
+ * that reliably notices.
+ */
+export function hasSubject(chore: Chore, cafe: ChoreSubjects): boolean {
+  const needs = chore.needs;
+  if (!needs) return true;
+  if (needs.item !== undefined && !cafe.purchased.includes(needs.item)) return false;
+  if (needs.window === true && cafe.windows.length === 0) return false;
+  return true;
+}
+
+/**
  * Everything that wants doing, **longest-overdue first**, so the prompt always
  * offers the job that has been waiting the longest rather than whichever one
  * happens to be first in the catalogue.
  */
-export function dueChores(log: ChoreLog, openedAt: number, now: number): Chore[] {
-  return CHORES.filter((c) => isDue(c, log, openedAt, now)).sort(
+export function dueChores(
+  log: ChoreLog,
+  openedAt: number,
+  now: number,
+  cafe: ChoreSubjects,
+): Chore[] {
+  return CHORES.filter((c) => hasSubject(c, cafe) && isDue(c, log, openedAt, now)).sort(
     (a, b) => dueAt(a, log, openedAt) - dueAt(b, log, openedAt),
   );
 }
@@ -41,13 +73,62 @@ export function dueChores(log: ChoreLog, openedAt: number, now: number): Chore[]
  * a café that never does one earns what it would have earned if this system
  * did not exist (`data/chores.ts` has the reasoning, and it is a pillar-1
  * requirement rather than a balance choice).
+ *
+ * **A job whose subject is missing counts as nothing, not as fresh.** It is
+ * never *due* either — there is nothing to do — so the obvious reading of
+ * "fresh means not due" would have paid a café for not owning a table, and
+ * paid it more than a café that owns one and has let it get crumby. That is
+ * the one direction this system must never run.
  */
-export function choreAppeal(log: ChoreLog, openedAt: number, now: number): number {
+export function choreAppeal(
+  log: ChoreLog,
+  openedAt: number,
+  now: number,
+  cafe: ChoreSubjects,
+): number {
   let total = 0;
   for (const chore of CHORES) {
+    if (!hasSubject(chore, cafe)) continue;
     if (!isDue(chore, log, openedAt, now)) total += chore.appeal;
   }
   return total;
+}
+
+/**
+ * Give a job its first grace period when its subject arrives.
+ *
+ * Without this, buying a low table into a café that has been open all day is
+ * met by an instant "wipe them down" — the chore's clock has been running
+ * since `openedAt` against a table that did not exist. Stamping it means the
+ * first wipe falls due `everyMs` after you got the thing, which is what the
+ * interval means everywhere else. It is the same courtesy `FIRST_DUE_MS`
+ * extends to a brand-new café, applied to a brand-new table.
+ *
+ * **Only for a job that has never been done, and that is what stops it being
+ * an exploit.** A stamp is indistinguishable from a completion — it makes the
+ * chore fresh, and fresh chores pay appeal. So a rule of "restamp whenever the
+ * subject reappears" would mean bricking a window up and re-glazing it (a full
+ * refund, so £0) collected the window's appeal every four hours forever,
+ * without ever wiping anything. Once a job has a schedule, losing and
+ * regaining its subject does not restart it.
+ *
+ * Takes both sides rather than just the new one so that glazing a *second*
+ * window is not an arrival at all.
+ */
+export function acquireSubjects(
+  log: ChoreLog,
+  before: ChoreSubjects,
+  after: ChoreSubjects,
+  now: number,
+): ChoreLog {
+  let out = log;
+  for (const chore of CHORES) {
+    if (chore.id in log) continue;
+    if (hasSubject(chore, before) || !hasSubject(chore, after)) continue;
+    if (out === log) out = { ...log };
+    out[chore.id] = now;
+  }
+  return out;
 }
 
 /** Mark one done. Returns a new log; never mutates. */

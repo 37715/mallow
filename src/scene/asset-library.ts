@@ -86,6 +86,45 @@ function isArchitectural(name: string): boolean {
   return name.startsWith("Wall") || name.startsWith("Flooring") || name.startsWith("Door");
 }
 
+/**
+ * Tinted copies of the shared material, one per colour, made once and reused.
+ *
+ * **Cached rather than cloned per object, and the reason is §13's.** Almost
+ * every object in the café shares one material, which is what keeps the room
+ * at a couple of draw calls; cloning per piece would give the board and each
+ * shelf a material of its own and break the batch, and the room is rebuilt on
+ * every purchase, so the clones would pile up unreferenced. A colour is the
+ * only thing that varies, so a map on the colour is exactly as many materials
+ * as there are distinct finishes on screen — one, in practice.
+ */
+const tinted = new Map<string, THREE.Material>();
+
+function tintedMaterial(base: THREE.Material, colour: string): THREE.Material {
+  const key = `${base.uuid}:${colour}`;
+  const existing = tinted.get(key);
+  if (existing) return existing;
+  const clone = (base as THREE.MeshStandardMaterial).clone();
+  // The atlas material's own colour is white, so this *is* the multiply.
+  // `set` decodes the sRGB string into the working colour space, which is what
+  // makes "#B08E78" mean the same thing here as it does in a paint program.
+  clone.color.set(colour);
+  tinted.set(key, clone);
+  return clone;
+}
+
+/**
+ * Multiply a colour over everything in this object. Used for the pieces the
+ * pack ships in one finish — see `CustomisationOption.tint`.
+ */
+export function applyTint(object: THREE.Object3D, colour: string): void {
+  object.traverse((child) => {
+    if (!(child instanceof THREE.Mesh)) return;
+    child.material = Array.isArray(child.material)
+      ? child.material.map((material) => tintedMaterial(material, colour))
+      : tintedMaterial(child.material, colour);
+  });
+}
+
 let cached: Promise<CafeAssets> | null = null;
 
 export function loadCafeAssets(): Promise<CafeAssets> {

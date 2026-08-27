@@ -106,6 +106,16 @@ export interface Placement {
    * colour is a save change rather than a layout edit.
    */
   slot?: CustomisableSlot;
+  /**
+   * This is the till, so its model follows the `till` upgrade rather than the
+   * player's colourways. See `data/till.ts`.
+   *
+   * A flag rather than another `CustomisableSlot`, because the two resolve
+   * from different halves of the save — a slot is read from `customisation`
+   * and this from `upgrades`, and folding an upgrade into `chosenAssets` would
+   * mean handing it the whole game state.
+   */
+  isTill?: boolean;
   x: number;
   z: number;
   /** Height off the floor. Omit for floor-standing objects. */
@@ -347,7 +357,10 @@ export const CAFE_LAYOUT: Placement[] = [
   { asset: "Deco_Wooden_Tray_A", x: -1.85, z: 0.632, y: 0.721, rotY: -HALF_PI },
   { asset: "Papercup_Lids_Stack_A", x: -1.85, z: 0.495, y: 0.74, rotY: -HALF_PI },
   { asset: "Stack_PaperCups_Flipped_A", x: -1.851, z: 0.78, y: 0.74, rotY: -HALF_PI },
-  { asset: "ComputerCashier_A", x: -0.131, z: -0.296, y: 0.78, rotY: HALF_PI },
+  // **The till.** `isTill` swaps the model for the one the upgrade has reached
+  // (`data/till.ts`); the asset here is the level-0 one and the fallback if
+  // anything ever fails to resolve.
+  { asset: "ComputerCashier_A", isTill: true, x: -0.131, z: -0.296, y: 0.78, rotY: HALF_PI },
   // The tip jar, on the serving peninsula next to the till. `TIP_JAR_AT` in
   // `data/tips.ts` is where its marker floats and must stay in step with this.
   { shopItem: "tip-jar", asset: "Deco_TallGlass_Empty", x: -0.62, z: 0.84, y: 0.78, rotY: 0.4 },
@@ -372,9 +385,9 @@ export const CAFE_LAYOUT: Placement[] = [
   { shopItem: "counter-treats", needs: "cake-display", asset: "Cupcake_LemonMatcha", x: -1.329, z: 1.176, y: 0.521, rotY: -0.7144, rotX: 0.1648 },
 
   // --- Left wall dressing, top to bottom ------------------------------------
-  { shopItem: "blackboard", asset: "Blackboard_Large", x: -1.964, z: 0.612, y: 2.373, rotY: HALF_PI },
-  { shopItem: "shelves", asset: "Shelf_A_Plank", x: -1.856, z: 0.318, y: 1.857, rotY: HALF_PI },
-  { shopItem: "shelves", asset: "Shelf_A_Plank", x: -1.856, z: 0.614, y: 1.391, rotY: HALF_PI },
+  { shopItem: "blackboard", asset: "Blackboard_Large", slot: "wallWood", x: -1.964, z: 0.612, y: 2.373, rotY: HALF_PI },
+  { shopItem: "shelves", asset: "Shelf_A_Plank", slot: "wallWood", x: -1.856, z: 0.318, y: 1.857, rotY: HALF_PI },
+  { shopItem: "shelves", asset: "Shelf_A_Plank", slot: "wallWood", x: -1.856, z: 0.614, y: 1.391, rotY: HALF_PI },
   { shopItem: "shelves", asset: "Deco_CoffeePack_Strawberry", x: -1.866, z: 0.292, y: 1.906, rotY: HALF_PI },
   { shopItem: "shelves", asset: "Deco_CoffeePack_Matcha", x: -1.866, z: -0.008, y: 1.906, rotY: HALF_PI },
   { shopItem: "shelves", asset: "Deco_CoffeePack_Cream", x: -1.866, z: -0.308, y: 1.906, rotY: HALF_PI },
@@ -393,7 +406,7 @@ export const CAFE_LAYOUT: Placement[] = [
   { shopItem: "shelves", asset: "Deco_TallGlass_Flipped", x: -1.882, z: -0.158, y: 1.44, rotY: -HALF_PI },
 
   // The tall shelf in the corner, with the trailing plant on top of it.
-  { asset: "Hanging_Shelf_A", x: -1.858, z: -1.278, y: 1.864, rotY: HALF_PI },
+  { asset: "Hanging_Shelf_A", slot: "wallWood", x: -1.858, z: -1.278, y: 1.864, rotY: HALF_PI },
   { shopItem: "shelves", asset: "Deco_CoffeePack_Espresso", x: -1.873, z: -1.453, y: 1.913, rotY: HALF_PI },
   { shopItem: "shelves", asset: "Deco_CoffeePack_Black", x: -1.873, z: -1.118, y: 1.913, rotY: HALF_PI },
   { shopItem: "shelves", asset: "Deco_CoffeePack_Cream", x: -1.839, z: -1.433, y: 2.414, rotY: HALF_PI },

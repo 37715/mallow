@@ -5,10 +5,11 @@ import { DEFAULT_BACKDROP, backdrop } from "@/data/backdrops";
 import type { Instance } from "@/state/store";
 import { HOME_WINDOW, PATCH, floorBounds, type TileKey } from "@/data/expansion";
 import { DEFAULT_LEVEL, pixelRatioFor, type GraphicsLevel } from "@/data/graphics";
-import { buildCafeRoom } from "@/scene/cafe-room";
+import { buildCafeRoom, type RoomState } from "@/scene/cafe-room";
 import { configureAssetQuality } from "@/scene/asset-library";
 import type { Customisation } from "@/data/customisation";
 import type { Placements } from "@/data/cafe-layout";
+import type { UpgradeLevels } from "@/systems/upgrades";
 
 export interface SceneContext {
   scene: THREE.Scene;
@@ -16,14 +17,7 @@ export interface SceneContext {
   renderer: THREE.WebGLRenderer;
   render: () => void;
   /** Rebuild the room after a colourway change or a furniture move. */
-  rebuildRoom: (
-    choice: Customisation,
-    placements: Placements,
-    purchased: string[],
-    tiles: TileKey[],
-    instances: Instance[],
-    windows: string[],
-  ) => Promise<void>;
+  rebuildRoom: (state: RoomState) => Promise<void>;
   /** The café's current object group, for raycasting against its furniture. */
   getRoomGroup: () => THREE.Group;
   /**
@@ -742,6 +736,8 @@ export async function createScene(
   backdropId: string = DEFAULT_BACKDROP,
   instances: Instance[] = [],
   windows: string[] = [HOME_WINDOW],
+  /** The till's model follows the `till` level — see `data/till.ts`. */
+  upgrades: UpgradeLevels = {},
 ): Promise<SceneContext> {
   const scene = new THREE.Scene();
   // A muted warm backdrop, like the pack's own promo renders. A pale one makes
@@ -880,7 +876,7 @@ export async function createScene(
   }
 
   setFloorExtent(floorBounds(tiles));
-  let cafe = await buildCafeRoom(customisation, placements, purchased, tiles, instances, windows);
+  let cafe = await buildCafeRoom({ choice: customisation, placements, purchased, tiles, instances, windows, upgrades });
   scene.add(cafe.group);
 
   /**
@@ -889,20 +885,14 @@ export async function createScene(
    * splitting them into two rebuild paths meant whichever ran second used a
    * stale copy of the other's state.
    */
-  async function rebuildRoom(
-    choice: Customisation,
-    next: Placements,
-    owned: string[],
-    tiles: TileKey[],
-    instances: Instance[],
-    windows: string[],
-  ): Promise<void> {
+  async function rebuildRoom(state: RoomState): Promise<void> {
+    const tiles = state.tiles ?? [];
     // Framing follows the floor, so the camera re-solves for the new extent
     // before the room appears rather than a frame later (§9).
     setFloorExtent(floorBounds(tiles));
     resize();
-    setWindows(windows);
-    const built = await buildCafeRoom(choice, next, owned, tiles, instances, windows);
+    setWindows(state.windows ?? [HOME_WINDOW]);
+    const built = await buildCafeRoom(state);
     scene.remove(cafe.group);
     cafe = built;
     scene.add(cafe.group);

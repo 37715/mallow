@@ -83,6 +83,33 @@ describe("the rules the café itself has to pass", () => {
     expect(at(0.5)).toBe(false); // half inside it — no
   });
 
+  it("will not let a small piece be stacked on another small piece", () => {
+    /**
+     * Ellis, 2026-08-26: *"ive seen characters sitting on a cat bed on top of a
+     * cat."* The nestle allowance is subtracted from the two pieces' *combined*
+     * reach, so a flat 0.3 was most of a cat bed — one could be dropped almost
+     * exactly onto a floor cushion and pass, and then a guest sat where the
+     * cushion is and a cat sat in the bed underneath them.
+     *
+     * The pair above still has to pass, which is the real constraint: big
+     * furniture must keep nestling while small furniture stops stacking.
+     */
+    const bed = turnedBox({ x: 0.5, z: 0.5 }, 0, 0, 0);
+    const onTopOf = (gap: number) => {
+      const cushion = turnedBox({ x: 0.5, z: 0.5 }, gap, 0, 0);
+      return checkPlacement(
+        boundsOf(cushion),
+        [{ ...boundsOf(bed), turned: bed, flat: false }],
+        ROUTE,
+        { surfaces: [FLOOR], routeClearance: 0.3 },
+        { turned: cushion },
+      ).ok;
+    };
+    expect(onTopOf(0)).toBe(false); // exactly on top of it
+    expect(onTopOf(0.25)).toBe(false); // half on top — this one used to pass
+    expect(onTopOf(0.5)).toBe(true); // edge to edge is still fine
+  });
+
   it("does not make a seat block the way to another seat", () => {
     // `DOOR_LOBBY` sits *inside* the café's own floor cushion, so counting
     // seats as obstacles made every chair in the room unreachable.
@@ -224,6 +251,84 @@ describe("placement rules", () => {
     expect(checkPlacement(behind, [wall], ROUTE, rules, { seat: true }).reason).toBe("unreachable");
     // The same spot is fine for something nobody has to sit in.
     expect(checkPlacement(behind, [wall], ROUTE, rules).ok).toBe(true);
+  });
+
+  /**
+   * The three faults Ellis found by playing it on 2026-08-26 — *"the pathway …
+   * can be innacruate or random"*, *"i cant place stuff in blank spots"*,
+   * *"sometimes i can place stuff inside other things and part of walls"*.
+   * All three were the validator measuring the wrong shape.
+   */
+  it("measures the walkway against the piece, not a circle round it", () => {
+    // A long thin bench lying *along* the route and well clear of it. The old
+    // test took the half-diagonal of the bounding box as a radius, so the
+    // longer the piece the further from the path it had to be — which is
+    // exactly backwards for a piece lying parallel to it.
+    const route: Point[] = [
+      { x: 0, z: 1.8 },
+      { x: 0, z: -1.8 },
+    ];
+    const bench = turnedBox({ x: 0.3, z: 2.4 }, 0.8, 0, 0);
+    const radius = Math.hypot(0.3, 2.4) / 2; // what the disc would have used
+    expect(radius + RULES.routeClearance).toBeGreaterThan(0.8);
+    expect(checkPlacement(boundsOf(bench), [], route, RULES, { turned: bench }).ok).toBe(true);
+  });
+
+  it("does not grow a piece's no-go zone when it is turned", () => {
+    // Same piece, same spot, turned 45°. Its real corners move a little; its
+    // *bounding box* grows by a third, and the disc grew with it.
+    const route: Point[] = [
+      { x: -1.8, z: 0 },
+      { x: 1.8, z: 0 },
+    ];
+    const at = (angle: number) => {
+      const box = turnedBox({ x: 0.9, z: 0.9 }, 0, 1.15, angle);
+      return checkPlacement(boundsOf(box), [], route, RULES, { turned: box }).ok;
+    };
+    expect(at(0)).toBe(true);
+    expect(at(Math.PI / 4)).toBe(true);
+  });
+
+  it("lets a piece hang over the open lip of the floor but never into a wall", () => {
+    // Measured, not assumed: at furniture height every wall in the pack has
+    // its inner face 0.05 *inside* the tile edge, so a piece that respects the
+    // edge cannot be seen in the plaster. `OVERHANG` is a proportion of the
+    // piece, so before this the bigger the furniture the deeper it sank.
+    const walls = [{ axis: "x" as const, at: -2, from: -2, to: 2 }];
+    const overOpenEdge = footprintAt({ x: 1, z: 1 }, 1.6, 0);
+    const intoTheWall = footprintAt({ x: 1, z: 1 }, -1.6, 0);
+
+    expect(checkPlacement(overOpenEdge, [], ROUTE, { ...RULES, walls }).ok).toBe(true);
+    expect(checkPlacement(intoTheWall, [], ROUTE, { ...RULES, walls }).reason).toBe("off-floor");
+    // …and with no wall declared on that edge it is the same overhang as any
+    // other, so an expanded café's new open edges keep behaving as before.
+    expect(checkPlacement(intoTheWall, [], ROUTE, RULES).ok).toBe(true);
+  });
+
+  it("leaves the floor under a wall piece free to stand on", () => {
+    // The menu board, the shelves and the hanging shelf all sit above 1.2, and
+    // every one of them was blocking the boards beneath it. The hanging branch
+    // of this function has always said a wall piece only clashes with other
+    // wall pieces; nothing said the converse, and the asymmetry was the bug.
+    const board: Obstacle = { ...footprintAt({ x: 2, z: 0.1 }, 0, -1.9), flat: false, wall: true };
+    expect(checkPlacement(footprintAt(SIZE, 0, -1.6), [board], ROUTE, RULES).ok).toBe(true);
+  });
+
+  it("measures the way to a seat against the real counter, not its bounds", () => {
+    // The café's counter is authored on the diagonal, so its axis-aligned box
+    // covers most of the room. A chair beside it was reported unreachable
+    // because the *box* stood between it and the door.
+    const lobby = { x: 1.8, z: 1.8 };
+    const counter = turnedBox({ x: 2.6, z: 0.5 }, 0, 0, Math.PI / 4);
+    const bounds = boundsOf(counter);
+    const chair = footprintAt(SIZE, 1.4, -0.9);
+    // The chair sits inside the counter's bounding box…
+    expect(chair.minX).toBeGreaterThan(bounds.minX);
+    expect(chair.maxZ).toBeLessThan(bounds.maxZ);
+    // …and there is nothing between it and the door but floor.
+    const rules = { ...RULES, approachFrom: lobby };
+    const obstacle: Obstacle = { ...bounds, turned: counter, flat: false };
+    expect(checkPlacement(chair, [obstacle], ROUTE, rules, { seat: true }).ok).toBe(true);
   });
 
   it("explains every refusal in the player's words", () => {

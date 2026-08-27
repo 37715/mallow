@@ -9,6 +9,14 @@ export interface GameEvents {
   visitorPaid: { seatIndex: number };
   /** Lifetime XP crossed into a new level. Fired once per level gained. */
   levelUp: { level: number };
+  /**
+   * The player emptied the till into the bank (`systems/till.ts`).
+   *
+   * Announced rather than handled where it happens, because the money moves in
+   * the HUD and the *celebration* belongs over the café — the coins should come
+   * off the counter, which only the scene knows where to find.
+   */
+  tillCollected: { amount: number };
 }
 
 type Handler<K extends keyof GameEvents> = (payload: GameEvents[K]) => void;

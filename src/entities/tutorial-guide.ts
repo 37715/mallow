@@ -7,7 +7,7 @@ import {
   type TutorialLine,
 } from "@/data/tutorial";
 import { MOUTH_REST, frameAt, visemeTrack, type VisemeStep } from "@/systems/lipsync";
-import { taskDone, topUp, type TutorialSnapshot } from "@/systems/tutorial";
+import { taskDone, taskPossible, topUp, type TutorialSnapshot } from "@/systems/tutorial";
 import { DOOR_POSITION, DOOR_THRESHOLD_POSITION } from "@/scene/room";
 import type { GuideMirror } from "@/scene/guide-portrait";
 
@@ -271,7 +271,15 @@ export class TutorialGuide {
       this.mirror?.gesture(line.gesture);
     }
 
-    if (line.task) {
+    // **A step nobody could finish is said, not waited on.** The menu holds
+    // four blends and the shelf runs out of add-ins, so a replay can reach a
+    // task with no possible completion — and a task line cannot be tapped past
+    // (`advance` refuses on purpose), so waiting on one traps the player with
+    // the arrow still pulsing at a panel that will not help. She says her line
+    // and moves on when tapped, like any other.
+    const waits = line.task !== undefined && taskPossible(line.task, this.hooks.snapshot());
+
+    if (line.task && waits) {
       // **Grant before baselining.** The top-up moves `money`, and the
       // baseline is what "did they do it" is measured against — take it first
       // and the grant itself looks like progress on a step about spending.

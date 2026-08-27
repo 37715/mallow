@@ -138,6 +138,34 @@ export function tickVisitors(
       }
       return visitor;
     })
+    /**
+     * **A guest whose chair has left the room gets up.**
+     *
+     * A seat index is chosen once, when they arrive, out of the seats the café
+     * owned *then* — but the room is an editor, so the chair can be sold out
+     * from under them. Nothing downstream noticed: `seatPositions` returns a
+     * position for all five authored seats whether or not the café owns them,
+     * so the guest carried on sitting at the exact spot where the chair used
+     * to be. Ellis, 2026-08-26: *"ive seen characters sitting on … just on the
+     * floor before.. should never happen."*
+     *
+     * They leave rather than being teleported to a free chair: standing up and
+     * walking out is a thing a person does, and being flicked across the room
+     * mid-sip is not. They keep whatever they already paid — the café has had
+     * their money and the cup was real.
+     */
+    .map((visitor) => {
+      if (visitor.takeaway || now >= visitor.leavingAt) return visitor;
+      if (stats.seats.includes(visitor.seatIndex)) return visitor;
+      // `doneAt` is pushed out too, so they get a whole walk to the door
+      // rather than whatever was left of the one they were going to have.
+      return {
+        ...visitor,
+        seatedAt: now,
+        leavingAt: now,
+        doneAt: now + ECONOMY_CONFIG.walkOutDurationMs,
+      };
+    })
     .filter((visitor) => now < visitor.doneAt);
 
   let spawnedThisTick = false;

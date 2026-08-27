@@ -37,6 +37,23 @@
 export type ChoreGame = "wipe";
 
 /**
+ * Which little picture the marker wears.
+ *
+ * **Every job gets its own, and it shows the thing that needs doing.** Ellis,
+ * 2026-08-17: *"the wipe floor, table, window need unique icons foreach … look
+ * more colourful like show the object that needs cleaning in the icon
+ * beautifully."* Three identical sparkles said "something, somewhere" — which
+ * is exactly the failure a marker on the object was meant to fix, reintroduced
+ * one level up. A pane of glass, a tabletop and a patch of floorboards are
+ * instantly distinguishable at 26px; a sparkle three times is not.
+ *
+ * Named here rather than keyed off `id` so a new chore has to *choose* a
+ * picture, and so a job whose art is shared (two tables, say) can say so.
+ * Drawn in `ui/chore-art.ts`.
+ */
+export type ChoreArt = "window" | "table" | "floor";
+
+/**
  * What the minigame shows you, and how it is framed.
  *
  * **One surface per chore, filling the card.** Ellis, 2026-08-26: *"it looks
@@ -73,6 +90,31 @@ export interface ChoreSurface {
   aimY?: number;
 }
 
+/**
+ * What has to exist in the café before a job makes any sense.
+ *
+ * **A chore about a thing you have not got is worse than no chore.** The
+ * marker points at bare floor, the minigame renders furniture that is not in
+ * the room, and the café asks you to wipe a table it does not own — found
+ * while looking at the new markers, 2026-08-17.
+ *
+ * Two rules follow from the mechanic being upside-only (see the header):
+ *
+ * - An unavailable job contributes **no appeal**, exactly like an overdue one.
+ *   Anything else and not owning a table would pay better than owning a clean
+ *   one, which is the one direction this system must never run.
+ * - Its clock starts when the subject *arrives*, not when the café opened —
+ *   see `acquireSubjects` in `systems/chores.ts`. Otherwise buying a table into
+ *   a café that has been open all day is greeted by an immediate demand to
+ *   clean it, which is a nag attached to a purchase.
+ */
+export interface ChoreNeeds {
+  /** A shop item that has to be in the café. */
+  item?: string;
+  /** At least one pane of glass — a window can be bricked back up (§ builder). */
+  window?: boolean;
+}
+
 export interface Chore {
   id: string;
   /**
@@ -93,6 +135,10 @@ export interface Chore {
   /** One line under the title while the minigame is open. */
   hint: string;
   game: ChoreGame;
+  /** The picture on the marker floating over the job. See `ChoreArt`. */
+  art: ChoreArt;
+  /** What the café must have for this job to exist at all. See `ChoreNeeds`. */
+  needs?: ChoreNeeds;
   /** What the minigame renders, and how it frames it. */
   surface: ChoreSurface;
   /** How long after doing it before it needs doing again. */
@@ -122,6 +168,10 @@ export const CHORES: Chore[] = [
     action: "give it a wipe",
     hint: "drag to wipe the glass",
     game: "wipe",
+    art: "window",
+    // Glass can be bricked back up from builder mode, and a café with no
+    // window has nothing to smear.
+    needs: { window: true },
     // **Tight on the glass.** The aperture is 2.24 across, so a span under
     // that means the card is pane and frame and no wall at all — which is the
     // whole ask: *"it should only be pure glass. not the entire wall."*
@@ -140,6 +190,9 @@ export const CHORES: Chore[] = [
     action: "wipe them down",
     hint: "drag to clear the crumbs",
     game: "wipe",
+    art: "table",
+    // The low table is a shop item, so a new café genuinely has no table.
+    needs: { item: "low-table" },
     // Looking down at the tabletop from across it, the way you would stand,
     // and close enough that the top fills the card rather than floating in the
     // middle of it.
@@ -151,12 +204,28 @@ export const CHORES: Chore[] = [
   },
   {
     id: "sweep",
-    // Clear floor in the middle of the room, away from the walking route.
-    at: { x: 0.55, y: 0.22, z: -0.35 },
+    /**
+     * **Open floorboards in the foreground, not the middle of the room.**
+     *
+     * The middle is only clear on the *plan*: from a camera parked on the open
+     * corner the counter peninsula stands between it and the viewer, so the
+     * marker hung over the till and the coffee machine. Ellis, 2026-08-17:
+     * *"appear in better spot not in the way of stuff."*
+     *
+     * Chosen by measurement rather than by reading the layout — every floor
+     * point on a 0.2 grid was projected and raycast against a **fully
+     * furnished** café, keeping only those the camera can actually see, then
+     * ranked by how low on the screen they land so the lifted pill has open
+     * floor above it. This one sits at 512px down a 852px screen with nothing
+     * in front of it.
+     */
+    at: { x: 1.55, y: 0.15, z: 0.2 },
     name: "there's fur on the floorboards",
     action: "sweep up",
     hint: "drag to sweep it up",
     game: "wipe",
+    art: "floor",
+    // No `needs`: the floorboards are the one thing every café has.
     // A patch of boards rather than the whole 4-unit tile: close enough that
     // the planks read as a floor you are crouching over.
     surface: { slot: "floor", from: [0.1, 1, 0.7], span: 2.2, aspect: 1 },

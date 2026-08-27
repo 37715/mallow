@@ -28,13 +28,21 @@ import {
   expansionCost,
   expansionLevel,
   floorAppeal,
+  ownedPatches,
   tileKey,
   type TileKey,
 } from "@/data/expansion";
 import { DEFAULT_PLAYER, type PlayerProfile } from "@/data/player";
 import { CHORES_BY_ID } from "@/data/chores";
 import { TIP_JAR_ITEM, addTips, tipsReady } from "@/data/tips";
-import { choreAppeal, completeChore, isDue, type ChoreLog } from "@/systems/chores";
+import { addToTill, tillCapacity, tillRoom } from "@/systems/till";
+import {
+  acquireSubjects,
+  choreAppeal,
+  completeChore,
+  isDue,
+  type ChoreLog,
+} from "@/systems/chores";
 import type { GraphicsLevel } from "@/data/graphics";
 import { backdrop, backdropAppeal, sanitizeBackdrop } from "@/data/backdrops";
 
@@ -165,6 +173,15 @@ export interface GameState {
    * happens if a session ends mid-placement.
    */
   pendingPurchase: { id: string; cost: number } | null;
+  /**
+   * Takings waiting at the counter, uncollected (`systems/till.ts`).
+   *
+   * **Everything the café earns lands here, not in `money`** — visitors while
+   * you watch, and idle income while you are away. It holds
+   * `tillCapacity(upgrades)` and then stops taking, which is what makes a
+   * fortnight away worth the same as a night away.
+   */
+  till: number;
   /** Coins in the tip jar. Only collectable when full — see `data/tips.ts`. */
   tips: number;
   /** When each chore was last done (`systems/chores.ts`). */
@@ -212,7 +229,15 @@ export interface GameState {
   movePiece: (id: string, x: number, z: number, rot?: number) => void;
   /** Mark a chore done — pays, grants xp, restores its appeal. */
   finishChore: (id: string) => void;
-  /** Empty the tip jar into the till. Returns what was in it, or 0. */
+  /**
+   * Empty the till into the bank. Returns what was collected, or 0.
+   *
+   * The one place `money` ever goes up from trading — everything the café
+   * earns passes through here, which is what makes the bank's growth a
+   * function of showing up rather than of elapsed time.
+   */
+  collectTill: () => number;
+  /** Empty the tip jar into the bank. Returns what was in it, or 0. */
   collectTips: () => number;
   /**
    * Take the money for a piece the player has just put down. Returns what was
@@ -223,8 +248,14 @@ export interface GameState {
   buyShopItem: (id: string) => boolean;
   /** Finish character creation. */
   setPlayer: (profile: PlayerProfile) => void;
-  /** The guide has finished, or been skipped. Either way, never again. */
-  finishTutorial: () => void;
+  /**
+   * The guide has finished, or been skipped. Either way, never again.
+   *
+   * Returns the welcome gift it paid (`ECONOMY_CONFIG.welcomeGift`), so the
+   * caller can make something of the money arriving — and **0 on every later
+   * replay**, because this is a one-shot and a tour is not a payday.
+   */
+  finishTutorial: () => number;
   /**
    * Hand the player exactly enough to do what the walkthrough just asked.
    *
@@ -278,6 +309,15 @@ export interface GameState {
   undoPurchase: (id: string) => void;
   /** Sell a bought bed back. Its cat rehomes to a spare (`data/beds.ts`). */
   sellInstance: (id: string) => void;
+  /**
+   * Sell one of a shop item back — the newest copy if there is one, otherwise
+   * the piece itself. Returns what was refunded, or 0 if the sale was refused.
+   *
+   * Ellis, 2026-08-26: *"i want to be able to sell furniture too."* Copies
+   * could already go back (`sellInstance`); the *first* one could not, so a
+   * café was stuck with every mistake it had ever bought.
+   */
+  sellShopItem: (itemId: string) => number;
   /**
    * Grant idle earnings for time spent away (§8). Returns the amount earned
    * (0 below the minimum-away threshold) so the UI can show the welcome-back card.
@@ -359,7 +399,7 @@ export function currentCafeStats(state: StatsInput, now = Date.now()): CafeStats
     state.upgrades,
     // A well-kept café is a lovelier one. Fresh chores only, and never
     // negative — `systems/chores.ts` explains why the floor matters.
-    spentAppeal(state) + choreAppeal(state.chores, state.openedAt, now),
+    spentAppeal(state) + choreAppeal(state.chores, state.openedAt, now, state),
     menuPayMultiplier(currentMenu(state)),
     availableSeats(state.purchased),
   );
@@ -377,7 +417,7 @@ export function idleCafeStats(state: StatsInput): CafeStats {
     // does: they were done before you left, and nothing expires *because* you
     // left. `Date.now()` rather than the caller's clock, since offline income
     // is measured from wall time.
-    spentAppeal(state) + choreAppeal(state.chores, state.openedAt, Date.now()),
+    spentAppeal(state) + choreAppeal(state.chores, state.openedAt, Date.now(), state),
     menuPayMultiplier(currentMenu(state)),
     availableSeats(state.purchased),
   );
@@ -403,6 +443,7 @@ type PersistedState = Pick<
   | "tiles"
   | "backdropsOwned"
   | "windows"
+  | "till"
   | "tips"
   | "chores"
   | "openedAt"
@@ -445,6 +486,7 @@ function freshState(): PersistedState {
     tiles: [HOME_TILE],
     backdropsOwned: [],
     windows: [HOME_WINDOW],
+    till: 0,
     tips: 0,
     chores: {},
     openedAt: Date.now(),
@@ -458,8 +500,11 @@ const saved = loadSave();
 /** Wall-clock ms since the last save at boot — 0 for fresh games. main.ts turns this into offline earnings. */
 export const bootAwayMs = saved ? Math.max(0, Date.now() - saved.savedAt) : 0;
 
+/** What sandbox mode tops the bank up to, every tick. */
+const SANDBOX_MONEY = 99_999;
+
 /**
- * Sandbox mode: the till refills itself.
+ * Sandbox mode: the bank refills itself.
  *
  * **A testing tap, not a cheat menu.** Ellis: *"give me infinite money to test
  * it."* Everything expensive in the game now sits behind hours of play, which
@@ -518,6 +563,7 @@ export const gameStore = createStore<GameState>((set, get) => ({
         tiles: saved.tiles,
         backdropsOwned: saved.backdropsOwned,
         windows: saved.windows,
+        till: saved.till,
         tips: saved.tips,
         chores: saved.chores,
         openedAt: saved.openedAt,
@@ -565,11 +611,14 @@ export const gameStore = createStore<GameState>((set, get) => ({
       lastVisitorSpawnAt: result.lastSpawnAt,
       // **The sandbox top-up has to happen *here*, in the same `set`.** Doing
       // it as a separate `set()` earlier in the tick looked fine and did
-      // nothing: this call writes `money` derived from the `state` captured at
+      // nothing: this call writes state derived from the `state` captured at
       // the top of the tick, so it overwrote the top-up on the very next line.
-      money: sandbox
-        ? ECONOMY_CONFIG.tillCapacity
-        : Math.min(ECONOMY_CONFIG.tillCapacity, money + result.moneyEarned),
+      money: sandbox ? SANDBOX_MONEY : money,
+      // **Takings go into the till, not the bank.** What a guest pays is not
+      // yours until you have been to the counter and collected it — which is
+      // the whole of Ellis's mechanic (2026-08-26) and the reason four days
+      // away and four hours away come home to the same full drawer.
+      till: addToTill(state.till, result.moneyEarned, tillCapacity(state.upgrades)),
       // Tips are **minted on top** of what a visitor pays, never skimmed off
       // it — see `data/tips.ts`. Same `set` as the money for the reason above.
       tips: state.purchased.includes(TIP_JAR_ITEM)
@@ -686,7 +735,10 @@ export const gameStore = createStore<GameState>((set, get) => ({
     if (!isDue(chore, state.chores, state.openedAt, now)) return;
     set({
       chores: completeChore(state.chores, id, now),
-      money: Math.min(ECONOMY_CONFIG.tillCapacity, state.money + chore.pay),
+      // Straight to the bank rather than the till: this is paid for *work
+      // the player did*, not takings the café made while they were out, and
+      // routing it through the till would let a full drawer swallow it.
+      money: state.money + chore.pay,
       xp: state.xp + chore.xp,
     });
     logEvent({ name: "chore_done", chore: id });
@@ -700,14 +752,28 @@ export const gameStore = createStore<GameState>((set, get) => ({
    * settles on the way out for exactly that reason. Settling twice is
    * harmless — the pending record is cleared here.
    */
+  collectTill: () => {
+    const state = get();
+    const taken = Math.floor(state.till);
+    if (taken <= 0) return 0;
+    // **Floor, and keep the remainder.** The till accrues fractions of a penny
+    // every frame; rounding up would mint money on every collection, and
+    // rounding down while zeroing the till would quietly eat it. What is left
+    // is the fraction that has not become a coin yet.
+    set({ money: state.money + taken, till: state.till - taken });
+    logEvent({ name: "till_collected", amount: taken, money: state.money + taken });
+    return taken;
+  },
+
   collectTips: () => {
     const state = get();
     if (!tipsReady(state.tips) || !state.purchased.includes(TIP_JAR_ITEM)) return 0;
     const taken = Math.round(state.tips);
-    set({
-      money: Math.min(ECONOMY_CONFIG.tillCapacity, state.money + taken),
-      tips: 0,
-    });
+    // **Tips go to the bank, not the till**, and the distinction is worth
+    // keeping: the jar is money left for *you*, the till is the café's
+    // takings. It also means a full till never blocks the jar, which would be
+    // a rule the player could not see and could not act on.
+    set({ money: state.money + taken, tips: 0 });
     logEvent({ name: "tips_collected", amount: taken });
     return taken;
   },
@@ -751,23 +817,36 @@ export const gameStore = createStore<GameState>((set, get) => ({
   grantTutorialFunds: (amount) => {
     if (!(amount > 0)) return;
     const state = get();
-    // The till ceiling still applies — it is the thing that keeps money
-    // readable (§8), and the tutorial is not a reason to breach it.
-    set({ money: Math.min(state.money + amount, ECONOMY_CONFIG.tillCapacity) });
+    // No ceiling to respect any more: the bank is unbounded, and what keeps
+    // the numbers sane is the till the café earns into (`systems/till.ts`).
+    set({ money: state.money + amount });
   },
 
   finishTutorial: () => {
     const state = get();
-    if (state.player.tutorialDone) return;
+    // **The one-shot guard is what makes the gift safe.** "Show me round
+    // again" no longer clears this flag (see `replayTutorial` in main.ts), so
+    // a second tour returns 0 here — otherwise the settings row would be a
+    // £1,000 button with a walkthrough attached.
+    if (state.player.tutorialDone) return 0;
     // **The café opens when the guide leaves.** `openedAt` is what a chore's
     // first due date counts from, so stamping it here — rather than at café
     // creation — is what makes "five seconds after Mal walks out" mean that,
     // instead of five seconds after the save was written and therefore
     // somewhere in the middle of her walkthrough.
-    set({ player: { ...state.player, tutorialDone: true }, openedAt: Date.now() });
+    // **A parting gift, so the café has somewhere to go next** (Ellis,
+    // 2026-08-23). Paid in full: the bank has no ceiling, and a gift that
+    // silently arrived short would be worse than no gift.
+    const gift = ECONOMY_CONFIG.welcomeGift;
+    set({
+      player: { ...state.player, tutorialDone: true },
+      openedAt: Date.now(),
+      money: state.money + gift,
+    });
     // §11 wants the progression funnel measured, and "did they sit through the
     // intro or bail out of it" is the very first question the funnel can ask.
     logEvent({ name: "tutorial_finished" });
+    return gift;
   },
 
   unlockDrink: (id) => {
@@ -868,7 +947,7 @@ export const gameStore = createStore<GameState>((set, get) => ({
     const pending = state.pendingPurchase;
     const unpaid = pending?.id === id;
     const refund = (cost: number) =>
-      unpaid ? state.money : Math.min(ECONOMY_CONFIG.tillCapacity, state.money + cost);
+      unpaid ? state.money : state.money + cost;
 
     const instance = state.instances.find((i) => i.id === id);
     if (instance) {
@@ -898,6 +977,17 @@ export const gameStore = createStore<GameState>((set, get) => ({
     const state = get();
     const instance = state.instances.find((i) => i.id === id);
     if (!instance) return;
+    // **A bed that somebody lives in only goes if there is somewhere to move
+    // them to.** `catPositions` falls back to stacking a homeless cat on top
+    // of another one, which is a visible mess and, worse, the first step
+    // toward a cat with nowhere to be — and §8's one sacred rule is that a
+    // player never loses a cat. Refusing is a rule the player can act on: sell
+    // a different bed, or none.
+    if (instance.item === CAT_BED_ITEM) {
+      const all = beds(state.placements, state.instances);
+      // One bed per cat, so selling one is only allowed while there is slack.
+      if (state.cats.length >= all.length) return;
+    }
     /**
      * **Half back.** A full refund would make the shop a free sandbox, and
      * nothing back would make trying a second plant a punishment — neither is
@@ -912,9 +1002,56 @@ export const gameStore = createStore<GameState>((set, get) => ({
     // Losing a cat because a piece of furniture was sold would be exactly the
     // loss §8 forbids.
     set({
-      money: Math.min(ECONOMY_CONFIG.tillCapacity, state.money + Math.round(paid / 2)),
+      money: state.money + Math.round(paid / 2),
       instances: state.instances.filter((i) => i.id !== id),
     });
+    logEvent({ name: "furniture_sold", item: instance.item, refund: Math.round(paid / 2) });
+  },
+
+  sellShopItem: (itemId) => {
+    const state = get();
+    const item = shopItem(itemId);
+    if (!item) return 0;
+
+    // **The newest copy first.** Copies are priced on a rising curve, so
+    // selling the dearest one back is both what the player expects (the last
+    // thing they bought) and what keeps buy-then-sell a loss at every step.
+    const copies = state.instances.filter((i) => i.item === itemId);
+    const newest = copies[copies.length - 1];
+    if (newest) {
+      const before = get().money;
+      get().sellInstance(newest.id);
+      return get().money - before;
+    }
+
+    if (!state.purchased.includes(itemId)) return 0;
+    // The last cat bed in the café is the authored one, and a cat lives in it.
+    if (itemId === CAT_BED_ITEM || item.place === "cat-bed") {
+      if (state.cats.length > 0) return 0;
+    }
+
+    /**
+     * **Half back, like a copy** — and no XP is taken.
+     *
+     * `undoPurchase` *does* reverse XP, because cancelling a placement costs
+     * nothing and would otherwise be a free tap to farm the ring. A sale is
+     * different: it costs half the price, so the loop is a real loss in the
+     * currency that matters, and clawing XP back would demote a player's level
+     * — which `data/progression.ts` promises never happens.
+     */
+    const refund = Math.round(item.price / 2);
+    // The override goes with it. Left behind, re-buying the piece would put it
+    // back wherever it was last dragged rather than where the layout composed
+    // it, which is the arrangement the room was designed around.
+    const placements = { ...state.placements };
+    if (item.place) delete placements[item.place];
+    set({
+      money: state.money + refund,
+      purchased: state.purchased.filter((id) => id !== itemId),
+      placements,
+    });
+    logEvent({ name: "furniture_sold", item: itemId, refund });
+    return refund;
   },
 
   buyTile: (key) => {
@@ -922,7 +1059,22 @@ export const gameStore = createStore<GameState>((set, get) => ({
     if (state.tiles.includes(key)) return false;
     if (!expansionCandidates(state.tiles).some((t) => tileKey(t) === key)) return false;
 
-    const owned = state.tiles.length;
+    /**
+     * **Squares bought, not entries in `tiles`.**
+     *
+     * `tiles` carries `HOME_TILE` as its first element, so `tiles.length` is
+     * one *more* than the number of squares the player has paid for — and both
+     * curves here are indexed by squares bought. Using the length priced and
+     * gated every square one step ahead of the "+" marker the player was
+     * looking at (`ui/builder.ts` counts with `ownedPatches`), so the button
+     * offered the café's first square at $900 / level 3 while this refused it
+     * below $1,710 / level 5. An enabled button that silently does nothing:
+     * Ellis, 2026-08-17, *"i can no longer extend anywhere it breaks it."*
+     *
+     * `expansion.test.ts` pins the two against each other, because the failure
+     * is invisible from either side alone — each curve is self-consistent.
+     */
+    const owned = ownedPatches(state.tiles).length;
     if (levelProgress(state.xp).level < expansionLevel(owned)) return false;
     const cost = expansionCost(owned);
     if (state.money < cost) return false;
@@ -969,7 +1121,14 @@ export const gameStore = createStore<GameState>((set, get) => ({
     if (occupiedWalls(state.placements, state.purchased, state.instances).has(id)) return false;
     if (state.money < WINDOW_PRICE) return false;
 
-    set({ money: state.money - WINDOW_PRICE, windows: [...state.windows, id] });
+    const windows = [...state.windows, id];
+    set({
+      money: state.money - WINDOW_PRICE,
+      windows,
+      // Glazing the café's *first* window starts the smear clock; glazing a
+      // second one does not reset it. See `acquireSubjects`.
+      chores: acquireSubjects(state.chores, state, { ...state, windows }, Date.now()),
+    });
     logEvent({ name: "window_bought", cost: WINDOW_PRICE });
     get().grantXp(XP_AWARDS.furniture(WINDOW_PRICE));
     return true;
@@ -986,7 +1145,7 @@ export const gameStore = createStore<GameState>((set, get) => ({
      * up with more money than you started with.
      */
     set({
-      money: Math.min(ECONOMY_CONFIG.tillCapacity, state.money + WINDOW_PRICE),
+      money: state.money + WINDOW_PRICE,
       windows: state.windows.filter((w) => w !== id),
     });
     return true;
@@ -1042,10 +1201,15 @@ export const gameStore = createStore<GameState>((set, get) => ({
     if (item.unlock && !item.unlock.met(currentProgress(state))) return false;
     if (state.money < item.price) return false;
 
+    const purchased = [...state.purchased, id];
     // Charged on placement, not here — see `pendingPurchase`.
     set({
-      purchased: [...state.purchased, id],
+      purchased,
       pendingPurchase: { id, cost: item.price },
+      // A job about this thing starts its clock now rather than back when the
+      // café opened, so buying a table is not met by an instant demand to
+      // wipe it. See `acquireSubjects`.
+      chores: acquireSubjects(state.chores, state, { ...state, purchased }, Date.now()),
     });
     logEvent({ name: "shop_item_bought", item: id, cost: item.price });
     get().grantXp(XP_AWARDS.furniture(item.price));
@@ -1094,17 +1258,21 @@ export const gameStore = createStore<GameState>((set, get) => ({
     );
     if (earned <= 0) return 0;
 
-    // Clamp to the till, and report what actually landed in it so the
-    // welcome-back card never promises money the player didn't get.
-    const banked = Math.min(ECONOMY_CONFIG.tillCapacity, money + earned) - money;
+    // **Into the till, and only as much as fits.** This is the line that
+    // answers Ellis's *"u cant just go offline for 4 days and come back to
+    // being rich"*: what a week away is worth is exactly what a full drawer is
+    // worth. `tillRoom` is asked what will fit rather than subtracting two
+    // totals, so the welcome-back card never promises money that bounced off
+    // the brim.
+    const banked = Math.min(earned, tillRoom(state.till, tillCapacity(state.upgrades)));
     if (banked <= 0) return 0;
 
-    set({ money: money + banked });
+    set({ till: state.till + banked });
     logEvent({
       name: "offline_income",
       awayMs: Math.round(awayMs),
       earned: banked,
-      money: money + banked,
+      money,
     });
     return banked;
   },

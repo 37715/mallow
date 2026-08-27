@@ -2,6 +2,7 @@ import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { DRACOLoader } from "three/examples/jsm/loaders/DRACOLoader.js";
 import { clone as cloneSkinned } from "three/examples/jsm/utils/SkeletonUtils.js";
+import { ALL_REFRESHMENTS, type Refreshments } from "@/data/shop";
 import {
   bindFaceAtlases,
   CharacterFace,
@@ -79,7 +80,9 @@ const LEGS = [
   "Clothes_Legs_Skirt_Long",
 ];
 /** Something in hand, because a guest with nothing looks like they're waiting. */
-const HELD = [
+/** The props a character can be carrying. Exported so the rule that a café
+ * only hands out what it sells can be tested (`servedRefreshments`). */
+export const HELD = [
   "held_Coffee_Full",
   "held_Coffee_Whip",
   "held_Milkshake_Strawberry",
@@ -132,13 +135,41 @@ export const APPEARANCE_RANGES: Record<keyof Appearance, number> = {
   shoeColour: SHOE_COLOURS.length,
 };
 
-/** The look a given seed produces — the café's guests, unchanged. */
-export function appearanceFromSeed(seed: number): Appearance {
+/**
+ * Which held props this café could plausibly have sold.
+ *
+ * Coffee is always in the list — a café that sells nothing else still sells
+ * coffee (`STARTER_DRINK_ID`), and an empty list would leave guests holding
+ * air, which reads as a missing mesh rather than as a rule.
+ */
+function heldChoices(served: Refreshments): number[] {
+  const out: number[] = [];
+  HELD.forEach((name, index) => {
+    if (name.includes("Cupcake") && !served.cakes) return;
+    if (name.includes("Milkshake") && !served.shakes) return;
+    out.push(index);
+  });
+  return out.length > 0 ? out : [0];
+}
+
+/**
+ * The look a given seed produces — the café's guests.
+ *
+ * `served` decides what they may be *carrying* (`servedRefreshments`). It
+ * defaults to everything, which is right for the two characters who are not
+ * customers: the player's own avatar and the guide both pick their prop in the
+ * creator, and neither of them bought it here.
+ */
+export function appearanceFromSeed(
+  seed: number,
+  served: Refreshments = ALL_REFRESHMENTS,
+): Appearance {
+  const held = heldChoices(served);
   return {
     hair: hash(seed, 1) % HAIR.length,
     top: hash(seed, 2) % TOPS.length,
     legs: hash(seed, 3) % LEGS.length,
-    held: hash(seed, 4) % HELD.length,
+    held: held[hash(seed, 4) % held.length],
     skintone: hash(seed, 8) % SKINTONES,
     hairColour: hash(seed, 9) % HAIR_COLOURS,
     topColour: hash(seed, 5) % TOP_COLOURS.length,

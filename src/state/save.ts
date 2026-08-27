@@ -1,7 +1,7 @@
 import type { StoreApi } from "zustand/vanilla";
 import type { CatInstance, GameState, Instance } from "@/state/store";
 import { CAT_BED_ITEM } from "@/data/beds";
-import { UPGRADE_DEFINITIONS } from "@/data/upgrades";
+import { UPGRADE_DEFINITIONS, tillCapacityFor } from "@/data/upgrades";
 import {
   CUSTOMISATION,
   DEFAULT_CUSTOMISATION,
@@ -81,6 +81,9 @@ import {
  *            "Walls & floor". An existing café keeps its exact look — the new
  *            `floor` choice inherits the wall style — and a paid-for wall style
  *            grants the matching floor rather than charging twice for it.
+ * v24 → v25: the till (`systems/till.ts`), and the day the bank stopped having
+ *            a ceiling. It starts empty — an existing café's takings are
+ *            already banked — and nothing is taken off anybody.
  *   v6 → v7: the free default sofa and rug changed when the room was rebuilt
  *            against the reference render. A save still sitting on the old
  *            default — i.e. one where the player never chose — is moved onto
@@ -88,13 +91,21 @@ import {
  */
 
 const SAVE_KEY = "mallow-save";
-const SAVE_VERSION = 24;
+const SAVE_VERSION = 25;
 
-/** Inlined so a migration can't be broken by a rebalance of the live config. */
+/**
+ * The bank ceiling as it stood when the v11→v12 refund was written.
+ *
+ * **Inlined, and now historical.** The live cap was removed on 2026-08-26 when
+ * the till became the thing that bounds accumulation (`systems/till.ts`) — but
+ * a migration must keep behaving the way it did the day it shipped, or a save
+ * written under the old rules gets replayed under new ones. This is exactly
+ * why migrations inline their constants instead of importing them.
+ */
 const TILL_CAPACITY = 9999;
 
 interface SaveDataCurrent {
-  version: 24;
+  version: 25;
   money: number;
   nextCatId: number;
   cats: CatInstance[];
@@ -115,6 +126,8 @@ interface SaveDataCurrent {
   tiles: TileKey[];
   backdropsOwned: string[];
   windows: string[];
+  /** Uncollected takings (`systems/till.ts`). */
+  till: number;
   tips: number;
   chores: ChoreLog;
   openedAt: number;
@@ -143,6 +156,7 @@ export interface LoadedSave
     | "tiles"
     | "backdropsOwned"
     | "windows"
+    | "till"
     | "tips"
     | "chores"
     | "openedAt"
@@ -459,6 +473,20 @@ const MIGRATIONS: Record<number, (data: RawSave) => RawSave> = {
   22: (data) => ({ ...data, version: 23, chores: {}, openedAt: Date.now() }),
   /** The tip jar starts empty — nobody has tipped into a jar they did not own. */
   23: (data) => ({ ...data, version: 24, tips: 0 }),
+  /**
+   * The till (`systems/till.ts`), and **the day the bank stopped having a
+   * ceiling**.
+   *
+   * It starts empty, which is the generous reading: an existing café's takings
+   * are already banked, in `money`, and inventing a full till would be paying
+   * twice for the same trade. Starting it full would also greet a returning
+   * player with a collection they did not earn — and the first thing they would
+   * learn about the mechanic is that it hands out money by itself.
+   *
+   * **Nothing is taken off anybody.** A save sitting at the old £9,999 cap keeps
+   * every penny; it is simply no longer at a ceiling.
+   */
+  24: (data) => ({ ...data, version: 25, till: 0 }),
 };
 
 /** Keep only blends that still make sense: a real base, real add-ins, a name. */
@@ -487,7 +515,25 @@ function sanitizeBlends(value: unknown, ingredientsOwned: string[]): CustomDrink
   return out.slice(0, MAX_CUSTOM_DRINKS);
 }
 
-/** Player-created furniture: an id, a catalogue item, and a place to stand. */
+/**
+ * Player-created furniture: an id, a catalogue item, and a place to stand.
+ *
+ * **This deleted people's furniture for nine days** (Ellis, 2026-08-26: *"i
+ * noticed a chair i bought randomly dissapeared one time after relogging back
+ * onto the game a few hrs later"*). The rule below is meant to drop an
+ * instance of a **retired** catalogue item, and it was written as
+ * `item !== CAT_BED_ITEM` back when the cat bed was the only thing that *had*
+ * instances. Copies of ordinary shop items arrived later (`buyCopy`) and
+ * nothing here was widened to admit them — so every second chair, second
+ * table and second plant survived the session it was bought in and was
+ * silently binned by the next load.
+ *
+ * Note the shape of the failure, because it is the save path's usual one
+ * (§8): nothing threw, nothing logged, and the café that came back was a
+ * perfectly valid café. **Ask what a filter lets through, not just what it
+ * keeps out** — and a whitelist naming one id is a filter that will be wrong
+ * the first time a second id exists.
+ */
 function sanitizeInstances(value: unknown): Instance[] {
   if (!Array.isArray(value)) return [];
   const out: Instance[] = [];
@@ -498,8 +544,9 @@ function sanitizeInstances(value: unknown): Instance[] {
     if (typeof item.x !== "number" || !Number.isFinite(item.x)) continue;
     if (typeof item.z !== "number" || !Number.isFinite(item.z)) continue;
     // An instance of a catalogue item that no longer exists is dropped, the
-    // same way a retired upgrade level is.
-    if (item.item !== CAT_BED_ITEM) continue;
+    // same way a retired upgrade level is. The cat bed is not a catalogue row
+    // — it is bought from the cat panel — so it is named explicitly.
+    if (item.item !== CAT_BED_ITEM && !shopItem(item.item)) continue;
     out.push({
       id: item.id,
       item: item.item,
@@ -659,6 +706,15 @@ export function loadSave(): LoadedSave | null {
       windows: Array.isArray(data.windows)
         ? data.windows.filter((v): v is string => typeof v === "string")
         : [HOME_WINDOW],
+      // Clamped to the *largest* till any café can own rather than to this
+      // café's own capacity: a save whose `till` upgrade was refunded or
+      // retuned downwards must keep its money, and the tick will hold it at
+      // the brim from there. A garbage value would otherwise hand out a
+      // fortune on load.
+      till:
+        typeof data.till === "number" && Number.isFinite(data.till) && data.till > 0
+          ? Math.min(tillCapacityFor(Number.MAX_SAFE_INTEGER), data.till)
+          : 0,
       // Clamped rather than trusted: a garbage value here would either hand
       // out a fortune or wedge the jar permanently shut.
       tips:
@@ -706,6 +762,7 @@ function persist(state: GameState): void {
     tiles: state.tiles,
     backdropsOwned: state.backdropsOwned,
     windows: state.windows,
+    till: state.till,
     tips: state.tips,
     chores: state.chores,
     openedAt: state.openedAt,
