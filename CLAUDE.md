@@ -23,7 +23,11 @@ This file is the shared brain for the project. **Read it before starting work in
 > starts growing past a screen or two of status, that is the signal to promote
 > and prune again.
 
-**Last updated:** 2026-08-27, evening (**the till is a thing on the counter**
+**Last updated:** 2026-08-27, night (**the cats are real recordings now** —
+seven CC0/public-domain files, 88 kB, with the synthesis kept as the fallback;
+and the walkthrough starts the armchair by the window and the cat bed in the
+middle of the floor, so the café looks arranged when Mal leaves. Earlier:
+**the till is a thing on the counter**
 — tap it to cash up, and each upgrade level puts a different till there; the
 walkthrough teaches furniture before the custom drink and no longer says
 "straight on the board"; the replay-the-tutorial setting is gone. Earlier:
@@ -68,7 +72,13 @@ pack ships those pieces in one finish.)
   a gesture per line — then **walks the player through buying a cat bed,
   adopting a cat, placing furniture and inventing a drink**, waiting at each
   step and topping the till up to exactly what that step costs
-  (`systems/tutorial.ts`, pure and tested). No fail state. It runs **once** — the settings row that
+  (`systems/tutorial.ts`, pure and tested). **It arranges as it teaches**: the
+  two pieces it has you buy start their ghost somewhere composed rather than
+  under the camera — the armchair at its authored spot by the window, the bed
+  in the middle of the open floor (`TUTORIAL_SPOTS`). A suggestion, not a lock,
+  and scoped to the walkthrough, because outside it the ghost starting under
+  your finger is something Ellis asked for explicitly and it still stands.
+  No fail state. It runs **once** — the settings row that
   replayed it was removed on 2026-08-27 (Ellis: *"remove the option to watch
   tutorial repeatably"*), leaving `window.__mallow.replayTutorial` as the
   dev-only door §17 asks for. Script is data (`data/tutorial.ts`).
@@ -107,6 +117,11 @@ pack ships those pieces in one finish.)
 - **Selling furniture ✅** (2026-08-26) — "sell one" on every shop page, half
   back, newest copy first. A bed with a cat in it and no spare is refused (§8's
   sacred rule). `state/selling.test.ts`.
+- **Real cats ✅** (2026-08-27) — the purr and six meows are CC0/public-domain
+  recordings (88 kB, AAC, provenance in `public/audio/README.md`); the
+  synthesised versions are the fallback. Ellis: *"can we source some actgual
+  professionally made cat purr and meows … instead of these ridiculous
+  sounds."*
 - **A soundtrack, and cats with voices ✅** (2026-08-27) — the music is
   *generated* rather than licensed (Ellis: *"i cant find a single ost i like on
   those marketplace sites"*): five progressions, an electric piano, a bass and
@@ -196,7 +211,7 @@ pack ships those pieces in one finish.)
   tracked Xcode project, portrait-locked, and it **compiles** (verified with
   `xcodebuild` against a simulator destination). `npm run ios` does
   build → sync → open Xcode. Signing is Ellis's to do; see §16.
-- `npm test` — 360 tests over the pure systems, save migrations, café geometry,
+- `npm test` — 365 tests over the pure systems, save migrations, café geometry,
   the visitor loop, contentment maths, the camera controls (pan/zoom clamps,
   tap-vs-drag, press-and-hold), the placement rules the authored café itself
   has to pass, which objects the validator is allowed to ignore, the expansion
@@ -209,7 +224,8 @@ pack ships those pieces in one finish.)
   the fallbacks between them, the lip-sync viseme mapping, the merged pack's
   clips and face meshes, the guest phase machine settling rather than
   oscillating, where the till stands and which one each upgrade level wears,
-  and a jsdom smoke suite for the HUD.
+  where the walkthrough puts the furniture it hands you, and a jsdom smoke
+  suite for the HUD.
 
 > ## ⭐ DIRECTION — 2026-08-06. The café editor is the plan now.
 >
@@ -487,6 +503,32 @@ being read into context every session. Every *rule* it taught has been promoted
 into the numbered sections; the archive holds the reasoning and the dead ends.
 **Append new entries there**, and mirror only the newest handful here.
 
+- *2026-08-27, night* — **Real cats, and a walkthrough that leaves the café
+  looking arranged.** ([full entry](docs/session-log.md))
+  - **Seven CC0/public-domain recordings, 88 kB**, replacing the synthesised
+    purr and meow (which stay as the fallback). **The licence was checked per
+    file, not trusted from the search listing** — the first page of results is
+    mostly CC BY-SA, a different thing entirely for something shipping in an
+    `.ipa`.
+  - **AAC, never Ogg, and this one is a trap.** Ogg Vorbis is the format most
+    freely-licensed audio arrives in and **Safari does not decode it** — an
+    `.ogg` would have worked in every browser used to build this game and in
+    none of the app. `afconvert` reads Ogg and writes AAC, so no new tooling.
+  - **There is no CC0 recording of a cat trilling**, so `playChirp` borrows a
+    real meow before falling back to synthesis: beside six recorded cats, a
+    synthesised anything is the sound the player notices.
+  - **The walkthrough starts each bought piece's ghost somewhere composed** —
+    the armchair at its authored spot by the window (read from `CAFE_LAYOUT`,
+    not copied), the bed at the measured centre of the *usable* floor. A
+    suggestion, not a lock, and scoped to the walkthrough because Ellis asked
+    for the opposite everywhere else on 2026-08-07.
+  - **Mal was never blocking anything** — she is not a placement obstacle. But
+    a person standing on the square you are told to drag furniture onto reads
+    as blocked, and that is the same as being blocked.
+  - **Two false alarms while verifying, both in my test harness**, not the
+    game: `beginPlacing` called before the room rebuilt, and a `fits` helper
+    that let the armchair collide with itself. *Expect the test to be the wrong
+    one when the game is what just changed.*
 - *2026-08-27, evening* — **The till becomes a thing you can point at, and the
   walkthrough loses a step's worth of cleverness.**
   ([full entry](docs/session-log.md))
@@ -594,37 +636,6 @@ into the numbered sections; the archive holds the reasoning and the dead ends.
   - **The woodwork has colourways, as tints** — the pack has no second board or
     second plank to swap to. Subtlety is a test (≥0.45 per channel, ≥0.55
     luminance), not a judgement.
-- *2026-08-26, cleanup* — **Three bugs, two of them mine from earlier today,
-  and all three the same shape: a second copy of the truth.**
-  - **`SEAT_STAND_POSITIONS` was a hand-written twin of `seatStandPositions()`**
-    and drifted the moment `SEAT_SIT_BACK` landed — the function applied the
-    sit-back offset, the constant did not. `VisitorManager` defaults to the
-    constant and `setSeats` was gated on "did furniture move", so **a fresh
-    café never called it at all**: the seating fix was invisible on every load
-    until you dragged something. The constant is derived from the function now
-    and the call is unconditional. **A constant that restates a function is a
-    bug waiting for the function to change.**
-    Moving it also produced the **third TDZ** in this project — it reads
-    `SEAT_FACINGS` and `SEAT_KINDS`, so it has to be declared below them. A
-    `const` is not hoisted; only the function is.
-  - **The `settlePurchase` safety net fired after the save it was protecting.**
-    Listeners on one event run in registration order, and `initAutosave`
-    registers its `pagehide` save near the top of `bootstrap()` while mine was
-    500 lines below — so the save wrote "owns the armchair, has not paid" and
-    the settle ran into the void. It is registered before the autosave now, and
-    also on `visibilitychange`, which is the event that actually fires when an
-    iOS app is backgrounded (§0, 2026-08-05 — the same one that hid the
-    never-firing autosave for the whole life of the project).
-    Measured: backgrounding mid-placement now goes £40 → £5 *then* saves £5.
-  - **The cat labels were being drawn over the character creator**, a gap §0
-    had carried since 2026-08-17 with the note "one line to suppress". It is
-    that line: `sync` is passed no cats while onboarding is up, which removes
-    them rather than hiding them so nothing is stranded if it is abandoned.
-  - Also: §0 claimed save v23 when the code was at v24 (and the previous commit
-    message said v25, which was simply wrong), and `tipsFraction` was exported
-    and never used. Both corrected — **the migration list is the one piece of
-    documentation in this file that a wrong number can cost somebody their
-    cats.**
 ---
 
 ## 1. What we're building
@@ -2039,6 +2050,32 @@ Use a tween library for easing. Nothing in this game moves linearly or instantly
 - **Rate-limited on purpose**: a maxed café pays ~2.5×/second, so coin *sounds* are throttled to ~4/s while every payment still shows a floater. A chime that often stops being a reward and becomes a nag — pillar 1 beats feedback density.
 - `prefers-reduced-motion` is respected.
 
+### The cats are recordings; everything else is written (2026-08-27)
+
+Ellis: *"can we source some actgual professionally made cat purr and meows or
+something instead of these ridiculous sounds."* Fair — the formant meow is a
+decent piece of synthesis and it is still a synthesiser pretending to be an
+animal. **Seven files, 88 kB, all CC0 or public domain** (Wikimedia Commons;
+provenance table in `public/audio/README.md`). The synthesised versions in
+`audio/cat.ts` stay as the fallback and are what plays if a file is missing.
+
+- **This does not repeal §10's rule, because the rule was never "no files".**
+  It was *don't block first paint on a download and don't inherit a licence*.
+  These load lazily after the first tap, and CC0 carries no attribution into
+  the app. 88 kB against a 4 MB character GLB is not a budget question.
+- **AAC in `.m4a`, never Ogg.** Ogg Vorbis is the format most freely-licensed
+  audio arrives in and **Safari does not decode it** — an `.ogg` would have
+  worked in every browser used to develop this and in none of the app. macOS's
+  own `afconvert` reads Ogg and writes AAC, so no tooling was needed.
+- **Six meows, because the one thing worse than a synthetic meow is the same
+  meow.** Four are cut from a single eleven-second public-domain recording of
+  one cat, which is why four sound alike — they are one cat.
+- **There is no CC0 recording of a cat trilling.** `playChirp` therefore
+  borrows a real meow before it falls back to its own synthesis: beside six
+  recorded cats, a synthesised anything is the sound the player notices, and
+  losing the distinction between "hello" and "feed me" costs less than losing
+  the illusion.
+
 ### The soundtrack is written, not bought (2026-08-27)
 
 Ellis: *"i need nice music and cat sound fx too. i cant find a single ost i like
@@ -2299,7 +2336,7 @@ npm run dev:lan    # same, exposed on the LAN — open on a phone, Add to Home
                    # Screen. This is the day-to-day device loop; a native
                    # rebuild is only needed to measure performance.
 npm run build      # production web build → dist/
-npm test           # 360 tests, no renderer needed
+npm test           # 365 tests, no renderer needed
 npm run balance    # simulate weeks of play under four player habits
 
 npm run ios        # build + sync + open Xcode. The one to use.

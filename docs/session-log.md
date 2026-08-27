@@ -17,6 +17,66 @@ The five most recent entries also remain inline in `CLAUDE.md` §0. New entries 
 ---
 
 **Session log:**
+- *2026-08-27, night* — **Real cats, and a walkthrough that leaves the café
+  looking arranged.**
+  - **"can we source some actgual professionally made cat purr and meows or
+    something instead of these ridiculous sounds."** The formant meow is a
+    decent piece of synthesis and it is still a synthesiser pretending to be an
+    animal; the purr was worse, having been rebuilt three times. Seven files,
+    88 kB, all CC0 or public domain, from Wikimedia Commons. **The licence was
+    checked per file rather than trusted from the search listing** — the first
+    page of results is mostly CC BY-SA, which is a different thing entirely for
+    something shipping inside an `.ipa`.
+    - **This does not repeal §10.** The rule was never "no files"; it was
+      *don't block first paint on a download and don't inherit a licence*. Both
+      still hold, and 88 kB against a 4 MB character GLB is not a budget
+      question.
+    - **AAC, never Ogg, and this one is a trap.** Ogg Vorbis is the format most
+      freely-licensed audio arrives in and **Safari does not decode it** — an
+      `.ogg` here would have worked in every browser used to develop this game
+      and in none of the app it ships as. macOS's own `afconvert` both reads
+      Ogg and writes AAC, so the conversion needed no tooling.
+    - **Six meows, four of them the same cat**, cut out of one eleven-second
+      public-domain recording by onset detection, trimmed and normalised to a
+      common peak. The one thing worse than a synthetic meow is the same meow.
+    - **There is no CC0 recording of a cat trilling anywhere.** So `playChirp`
+      borrows a real meow *before* falling back to its own synthesis: beside
+      six recorded cats, a synthesised anything is the sound the player
+      notices, and losing the distinction between "hello" and "feed me" costs
+      less than losing the illusion.
+  - **The walkthrough now arranges as it teaches.** Ellis: *"id like if it
+    could kinda force the chair to be placed by the window and the cat bed more
+    in the middle so it actually looks good after completing tutorial instead
+    of looking messy where u cant place in a good spot as mal is stood in the
+    way."* The ghost starts at a composed spot instead of under the camera —
+    the armchair at its authored position (the reference render's own
+    composition, read from `CAFE_LAYOUT` rather than copied), the cat bed at
+    (0.5, 0), measured as the valid spot nearest the centre of the *usable*
+    floor, which is not the centre of the room because the counter owns that.
+    - **A suggestion, not a lock, and scoped to the walkthrough.** Ellis asked
+      on 2026-08-07 for exactly the opposite everywhere else — *"when i buy
+      something i dont want it to place it for me"* — and that still stands.
+      The first five minutes are the exception: a café that looks arranged when
+      the guide leaves is worth more than a lesson in dragging, and the player
+      drags four more times anyway.
+    - **Keyed on the `buy-*` task as well as the `place-*` one.** The ghost
+      appears the moment a piece is bought, which is *before* the guide advances
+      to "now put it down" — keying only the place step would have suggested
+      nothing at the one moment it is needed.
+    - **Mal was never actually blocking anything**; she is not a placement
+      obstacle. But a person standing on the square you are being asked to drag
+      furniture onto reads as blocked, and reading as blocked is the same as
+      being blocked. Both spots are now held 1.9+ units clear of `GUIDE_SPOT`,
+      and a test says so.
+  - **Two false alarms while verifying, both mine.** `nearestValidSpot` came
+    back `null` for everything, which looked like the placement work from
+    yesterday had broken — it was the harness calling `beginPlacing` before the
+    room had rebuilt with the new instance, so there was no piece in hand at
+    all (the UI has a retry for this; my driver did not). Then the new test
+    reported the armchair could not go at its own authored position: `fits`
+    passed no `id`, so the chair was colliding with itself. **Both were the
+    test being wrong about the game, which is the failure mode to expect when
+    the game is the thing that was just changed.**
 - *2026-08-27, evening* — **The till becomes a thing you can point at, and the
   walkthrough loses a step's worth of cleverness.**
   - **"the till is a real object that can be upgraded and tapped on to collect

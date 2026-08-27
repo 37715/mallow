@@ -28,8 +28,17 @@ import type { GuideMirror } from "@/scene/guide-portrait";
  * running at a steady 60 and obvious on a phone that stutters.
  */
 
-/** Where they stand to talk: inside the door, out of the walking route. */
-const GUIDE_SPOT = new THREE.Vector3(1.55, 0, 1.62);
+/**
+ * Where they stand to talk: inside the door, out of the walking route.
+ *
+ * **Exported so the walkthrough's suggested placements can be held away from
+ * it.** Ellis, 2026-08-27: *"u cant place in a good spot as mal is stood in the
+ * way."* She is not a placement obstacle and never blocks anything mechanically
+ * — but a person standing on the square you are being asked to drag furniture
+ * onto reads as blocked, and reading as blocked is the same as being blocked.
+ * `data/tutorial.ts` keeps its two spots clear of her; a test says so.
+ */
+export const GUIDE_SPOT = new THREE.Vector3(1.55, 0, 1.62);
 
 /** Head height, roughly — where the speech bubble's tail points. */
 const HEAD_HEIGHT = 1.62;

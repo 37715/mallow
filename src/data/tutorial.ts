@@ -1,5 +1,6 @@
 import type { ExpressionName } from "@/entities/character-face";
 import type { Appearance } from "@/entities/character-library";
+import { CAFE_LAYOUT } from "@/data/cafe-layout";
 import type { TaskId } from "@/systems/tutorial";
 
 /**
@@ -277,6 +278,60 @@ export const MAL_APPEARANCE: Appearance = {
 export const TUTORIAL_SCRIPT: TutorialLine[] = MAL_SCRIPT;
 export const GUIDE_APPEARANCE: Appearance = MAL_APPEARANCE;
 export const GUIDE_NAME = MAL_NAME;
+
+/**
+ * Where the walkthrough puts each piece's ghost when it is bought.
+ *
+ * Ellis, 2026-08-27: *"id like if it could kinda force the chair to be placed
+ * by the window and the cat bed more in the middle so it actually looks good
+ * after completing tutorial instead of looking messy where u cant place in a
+ * good spot as mal is stood in the way."*
+ *
+ * **"Kinda force" is the right amount, and it is a suggestion rather than a
+ * lock.** The ghost simply *starts* here instead of under the camera, and the
+ * player can drag it anywhere they like before tapping the tick. Anything
+ * stronger would be the game placing furniture for you, which is precisely
+ * what Ellis asked to stop on 2026-08-07 — *"when i buy something i dont want
+ * it to place it for me i should be able to choose where it goes"* — and that
+ * still stands **outside the walkthrough**, where the ghost keeps starting at
+ * whatever you are looking at. The first five minutes are the exception: a
+ * café that looks composed when the guide leaves is worth more than a lesson
+ * in dragging, and the player gets to do the dragging four more times anyway.
+ *
+ * Both keys per piece, because the ghost appears the moment it is **bought** —
+ * before the guide has advanced to the "now put it down" line — so keying only
+ * the `place-*` task would suggest nothing at the one moment it is needed.
+ */
+const armchair = CAFE_LAYOUT.find((piece) => piece.id === "armchair");
+
+/**
+ * The armchair goes back where the reference render has it: by the window.
+ *
+ * **Read from the layout rather than written down.** §8's shop trick is that
+ * every catalogue item names a piece at its authored position, so "the diorama
+ * is the destination" — and the authored position *is* the composition Ellis
+ * is asking for. Copying the numbers here would be a second copy of the truth
+ * that goes stale the first time the layout is nudged (§14).
+ */
+const CHAIR_SPOT = { x: armchair?.x ?? 1.27, z: armchair?.z ?? -1.09 };
+
+/**
+ * The bed goes in the middle of the open floor — which is **not** the middle of
+ * the room, because the counter owns that.
+ *
+ * Measured against the placement validator rather than guessed: of every grid
+ * position a cat bed fits in a bare café, this is the one closest to the centre
+ * of the floor a player can actually use, and it stays clear of where the
+ * armchair lands two steps later.
+ */
+const BED_SPOT = { x: 0.5, z: 0 };
+
+export const TUTORIAL_SPOTS: Partial<Record<TaskId, { x: number; z: number }>> = {
+  "buy-bed": BED_SPOT,
+  "place-bed": BED_SPOT,
+  "buy-chair": CHAIR_SPOT,
+  "place-chair": CHAIR_SPOT,
+};
 
 /** Fills `{name}` and `{cafe}` in a line. */
 export function fillLine(text: string, names: { name: string; cafe: string }): string {

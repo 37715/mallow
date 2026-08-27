@@ -281,31 +281,42 @@ function tone(
 }
 
 /**
- * Recorded sounds, if any have been dropped in.
+ * Recorded cats. **These ship, and they are what you actually hear.**
  *
- * **Some things cannot be synthesised well enough, and a cat is one of them.**
- * The purr has now been built three times — a boomy wobble, then a diesel
- * engine, then (Ellis) *"heavy rain with reverb. no cat sound at all."* That is
- * not a tuning problem: a purr is a vocal tract, and filtered noise is never
- * going to be one. Nor is a meow, which the game has never had at all.
+ * Ellis, 2026-08-27: *"can we source some actgual professionally made cat purr
+ * and meows or something instead of these ridiculous sounds."* Fair. The
+ * formant meow is a decent piece of synthesis and it is still a synthesiser
+ * pretending to be an animal; a purr is worse, having been rebuilt three times
+ * as a boomy wobble, a diesel engine and *"heavy rain with reverb"*. A cat is
+ * a vocal tract, and eleven seconds of a real one settles it.
  *
- * So the audio layer takes files when they exist and falls back to synthesis
- * when they do not. Nothing here downloads anything — **drop `.mp3`/`.ogg`
- * files into `public/audio/` with these names and they are used automatically**:
+ * **Seven files, 88 kB, all CC0 or public domain**, from Wikimedia Commons —
+ * see `public/audio/README.md` for the provenance of each. That is nothing
+ * against the 4 MB character GLB, and §10's rule was never "no files": it was
+ * *don't block first paint on a download and don't inherit a licence*. Both
+ * hold. They are fetched lazily after the first tap, a missing one is silently
+ * fine, and the synthesised versions in `audio/cat.ts` remain as the fallback.
  *
- *     public/audio/purr.mp3
- *     public/audio/meow-1.mp3   (…-2, …-3: one is picked at random)
- *
- * §10's "no asset files" rule was about *not blocking first paint on a
- * download and not inheriting licensing questions*, and both still hold: these
- * load lazily in the background, a missing file is silently fine, and the only
- * files that will ever be here are ones with a licence we chose. Freesound and
- * Pixabay both have CC0 cat recordings.
+ * **AAC in `.m4a`, not MP3 or Ogg.** Ogg Vorbis is the format most CC0 audio
+ * arrives in and Safari does not decode it, so it would have worked in every
+ * browser used to develop this and in none of the app. AAC is the codec iOS
+ * decodes in hardware.
  */
 const SAMPLE_PATHS: Record<string, string[]> = {
-  purr: ["/audio/purr.mp3", "/audio/purr.ogg"],
-  meow: ["/audio/meow-1.mp3", "/audio/meow-2.mp3", "/audio/meow-3.mp3"],
-  chirp: ["/audio/chirp-1.mp3", "/audio/chirp-2.mp3"],
+  purr: ["/audio/purr.m4a"],
+  // Six, because the one thing worse than a synthetic meow is the *same* meow.
+  meow: [
+    "/audio/meow-1.m4a",
+    "/audio/meow-2.m4a",
+    "/audio/meow-3.m4a",
+    "/audio/meow-4.m4a",
+    "/audio/meow-5.m4a",
+    "/audio/meow-6.m4a",
+  ],
+  // Empty on purpose: there is no CC0 recording of a cat trilling anywhere I
+  // could find, and `playChirp` would rather borrow a real meow than play a
+  // synthesised cat next to six recorded ones. Drop files here if any turn up.
+  chirp: [],
 };
 
 /** Decoded samples, keyed as above. Absent means "not loaded, or not there". */
@@ -602,10 +613,21 @@ export function playMeow(): void {
   renderCry(ctx, master, meow());
 }
 
-/** The pleased-to-see-you chirrup. See `chirp` in `audio/cat.ts`. */
+/**
+ * The pleased-to-see-you chirrup.
+ *
+ * **Falls back to a real meow before it falls back to synthesis**, which is the
+ * one interesting line here. There is no CC0 recording of a cat trilling, so
+ * the choice is between a synthesised chirrup and a recorded meow — and beside
+ * six real meows, a synthesised anything is the sound the player notices.
+ * Losing the distinction between "hello" and "feed me" costs less than losing
+ * the illusion. See `chirp` in `audio/cat.ts` for the synthesis that is still
+ * the last resort.
+ */
 export function playChirp(): void {
   if (!ctx || !master) return;
   if (playSample("chirp", 0.8)) return;
+  if (playSample("meow", 0.8)) return;
   renderCry(ctx, master, chirp());
 }
 

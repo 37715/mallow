@@ -44,7 +44,8 @@ import { beds } from "@/data/beds";
 import { loadCharacterAssets } from "@/entities/character-library";
 import { SpeechBubble } from "@/ui/speech-bubble";
 import { SPEECH_MS_PER_CHAR, TutorialGuide } from "@/entities/tutorial-guide";
-import { FIRST_FURNITURE } from "@/systems/tutorial";
+import { FIRST_FURNITURE, type TaskId } from "@/systems/tutorial";
+import { TUTORIAL_SPOTS } from "@/data/tutorial";
 import { MAX_CUSTOM_DRINKS, nextIngredient } from "@/data/drinks";
 import { levelProgress } from "@/data/progression";
 import { FloaterLayer } from "@/ui/floaters";
@@ -263,6 +264,15 @@ async function bootstrap(): Promise<void> {
 
   const furnitureEditor = createFurnitureEditor(uiRoot);
 
+  /**
+   * The walkthrough step currently being waited on, or null.
+   *
+   * Set from the guide's `point` hook. Only ever non-null during the first
+   * five minutes, which is what keeps `TUTORIAL_SPOTS` from overriding the
+   * player's own aim for the rest of the game.
+   */
+  let tutorialTask: string | null = null;
+
   /** True while a drag is carrying the ghost rather than panning the camera. */
   let grabbingPiece = false;
   /** What a press landed on, remembered so the hold can complete on it. */
@@ -344,14 +354,31 @@ async function bootstrap(): Promise<void> {
     );
 
     const focus = controls.getPose().target;
-    mover.begin(picked, justBought ? { x: focus.x, z: focus.z } : undefined);
+    /**
+     * Where the ghost starts.
+     *
+     * Normally under the camera, because Ellis asked for that specifically —
+     * *"when i buy something i dont want it to place it for me i should be able
+     * to choose where it goes"*. **During the walkthrough it starts somewhere
+     * composed instead** (`TUTORIAL_SPOTS`): the armchair by the window where
+     * the reference render has it, the cat bed in the middle of the open floor.
+     * Still a suggestion — it can be dragged anywhere before the tick — but it
+     * means a player who simply follows along ends up with a café that looks
+     * arranged rather than one assembled around wherever they happened to be
+     * looking while somebody talked at them.
+     */
+    const suggested = (tutorialTask && TUTORIAL_SPOTS[tutorialTask as TaskId]) || null;
+    const anchor = suggested ?? { x: focus.x, z: focus.z };
+    mover.begin(picked, justBought ? anchor : undefined);
     if (justBought) {
       // **Never hand the player something they cannot see.** The camera's focus
       // point is often inside the counter or behind a wall, and a bought piece
       // dropped there is invisible — Ellis: *"i cant even see it anywhere so
       // maybe its hiding behind something which it should never be able to."*
-      // Nudge it to the closest spot it actually fits.
-      const spot = mover.nearestValidSpot({ x: focus.x, z: focus.z });
+      // Nudge it to the closest spot it actually fits. A suggested spot goes
+      // through the same check, so a café that has since had something built
+      // on it degrades to "as near as possible" rather than to red.
+      const spot = mover.nearestValidSpot(anchor);
       if (spot) mover.dragToPoint(spot);
     }
 
@@ -676,7 +703,13 @@ async function bootstrap(): Promise<void> {
           };
         },
         grant: (amount) => gameStore.getState().grantTutorialFunds(amount),
-        point: (target) => ui.point(target),
+        point: (target) => {
+          // Remembered as well as forwarded: the walkthrough starts each
+          // bought piece's ghost somewhere composed rather than under the
+          // camera, and this is the only signal that says which step is live.
+          tutorialTask = target;
+          ui.point(target);
+        },
         waiting: (hint) => speech.setWaitHint(hint),
       },
     );
