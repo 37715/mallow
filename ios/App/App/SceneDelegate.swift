@@ -14,6 +14,20 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         SceneDelegateProxy.shared.scene(scene, willConnectTo: session, options: connectionOptions)
     }
 
+    /// Re-apply the audio session every time the app comes back to the front.
+    ///
+    /// **This is the scene-based app's `applicationDidBecomeActive`.** Because
+    /// `Info.plist` carries a `UIApplicationSceneManifest`, the equivalent
+    /// method on `AppDelegate` is never called — putting it there looks right,
+    /// compiles, and silently does nothing.
+    ///
+    /// Why re-apply at all: a phone call, Siri, or another app taking an
+    /// exclusive session can leave ours deactivated, and a category set once
+    /// at launch never recovers. The app comes back looking fine and silent.
+    func sceneDidBecomeActive(_ scene: UIScene) {
+        (UIApplication.shared.delegate as? AppDelegate)?.configureAudioSession()
+    }
+
     func scene(_ scene: UIScene, openURLContexts URLContexts: Set<UIOpenURLContext>) {
         SceneDelegateProxy.shared.scene(scene, openURLContexts: URLContexts)
     }
