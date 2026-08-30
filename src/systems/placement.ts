@@ -62,6 +62,15 @@ export interface Obstacle extends Footprint {
    * never block. Same exemption the layout test makes.
    */
   flat: boolean;
+  /**
+   * How tall it is, in world units. Only the seat-approach check reads it: a
+   * guest steps over a cat bed and walks round a counter (see `STEP_OVER`).
+   *
+   * Optional, and **absent means "assume it blocks"** rather than "assume it
+   * does not" — a caller that has not measured a piece should not have that
+   * silently turn into permission.
+   */
+  height?: number;
 }
 
 export interface Point {
@@ -260,6 +269,23 @@ export function footprintAt(size: { x: number; z: number }, x: number, z: number
 const NESTLE = 0.3;
 
 /**
+ * How tall something has to be before a guest would go *round* it rather than
+ * over it, in world units — knee height.
+ *
+ * Measured against the pack rather than picked: the things this is meant to
+ * catch are the counter (0.78), the kitchen bench (0.72), the cake display
+ * (1.08), the side table (0.78) and the cat climber (1.45). The things it is
+ * meant to let through are the cat bed (0.25), a floor cushion (0.24), the low
+ * table (0.38) and a rug (0.04). There is a clear gap between the two groups —
+ * 0.38 to 0.72 — so this can sit in the middle of it and is not a tuning knob
+ * anyone should need to touch.
+ *
+ * It only relaxes the *seat approach*. Nothing here changes what a piece may
+ * overlap: a cat bed still cannot be stood on by a chair.
+ */
+const STEP_OVER = 0.5;
+
+/**
  * The most a *small* piece may be pushed into another before it counts.
  *
  * **A fixed 0.3 is a licence to stack anything small.** Slack is subtracted
@@ -408,10 +434,18 @@ export interface PlacementRules {
   /** The walls a hanging piece may be put on. */
   walls?: WallFace[];
   /**
-   * Where guests set off from inside the café. A *seat* moved somewhere with
-   * furniture in the way is legal to stand but impossible to reach: guests
-   * lerp straight to their chair with no pathfinding, so they would walk
-   * through whatever is between. Only used when `MovingPiece.seat` is set.
+   * Where guests set off from on their way to a seat.
+   *
+   * A seat moved somewhere with something big in the way is legal to stand and
+   * impossible to reach: guests lerp straight to their chair with no
+   * pathfinding, so they would walk through whatever is between. Only used
+   * when `MovingPiece.seat` is set.
+   *
+   * **It has to be the counter, not the door.** Guests have ordered at the
+   * counter before they sit down since 2026-08-26, so the last leg of the walk
+   * is counter → chair; this said `DOOR_LOBBY` for a year after that stopped
+   * being true, and was enforcing a constraint about a journey nobody makes.
+   * See `visitor-manager.ts` — the route there is the authority.
    */
   approachFrom?: Point;
 }
@@ -586,6 +620,20 @@ export function checkPlacement(
     const centre = { x: (candidate.minX + candidate.maxX) / 2, z: (candidate.minZ + candidate.maxZ) / 2 };
     for (const other of obstacles) {
       if (other.flat || other.seating || other.wall) continue;
+      // **Only things a guest would have to walk *around*.** Ellis,
+      // 2026-08-30: *"i wanted to put the chair in the corner but its red and
+      // says the guests cant reach that spot … and then the guests go and sit
+      // in the corner anyway."* This rule vetoed a seat if *anything* solid lay
+      // on the line to it — including a 0.25-high cat bed, which the
+      // walkthrough had just asked you to put in the middle of the floor. One
+      // cat bed made a quarter of the room refuse a chair.
+      //
+      // A person steps over a cat bed and walks round a counter, so the test is
+      // height: below knee height it does not count. What the rule is *for* is
+      // the counter (0.78 high, 2.5 across) — "a stool dropped behind the
+      // counter is legal to stand and impossible to use" — and that still
+      // works, because the counter is exactly the sort of thing you go around.
+      if ((other.height ?? Number.POSITIVE_INFINITY) < STEP_OVER) continue;
       if (moving.id !== undefined && other.id === moving.id) continue;
       // **The real rectangle, not the box round it.** This used to sample the
       // approach against `other`'s axis-aligned bounds, and the café's counter

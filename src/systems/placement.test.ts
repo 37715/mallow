@@ -331,6 +331,43 @@ describe("placement rules", () => {
     expect(checkPlacement(chair, [obstacle], ROUTE, rules, { seat: true }).ok).toBe(true);
   });
 
+  /**
+   * The rule Ellis walked into on 2026-08-30: *"i wanted to put the chair in
+   * the corner but its red and says the guests cant reach that spot … and then
+   * the guests go and sit in the corner anyway."*
+   */
+  it("lets a guest step over low furniture on the way to a seat", () => {
+    const lobby = { x: 1.4, z: 1.55 };
+    const rules = { ...RULES, approachFrom: lobby };
+    const between = footprintAt({ x: 1, z: 0.6 }, 0.7, 0.6);
+    const seat = footprintAt(SIZE, 0, -0.4);
+
+    // A cat bed is 0.25 high. Standing between you and a chair, it was enough
+    // to refuse the chair — which is how one bed made a quarter of the room
+    // unusable in a café that had only just been handed its first one.
+    expect(checkPlacement(seat, [{ ...between, flat: false, height: 0.25 }], ROUTE, rules, {
+      seat: true,
+    }).ok).toBe(true);
+
+    // The counter is 0.78 and is what the rule exists for.
+    expect(
+      checkPlacement(seat, [{ ...between, flat: false, height: 0.78 }], ROUTE, rules, { seat: true })
+        .reason,
+    ).toBe("unreachable");
+  });
+
+  it("treats an unmeasured obstacle as blocking, not as permission", () => {
+    // A caller that has not measured a piece must not get a free pass out of
+    // it — the default has to be the cautious one.
+    const lobby = { x: 1.4, z: 1.55 };
+    const wall = { ...footprintAt({ x: 2, z: 0.4 }, 0, 0.6), flat: false };
+    expect(
+      checkPlacement(footprintAt(SIZE, 0, -0.6), [wall], ROUTE, { ...RULES, approachFrom: lobby }, {
+        seat: true,
+      }).reason,
+    ).toBe("unreachable");
+  });
+
   it("explains every refusal in the player's words", () => {
     for (const reason of ["off-floor", "overlaps", "blocks-walkway", "unreachable"] as const) {
       const message = rejectionMessage(reason);

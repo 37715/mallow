@@ -23,7 +23,10 @@ This file is the shared brain for the project. **Read it before starting work in
 > starts growing past a screen or two of status, that is the signal to promote
 > and prune again.
 
-**Last updated:** 2026-08-27, night (**the cats are real recordings now** —
+**Last updated:** 2026-08-30 (**a chair may go in the corner now** — the
+placement validator was refusing seats along a walking leg guests stopped using
+in August, and letting a 25 cm cat bed veto a chair the way a counter does.
+Earlier: **the cats are real recordings** —
 seven CC0/public-domain files, 88 kB, with the synthesis kept as the fallback;
 and the walkthrough starts the armchair by the window and the cat bed in the
 middle of the floor, so the café looks arranged when Mal leaves. Earlier:
@@ -211,7 +214,7 @@ pack ships those pieces in one finish.)
   tracked Xcode project, portrait-locked, and it **compiles** (verified with
   `xcodebuild` against a simulator destination). `npm run ios` does
   build → sync → open Xcode. Signing is Ellis's to do; see §16.
-- `npm test` — 365 tests over the pure systems, save migrations, café geometry,
+- `npm test` — 368 tests over the pure systems, save migrations, café geometry,
   the visitor loop, contentment maths, the camera controls (pan/zoom clamps,
   tap-vs-drag, press-and-hold), the placement rules the authored café itself
   has to pass, which objects the validator is allowed to ignore, the expansion
@@ -224,8 +227,8 @@ pack ships those pieces in one finish.)
   the fallbacks between them, the lip-sync viseme mapping, the merged pack's
   clips and face meshes, the guest phase machine settling rather than
   oscillating, where the till stands and which one each upgrade level wears,
-  where the walkthrough puts the furniture it hands you, and a jsdom smoke
-  suite for the HUD.
+  where the walkthrough puts the furniture it hands you, that every seat guests
+  are sent to is one the player may place, and a jsdom smoke suite for the HUD.
 
 > ## ⭐ DIRECTION — 2026-08-06. The café editor is the plan now.
 >
@@ -458,6 +461,9 @@ holds, and the editor is now how that week gets built.</summary>
   those legs would be more correct and would refuse more floor, which is the
   opposite of what Ellis asked for on 2026-08-26 — so it is a deliberate hold,
   not an oversight. Revisit it with the extra floor from expansion, not before.
+  **The seat approach is the one exception** and it is now checked against the
+  real leg (counter → chair, `approachFrom`), because that one decides whether
+  a chair may be *placed* rather than merely whether it is walked past.
 - ~~No UI/icon art~~ — a drawn SVG icon set now covers navigation, upgrades,
   the sound toggle and close (§9). It is deliberately small; anything new needs
   drawing in `ui/icons.ts` to the house style, not pulling from an icon font.
@@ -503,6 +509,26 @@ being read into context every session. Every *rule* it taught has been promoted
 into the numbered sections; the archive holds the reasoning and the dead ends.
 **Append new entries there**, and mirror only the newest handful here.
 
+- *2026-08-30* — **A chair refused from a corner guests were already sitting
+  in.** ([full entry](docs/session-log.md))
+  - Ellis: *"i wanted to put the chair in the corner … but its red and says the
+    guests cant reach that spot! … and then the guests go and sit in the corner
+    anyway."* Two faults, and the second is the one worth keeping.
+  - **The validator was testing a leg nobody walks.** `approachFrom` was
+    `DOOR_LOBBY` — where guests set off from until they started ordering at the
+    counter first on 2026-08-26. The route moved; the rule about the route did
+    not. **`visitor-manager.ts` is the authority for the route.**
+  - **The veto was out of all proportion.** Any solid thing on the line to a
+    seat refused it, so the 0.25-high cat bed the walkthrough had just told you
+    to put down was as final as the 0.78-high counter. Measured in the tutorial
+    café: one bed made 9 squares unreachable including the whole window corner.
+  - **The fix is a height, and the pack picked the number.** Cat bed 0.25,
+    cushion 0.24, low table 0.38 — then counter 0.78, bench 0.72, climber 1.45.
+    `STEP_OVER` sits in the gap at 0.5. After it: 4 unreachable squares, all of
+    them genuinely behind the counter, which is what the rule is *for*.
+  - **The lesson is the disagreement.** Reachability was decided independently
+    by the visitor manager (walks through anything) and the validator (refused
+    a lot). Either can be right; both cannot be, and the player finds out.
 - *2026-08-27, night* — **Real cats, and a walkthrough that leaves the café
   looking arranged.** ([full entry](docs/session-log.md))
   - **Seven CC0/public-domain recordings, 88 kB**, replacing the synthesised
@@ -575,34 +601,6 @@ into the numbered sections; the archive holds the reasoning and the dead ends.
   - **The delay was having no handle on it.** A per-frame state machine was
     invisible from outside the class; `visitorManager` is on `window.__mallow`
     now. §17 has asked for this for anything state-based since the start.
-- *2026-08-27* — **Mal comes back, and the game writes its own soundtrack.**
-  ([full entry](docs/session-log.md))
-  - **The anniversary guide is deleted, not switched off.** `ANNIVERSARY` was
-    built so the revert would be one boolean, and *"no more anniversary stuff"*
-    is stronger than "off" — a dead branch in a data file is something every
-    future reader has to work out is dead.
-  - **"i cant find a single ost i like on those marketplace sites" reads as
-    *stop shopping*.** A bought loop is a fixed two minutes that gets
-    recognised, then resented, in a game meant to be left running. So
-    `audio/music.ts` generates it, and the whole difficulty is that it must
-    **neither repeat nor noodle** — two different failures. One line resolves
-    them: the melody picks from the **nearest three** notes to the last one,
-    which is what turns a set of pitches into a line. Rhythm stays fixed,
-    because wrong pitches sound like a choice and wrong rhythm like a mistake.
-    No drums, for the coin-chime reason (§10).
-  - **"A synthesised meow is worse than silence" was wrong, and interestingly
-    wrong.** It generalised from the purr's three failures without noticing the
-    two sounds are made differently: **a purr is unvoiced and a meow is not.**
-    A meow has a pitch, so it is a source and a resonant tube — an oscillator
-    into three bandpass filters. The synthesis matches the anatomy and it works
-    almost at once.
-  - **The real unlock was `tools/render-audio.mjs`, built first.** This project
-    leans on `tools/shot.mjs` constantly because a WebGL bug is invisible to
-    tests; audio had *no* equivalent, which is exactly how a diesel-engine purr
-    shipped twice. It immediately found what reasoning had not: the meow's gain
-    of 0.16 measured out at a peak of **0.08, quieter than a button tap**,
-    because three bandpasses at Q 7 throw most of a sawtooth away. **A gain
-    upstream of heavy filtering cannot be reasoned about.**
 - *2026-08-26, later* — **A chair that vanished overnight, a walkway drawn as a
   circle, and the woodwork gets a colour.** ([full entry](docs/session-log.md))
   - **The disappearing chair was the save deleting it.** `sanitizeInstances`
@@ -2256,6 +2254,26 @@ Discoverability is the #1 risk, so treat marketing as a first-class workstream, 
   walkway looked over-strict, so `routeClearance` was swept 0.34 → 0.20 over
   the whole floor: it buys 1–3% of placeable area, because the cost is the
   corridor's length in a four-metre room, not its width. The number stayed.
+- **A rule *about* a journey has to be read from the code that makes the
+  journey.** `checkPlacement` refused seats by testing a straight line from
+  `DOOR_LOBBY`, which was where guests set off from — until they started
+  ordering at the counter first (2026-08-26). Nothing tied the two together, so
+  the validator spent months enforcing a constraint about a leg nobody walked,
+  and Ellis found it by being told a chair was unreachable and then watching a
+  guest sit there. **`visitor-manager.ts` is the authority for the route; a
+  copy of it anywhere else is a copy that will go stale.**
+- **When two systems hold an opinion about the same thing, write the agreement
+  down as a test.** Reachability was decided independently by the visitor
+  manager (walks through anything) and the validator (refuses a lot). Either
+  could be right; both cannot be, and the player is who finds out. The
+  invariant — *anywhere a guest can sit is somewhere a seat may be placed* — is
+  now a test in `cafe-room.test.ts`.
+- **A veto has to be proportionate to the thing vetoing.** Any solid object on
+  the line to a seat used to refuse the seat, so a 0.25-high cat bed was as
+  final as the 0.78-high counter — and the walkthrough had just told the player
+  to put a cat bed in the middle of the floor. People step over low things and
+  walk around tall ones; `STEP_OVER` is measured against the pack's own
+  furniture, which has a clean gap between the two groups (0.38 → 0.72).
 - **A phase test must ask "have they got past this?", not "are they on this and
   done?"** Those read the same and differ in one case: something that has moved
   *beyond* the phase. `arrived(leg)` was `walk.leg === leg && travelled >= total`,
@@ -2336,7 +2354,7 @@ npm run dev:lan    # same, exposed on the LAN — open on a phone, Add to Home
                    # Screen. This is the day-to-day device loop; a native
                    # rebuild is only needed to measure performance.
 npm run build      # production web build → dist/
-npm test           # 365 tests, no renderer needed
+npm test           # 368 tests, no renderer needed
 npm run balance    # simulate weeks of play under four player habits
 
 npm run ios        # build + sync + open Xcode. The one to use.

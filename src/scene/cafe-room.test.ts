@@ -4,6 +4,7 @@ import { join } from "node:path";
 import {
   CAFE_LAYOUT,
   CAT_SPOTS,
+  COUNTER_QUEUE,
   DOOR,
   DOOR_LOBBY,
   DOOR_THRESHOLD,
@@ -12,6 +13,7 @@ import {
   SILL,
 } from "@/data/cafe-layout";
 import { ECONOMY_CONFIG } from "@/data/economy";
+import { boundsOf, checkPlacement, turnedBox } from "@/systems/placement";
 
 /**
  * Layout verification without a renderer.
@@ -311,16 +313,22 @@ describe("café layout", () => {
 
   it("leaves a walkable path from the door to every seat", () => {
     // Visitors move in straight lines with no pathfinding, so anything solid
-    // on the route is walked through. The route has **two legs** since the
-    // door moved onto the real entrance step: outside → the doormat → the
-    // seat. Both are checked, because the approach leg passes the A-frame
-    // sign and the outdoor cushion.
+    // on the route is walked through.
+    //
+    // **The legs here are the ones `visitor-manager.ts` actually walks**, which
+    // since 2026-08-26 means everybody stops at the counter to order and only
+    // then crosses to their chair. This test said `DOOR_LOBBY → seat` for
+    // months after that stopped being true — a leg nobody walks — and so did
+    // the runtime validator, which is how a chair by the window came to be
+    // refused as unreachable while guests sat there quite happily
+    // (Ellis, 2026-08-30).
     const blocked: string[] = [];
     const legs: Array<[{ x: number; z: number }, { x: number; z: number }]> = [];
     for (const seat of SEATS) {
       legs.push([DOOR, DOOR_THRESHOLD]);
       legs.push([DOOR_THRESHOLD, DOOR_LOBBY]);
-      legs.push([DOOR_LOBBY, { x: seat.x, z: seat.z }]);
+      legs.push([DOOR_LOBBY, COUNTER_QUEUE]);
+      legs.push([COUNTER_QUEUE, { x: seat.x, z: seat.z }]);
     }
     for (const [from, to] of legs) {
       for (let t = 0.08; t < 0.92; t += 0.04) {
@@ -340,6 +348,64 @@ describe("café layout", () => {
       }
     }
     expect([...new Set(blocked)]).toEqual([]);
+  });
+
+  /**
+   * **Anywhere a guest can sit has to be somewhere the player may put a seat.**
+   *
+   * This is the invariant Ellis broke on 2026-08-30 — *"its red and says the
+   * guests cant reach that spot … and then the guests go and sit in the corner
+   * anyway."* Two systems held opinions about reachability and disagreed: the
+   * visitor manager walks people to a seat from the counter and through
+   * anything in the way, while `checkPlacement` refused seats using a
+   * different starting point and a stricter rule. Either can be right; they
+   * cannot both be, and the player is the one who finds out.
+   *
+   * Checked at the authored positions because those are the ones guests are
+   * sent to out of the box. A seat the *player* has moved is safe by
+   * construction — `movePiece` only runs after this same validator agreed.
+   */
+  it("agrees that a guest can reach every seat it seats them in", () => {
+    const refused: string[] = [];
+    for (const seat of SEATS) {
+      const box = FOOTPRINTS.get(seat.asset)!;
+      const turned = turnedBox(
+        { x: box.size[0] * (seat.scale ?? 1), z: box.size[2] * (seat.scale ?? 1) },
+        seat.x,
+        seat.z,
+        seat.rotY ?? 0,
+      );
+      // Everything else in a fully-stocked café, which is the strictest case:
+      // the more that is bought, the more there is to be blocked by.
+      const obstacles = PLACED.filter((p) => p.item !== seat).map((p) => ({
+        minX: p.minX,
+        maxX: p.maxX,
+        minZ: p.minZ,
+        maxZ: p.maxZ,
+        id: p.item.id,
+        flat: p.flat,
+        seating: p.item.seat === true,
+        wall: (p.item.y ?? 0) > 1.2,
+        height: p.maxY - p.minY,
+      }));
+      const check = checkPlacement(
+        boundsOf(turned),
+        obstacles,
+        [DOOR, DOOR_THRESHOLD, DOOR_LOBBY],
+        {
+          surfaces: [
+            { minX: -ROOM.half, maxX: ROOM.half, minZ: -ROOM.half, maxZ: ROOM.half },
+            { minX: -2, maxX: -0.1333, minZ: 2, maxZ: 2.7 },
+          ],
+          routeClearance: 0.34,
+          // The leg guests really walk — `visitor-manager.ts` is the authority.
+          approachFrom: COUNTER_QUEUE,
+        },
+        { id: seat.id, seat: true, turned },
+      );
+      if (!check.ok) refused.push(`${seat.id ?? seat.asset}: ${check.reason}`);
+    }
+    expect(refused).toEqual([]);
   });
 
   it("puts the floor surface at y=0, not the floor's underside", () => {

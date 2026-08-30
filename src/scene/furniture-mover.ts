@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import {
   CAFE_LAYOUT,
+  COUNTER_QUEUE,
   DOOR,
   DOOR_LOBBY,
   DOOR_THRESHOLD,
@@ -263,6 +264,9 @@ export function obstacleFor(
     ...boundsOf(box),
     turned: box,
     id: tag.id,
+    // Read off the measured mesh, so "could a guest step over this?" is a fact
+    // about the art rather than a guess — see `STEP_OVER`.
+    height: tag.size.y,
     flat: isFlat(tag) || ARCHITECTURE_SLOTS.has(item?.slot ?? ""),
     // **Seats only, deliberately narrower than the layout test.** That test
     // also skips every `Table_`, which would include the kitchen counter — and
@@ -506,7 +510,7 @@ export function createFurnitureMover(options: FurnitureMoverOptions): FurnitureM
     const check = checkPlacement(boundsOf(turned), obstacles(), ROUTE, {
       surfaces: surfaces(),
       routeClearance: ROUTE_CLEARANCE,
-      approachFrom: DOOR_LOBBY,
+      approachFrom: COUNTER_QUEUE,
       walls: wallFaces(),
     }, {
       id: tag.id,
@@ -612,7 +616,7 @@ export function createFurnitureMover(options: FurnitureMoverOptions): FurnitureM
           boundsOf(turned),
           obs,
           ROUTE,
-          { surfaces: surf, routeClearance: ROUTE_CLEARANCE, approachFrom: DOOR_LOBBY, walls: faces },
+          { surfaces: surf, routeClearance: ROUTE_CLEARANCE, approachFrom: COUNTER_QUEUE, walls: faces },
           { id, flat, seat, wall, turned },
         ).ok;
       };

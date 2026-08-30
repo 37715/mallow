@@ -17,6 +17,46 @@ The five most recent entries also remain inline in `CLAUDE.md` §0. New entries 
 ---
 
 **Session log:**
+- *2026-08-30* — **A chair refused from a corner guests were already sitting
+  in: two systems with two opinions about the same journey.**
+  - Ellis, with a screenshot: *"i wanted to put the chair in the corner in the
+    tutorial but its red and says the guests cant reach that spot! but then im
+    forced to place where i dont want in the middle and then the guests go and
+    sit in the corner anyway."* Two things wrong, and the second is the one
+    worth remembering.
+  - **The validator was testing a leg nobody walks.** `approachFrom` was
+    `DOOR_LOBBY`, which *was* where guests set off for their chair — until
+    2026-08-26, when they started stopping at the counter to order first
+    (`adac6e4`). The route moved; the rule about the route did not, because
+    nothing connected them. It is `COUNTER_QUEUE` now, and `cafe-room.test.ts`
+    walks the same four legs `visitor-manager.ts` does.
+  - **And the veto was wildly out of proportion.** *Any* solid object on the
+    line to a seat refused the seat — so the 0.25-high cat bed the walkthrough
+    had just told Ellis to put in the middle of the floor was as final as the
+    0.78-high counter. Mapped in the tutorial café: one cat bed took the chair
+    from 43 valid squares to 43 with **9 unreachable**, and the entire window
+    corner — where the reference render puts the armchair — was among them.
+  - **The fix is a height, measured rather than picked.** People step over low
+    things and walk round tall ones. The pack sorts itself into two clean
+    groups: cat bed 0.25, cushion 0.24, low table 0.38, rug 0.04 — then counter
+    0.78, kitchen bench 0.72, side table 0.78, cake display 1.08, cat climber
+    1.45. `STEP_OVER` sits in the gap at 0.5 and is not a tuning knob. After
+    it: 48 valid squares, 4 unreachable, and the four are genuinely *behind the
+    counter*, which is the case the rule was written for.
+  - **An unmeasured obstacle still blocks.** `height` is optional on
+    `Obstacle`, and absent means "assume it blocks" — a caller that has not
+    measured something must not have that silently become permission.
+  - **The general lesson is the disagreement, not either bug.** Reachability
+    was being decided independently in two places: the visitor manager, which
+    walks people through anything, and the validator, which refused a lot.
+    Either could be right; both cannot be, and the player is the one who finds
+    out. That invariant — *anywhere a guest can sit is somewhere a seat may be
+    placed* — is now a test.
+    - It is worth being honest that the invariant test would **not** have
+      caught this one: judged from the old approach point, the authored seats
+      all passed. What catches it is the pair of unit tests on the height rule,
+      confirmed failing against the old behaviour before being kept. The
+      invariant is there to catch the *next* one.
 - *2026-08-27, night* — **Real cats, and a walkthrough that leaves the café
   looking arranged.**
   - **"can we source some actgual professionally made cat purr and meows or
