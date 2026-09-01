@@ -23,7 +23,10 @@ This file is the shared brain for the project. **Read it before starting work in
 > starts growing past a screen or two of status, that is the signal to promote
 > and prune again.
 
-**Last updated:** 2026-08-30 (**a chair may go in the corner now** — the
+**Last updated:** 2026-09-01 (**Ellis's own cat sounds and soundtrack ship** —
+two purrs cut on the pulse, three meows, and a real 71-second OST that fades in
+a few seconds after launch, plays twice through and rests. The synthesis stays
+as the fallback. Earlier: **a chair may go in the corner now** — the
 placement validator was refusing seats along a walking leg guests stopped using
 in August, and letting a 25 cm cat bed veto a chair the way a counter does.
 Earlier: **the cats are real recordings** —
@@ -120,11 +123,10 @@ pack ships those pieces in one finish.)
 - **Selling furniture ✅** (2026-08-26) — "sell one" on every shop page, half
   back, newest copy first. A bed with a cat in it and no spare is refused (§8's
   sacred rule). `state/selling.test.ts`.
-- **Real cats ✅** (2026-08-27) — the purr and six meows are CC0/public-domain
-  recordings (88 kB, AAC, provenance in `public/audio/README.md`); the
-  synthesised versions are the fallback. Ellis: *"can we source some actgual
-  professionally made cat purr and meows … instead of these ridiculous
-  sounds."*
+- **Ellis's soundtrack and cat sounds ✅** (2026-09-01) — `locklane.m4a`, a
+  71-second loop that fades in a few seconds after launch, plays twice and
+  rests (`audio/soundtrack.ts`); two purrs cut on the pulse and three meows.
+  The generated music and the formant cats stay as the fallback. See §10.
 - **A soundtrack, and cats with voices ✅** (2026-08-27) — the music is
   *generated* rather than licensed (Ellis: *"i cant find a single ost i like on
   those marketplace sites"*): five progressions, an electric piano, a bass and
@@ -214,7 +216,7 @@ pack ships those pieces in one finish.)
   tracked Xcode project, portrait-locked, and it **compiles** (verified with
   `xcodebuild` against a simulator destination). `npm run ios` does
   build → sync → open Xcode. Signing is Ellis's to do; see §16.
-- `npm test` — 368 tests over the pure systems, save migrations, café geometry,
+- `npm test` — 373 tests over the pure systems, save migrations, café geometry,
   the visitor loop, contentment maths, the camera controls (pan/zoom clamps,
   tap-vs-drag, press-and-hold), the placement rules the authored café itself
   has to pass, which objects the validator is allowed to ignore, the expansion
@@ -228,7 +230,8 @@ pack ships those pieces in one finish.)
   clips and face meshes, the guest phase machine settling rather than
   oscillating, where the till stands and which one each upgrade level wears,
   where the walkthrough puts the furniture it hands you, that every seat guests
-  are sent to is one the player may place, and a jsdom smoke suite for the HUD.
+  are sent to is one the player may place, that every audio file the game names
+  is really shipped, and a jsdom smoke suite for the HUD.
 
 > ## ⭐ DIRECTION — 2026-08-06. The café editor is the plan now.
 >
@@ -467,10 +470,9 @@ holds, and the editor is now how that week gets built.</summary>
 - ~~No UI/icon art~~ — a drawn SVG icon set now covers navigation, upgrades,
   the sound toggle and close (§9). It is deliberately small; anything new needs
   drawing in `ui/icons.ts` to the house style, not pulling from an icon font.
-- Bundle ~838 kB JS (Three.js + the post chain) + 139 kB font. The soundtrack
-  and the cat voices cost ~4 kB of it, which is the argument for synthesis in
-  one number: a licensed two-minute OST is 2–4 MB. The **whole
-  `dist/` is ~13 MB**, and that is the number that matters now it ships in an
+- Bundle ~838 kB JS (Three.js + the post chain) + 139 kB font. The **whole
+  `dist/` is ~17 MB** since the real soundtrack landed — 2.4 MB of that is
+  `locklane.m4a` alone, against 4 kB for the generator it replaced, and that is the number that matters now it ships in an
   `.ipa`: 2.7 MB character GLB, ~760 kB Draco decoder, the café atlas, the rest.
   Fine for now, revisit before ship.
   **Nothing that is not shipped belongs in `public/`** — everything there is
@@ -509,6 +511,32 @@ being read into context every session. Every *rule* it taught has been promoted
 into the numbered sections; the archive holds the reasoning and the dead ends.
 **Append new entries there**, and mirror only the newest handful here.
 
+- *2026-09-01* — **Ellis's own cats and soundtrack, and a purr cut on the
+  pulse.** ([full entry](docs/session-log.md))
+  - A `sound/` folder arrived — three meows, two purr loops, and a real
+    71-second OST. All of it supersedes the Wikimedia cats and the generated
+    music, both of which stay as fallbacks.
+  - **A purr loop is cut on the pulse, not on the clock.** Both purrs are real
+    ~27 Hz pulse trains with visible *breath gaps*; a 2.4 s window chosen by eye
+    lands on one about a third of the time and sounds like the purr stalling.
+    Each clip is a whole number of pulses (67, 63) from the stretch whose
+    quietest 50 ms is loudest.
+  - **AAC priming will break a loop that is otherwise perfect.** The OST
+    declares 1024 frames of priming and 517 of padding. Both browsers honour
+    the gapless metadata — verified — and `loopStart` skips the measured head
+    anyway, because 23 ms of silence per repeat would be blamed on the music.
+  - **A dip at the seam turned out to be the composition**, not a bad edit —
+    checked by rendering tail and head back to back rather than arguing.
+  - **The rests are the design.** 4 s quiet, 5 s fade in, two passes, a 7 s
+    fade out landing on the end of the second pass, 45 s of café. Playing 77%
+    of the time. It restarts at the top rather than ducking a looping node, so
+    the same middle eight never fades in twice.
+  - **The level was measured, not chosen** — the track is mastered far hotter
+    than the generator (rms 0.059 vs 0.024), which at unity would have buried
+    the coin chimes.
+  - ⚠️ **The licences are unverified** — Freesound needs an account to read
+    them and it carries CC-BY-NC alongside CC0. Ids are in
+    `public/audio/README.md`. Not a blocker for building; one for submitting.
 - *2026-08-30* — **A chair refused from a corner guests were already sitting
   in.** ([full entry](docs/session-log.md))
   - Ellis: *"i wanted to put the chair in the corner … but its red and says the
@@ -582,25 +610,6 @@ into the numbered sections; the archive holds the reasoning and the dead ends.
     your menu"* instead of *"straight on the board"*, because the board is a
     décor item you may not own and the drink never appears on it; and the
     replay row is gone from settings, surviving only on `window.__mallow`.
-- *2026-08-27, later* — **Guests juddering at the counter: a phase test that
-  was false in two different situations.** ([full entry](docs/session-log.md))
-  - Ellis: *"character went up to desk, went to talk off agai and start
-    spasming out glitching cant get out for ages super jittery crazy."*
-    Reproduced before touching anything, by exposing the visitor manager and
-    logging leg changes: **each guest flipped `in` ↔ `toSeat` about twenty
-    times a second for the whole seven seconds they should have been sitting.**
-  - **One predicate answering a subtly different question.** `arrived(leg)` was
-    *are they on this leg and finished with it*, which is false both before a
-    leg is done **and after the walk has moved past it** — so the moment a
-    guest set off for their chair, the walk-in test went false again and reset
-    them to the door. Order the phases and treat one left behind as complete.
-  - **The spasm is `character.walk()` on every leg change** — a correct call,
-    added the day before so nobody slides about in an idle pose, firing twenty
-    times a second. *A correct action on a wrongly-firing trigger reads as a
-    rendering bug.*
-  - **The delay was having no handle on it.** A per-frame state machine was
-    invisible from outside the class; `visitorManager` is on `window.__mallow`
-    now. §17 has asked for this for anything state-based since the start.
 - *2026-08-26, later* — **A chair that vanished overnight, a walkway drawn as a
   circle, and the woodwork gets a colour.** ([full entry](docs/session-log.md))
   - **The disappearing chair was the save deleting it.** `sanitizeInstances`
@@ -2048,14 +2057,28 @@ Use a tween library for easing. Nothing in this game moves linearly or instantly
 - **Rate-limited on purpose**: a maxed café pays ~2.5×/second, so coin *sounds* are throttled to ~4/s while every payment still shows a floater. A chime that often stops being a reward and becomes a nag — pillar 1 beats feedback density.
 - `prefers-reduced-motion` is respected.
 
-### The cats are recordings; everything else is written (2026-08-27)
+### The cats are recordings; everything else is written (2026-08-27, replaced 2026-09-01)
 
 Ellis: *"can we source some actgual professionally made cat purr and meows or
 something instead of these ridiculous sounds."* Fair — the formant meow is a
 decent piece of synthesis and it is still a synthesiser pretending to be an
-animal. **Seven files, 88 kB, all CC0 or public domain** (Wikimedia Commons;
-provenance table in `public/audio/README.md`). The synthesised versions in
+animal. **Ellis supplied the set that ships** (2026-09-01, replacing the
+Wikimedia one): two purrs and three meows, 83 kB. The synthesised versions in
 `audio/cat.ts` stay as the fallback and are what plays if a file is missing.
+
+- **A purr loop has to be cut on the pulse, not on the clock.** Both purrs
+  arrived as 8.3 s and 5.7 s loops and both are real ~27 Hz pulse trains, so
+  the ~2.4 s clips are a whole number of pulses (67 and 63) taken from the
+  stretch whose *quietest* moment is loudest — which is what keeps the cut off
+  the breath gaps a purring cat leaves between rolls.
+- **Two purrs rather than one**, for the reason there are three meows: the
+  thing worse than a synthetic cat is the same cat twice.
+- ⚠️ **These licences are unverified.** The Wikimedia set they replaced was
+  checked file by file; these came from Ellis and from Freesound, which needs
+  an account to read licence metadata. Freesound carries CC0, CC-BY and
+  CC-BY-NC side by side and the last of those cannot ship in a paid or
+  ad-supported app at all. The source ids are recorded in
+  `public/audio/README.md`; **check them before submission.**
 
 - **This does not repeal §10's rule, because the rule was never "no files".**
   It was *don't block first paint on a download and don't inherit a licence*.
@@ -2074,7 +2097,38 @@ provenance table in `public/audio/README.md`). The synthesised versions in
   losing the distinction between "hello" and "feed me" costs less than losing
   the illusion.
 
-### The soundtrack is written, not bought (2026-08-27)
+### The soundtrack is Ellis's, and it breathes (2026-09-01)
+
+`locklane.m4a` — a 71-second piece that loops seamlessly, handed over with a
+brief: *"it needs a nice little fade in from silence a few seconds after
+logging in and maybe fade out again to silence for a little before fading back
+in again."* `audio/soundtrack.ts`.
+
+- **The rests are the design.** Continuous background music in a game people
+  leave running is wallpaper in ten minutes and an irritant in thirty. The
+  cycle is four seconds of quiet, a five-second fade in, two passes of the
+  piece, a seven-second fade out landing **on the end of the second pass**, and
+  forty-five seconds of café. Measured over a 260-second render: playing 77% of
+  the time. Coming back **at the top of the track** rather than ducking a
+  permanently-looping node is what stops the same middle eight fading in every
+  time.
+- **AAC carries encoder priming and it will break a "perfect" loop.** This file
+  declares 1024 frames of priming and 517 of padding; whether a decoder strips
+  them is up to the decoder. Chrome and WebKit both honour the gapless
+  metadata — verified, it decodes to exactly 71.111s — but `contentStart`
+  measures the buffer anyway and sets `loopStart` past any silence, because
+  23 ms of it at every loop point is a stutter that would be blamed on the
+  music. It costs nothing and is true either way.
+- **The generator is the fallback now**, exactly as the cats' synthesis is:
+  recording beats synthesis, synthesis beats silence, and a café with an empty
+  `public/audio/` must sound exactly as it did before any of these files
+  existed.
+- **It is 2.4 MB, which is most of the audio budget** and takes `dist/` to
+  ~17 MB. That is the honest price of a real track against 4 kB of generator.
+  It is 270 kbps stereo; re-encoding to ~128 kbps would halve it, at the cost
+  of a second generation of lossy compression. Ellis's call, not taken.
+
+### The soundtrack that is written rather than bought (2026-08-27)
 
 Ellis: *"i need nice music and cat sound fx too. i cant find a single ost i like
 on those marketplace sites."* This section used to say a composer's bed should
@@ -2354,7 +2408,7 @@ npm run dev:lan    # same, exposed on the LAN — open on a phone, Add to Home
                    # Screen. This is the day-to-day device loop; a native
                    # rebuild is only needed to measure performance.
 npm run build      # production web build → dist/
-npm test           # 368 tests, no renderer needed
+npm test           # 373 tests, no renderer needed
 npm run balance    # simulate weeks of play under four player habits
 
 npm run ios        # build + sync + open Xcode. The one to use.

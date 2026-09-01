@@ -30,6 +30,7 @@
 
 import { chirp, meow, renderCry } from "@/audio/cat";
 import { startMusic, type MusicHandle } from "@/audio/music";
+import { startSoundtrack } from "@/audio/soundtrack";
 
 const MASTER_VOLUME = 0.3;
 const MUTE_KEY = "mallow-muted";
@@ -224,12 +225,26 @@ export function initAudio(): void {
   musicGain.connect(master);
 
   startAmbient();
-  // **The bed stays underneath the tune.** They do different jobs: the music
-  // is the thing you notice, the room tone is what stops the gaps between
-  // phrases sounding like the sound has broken. Both hang off `musicGain`, so
-  // one switch silences the pair.
-  music = startMusic(ctx, musicGain);
-  if (musicMuted) music.setPlaying(false);
+  /**
+   * **The recording if there is one, the generator if there is not** — the
+   * same arrangement the cats have (`SAMPLE_PATHS`), and the fallback is not
+   * decoration: a café with an empty `public/audio/` has to sound exactly as
+   * it did before any of these files existed.
+   *
+   * The await is free rather than a delay to be hidden. The soundtrack opens
+   * with a few seconds of deliberate silence anyway (Ellis: *"a nice little
+   * fade in from silence a few seconds after logging in"*), so the fetch
+   * happens inside a gap that was always going to be there.
+   */
+  // Captured, because `ctx` and `musicGain` are module-level and nullable and
+  // this resolves a tick later — TypeScript is right to insist.
+  const context = ctx;
+  const bus = musicGain;
+  void startSoundtrack(context, bus).then((recorded) => {
+    // A mute that arrived while the file was loading still has to win.
+    music = recorded ?? startMusic(context, bus);
+    if (musicMuted) music.setPlaying(false);
+  });
   void loadSamples();
 }
 
@@ -302,17 +317,11 @@ function tone(
  * browser used to develop this and in none of the app. AAC is the codec iOS
  * decodes in hardware.
  */
-const SAMPLE_PATHS: Record<string, string[]> = {
-  purr: ["/audio/purr.m4a"],
-  // Six, because the one thing worse than a synthetic meow is the *same* meow.
-  meow: [
-    "/audio/meow-1.m4a",
-    "/audio/meow-2.m4a",
-    "/audio/meow-3.m4a",
-    "/audio/meow-4.m4a",
-    "/audio/meow-5.m4a",
-    "/audio/meow-6.m4a",
-  ],
+export const SAMPLE_PATHS: Record<string, string[]> = {
+  // Two purrs, one busier than the other — `playSample` picks per tap, so
+  // petting the same cat twice does not play the identical two seconds back.
+  purr: ["/audio/purr-1.m4a", "/audio/purr-2.m4a"],
+  meow: ["/audio/meow-1.m4a", "/audio/meow-2.m4a", "/audio/meow-3.m4a"],
   // Empty on purpose: there is no CC0 recording of a cat trilling anywhere I
   // could find, and `playChirp` would rather borrow a real meow than play a
   // synthesised cat next to six recorded ones. Drop files here if any turn up.

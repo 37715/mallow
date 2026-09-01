@@ -17,6 +17,64 @@ The five most recent entries also remain inline in `CLAUDE.md` §0. New entries 
 ---
 
 **Session log:**
+- *2026-09-01* — **Ellis's own cats and soundtrack, and a purr cut on the
+  pulse.**
+  - A `sound/` folder arrived: three meows, two purr *loops*, and
+    `locklane.m4a` — a real 71-second OST. Plus a `dont use/` folder, left
+    alone as labelled. All of it supersedes what was there: the Wikimedia cats
+    from the 27th, and the generated music from the same day, both of which
+    stay as fallbacks. Recording beats synthesis; synthesis beats silence.
+  - **A purr loop has to be cut on the pulse, not on the clock.** Both purrs
+    measured as real ~27 Hz pulse trains (a cat's is 25–30), and both have
+    visible *breath gaps* — the dips where the animal inhales. Cutting 2.4 s
+    out of the middle by eye lands on one about a third of the time and sounds
+    like the purr stalling. So each clip is a **whole number of pulses** (67
+    and 63), taken from the window whose *quietest* 50 ms is loudest, which is
+    a one-line way of saying "the stretch with no breath in it".
+  - **AAC priming will break a loop that is otherwise perfect.** `afinfo` on
+    the OST: *3135995 valid frames + 1024 priming + 517 remainder*. Whether a
+    decoder strips those is up to the decoder, and 1024 frames is 23 ms of
+    silence at the head of every repeat — a stutter that would get blamed on
+    the music. Verified in the browser that Chrome and WebKit both honour the
+    gapless metadata (decodes to exactly 71.111 s, no tail gap), and set
+    `loopStart` past the measured head anyway, because it costs nothing and is
+    true whatever the decoder does.
+  - **A dip at the seam turned out to be the composition.** The first look at
+    the loop point showed the level falling away for the best part of a second,
+    which reads exactly like a bad edit. It is the track's own opening: sparse
+    and slow where the ending is full. Checked by rendering the tail and head
+    back to back rather than by arguing about it — first second rms 0.051,
+    last second 0.061. Nothing wrong.
+  - **The rests are the design, not decoration.** Ellis asked for music that
+    fades out to silence and comes back; that is the same instinct §10 has
+    about the coin chime and about why the generated music has no drums.
+    Continuous background music in a game you leave running is wallpaper in ten
+    minutes. The cycle: 4 s quiet, 5 s fade in, two passes, a 7 s fade out
+    **timed to land on the end of the second pass** so the piece finishes, then
+    45 s of café. Rendered over 260 s: playing 77% of the time.
+  - **It restarts at the top rather than ducking a looping node.** Ducking is
+    simpler and would mean the same middle eight faded in after every rest.
+  - **The level was set by measurement, not taste** — §10's standing rule. The
+    track is mastered far hotter than the generator it replaces (rms 0.059
+    against 0.024), so dropping it in at unity would have buried the coin
+    chimes. At 0.62 the rendered mix comes out at rms 0.0235 against the
+    generator's 0.0240, which is the same café with a better tune in it.
+  - **A missing audio file fails silently and pleasantly**, which is why it now
+    has a test. The loaders fall back to synthesis: nothing throws, nothing
+    logs, and a renamed file just means the cats quietly sound like a
+    synthesiser again. Same shape as the never-firing autosave. The test
+    asserts the declared paths exist, are not empty, and are not `.ogg`
+    (Safari) — and it was confirmed to fail on a renamed file before being kept.
+  - **What I could not do: verify the licences.** The Wikimedia set was checked
+    file by file. These came from Ellis and Freesound, which needs an account
+    to read licence metadata, and Freesound carries CC0, CC-BY and CC-BY-NC
+    side by side — the last cannot ship in a paid or ad-supported app. The
+    source ids are recorded in `public/audio/README.md` and flagged in §10.
+    **Not a blocker for building; a blocker for submitting.**
+  - Cost: `dist/` 13 MB → 17 MB, essentially all of it the 2.4 MB track. Honest
+    price for a real soundtrack against 4 kB of generator, and re-encoding
+    270 kbps → 128 kbps would halve it at the cost of a second lossy
+    generation. Left as Ellis mastered it.
 - *2026-08-30* — **A chair refused from a corner guests were already sitting
   in: two systems with two opinions about the same journey.**
   - Ellis, with a screenshot: *"i wanted to put the chair in the corner in the

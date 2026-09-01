@@ -2,8 +2,12 @@
  * Bounce the game's synthesised audio to a `.wav` you can actually listen to.
  *
  *   npm run dev                      # in one terminal
- *   node tools/render-audio.mjs music 60 music.wav
+ *   node tools/render-audio.mjs cafe 240 cafe.wav   # music + cats, as mixed
+ *   node tools/render-audio.mjs music 240 music.wav
  *   node tools/render-audio.mjs cats 20 cats.wav
+ *
+ * The soundtrack rests between plays (`audio/soundtrack.ts`), so a render
+ * shorter than ~4 minutes will not show you a whole cycle.
  *
  * **This is `tools/shot.mjs` for sound, and it exists for the same reason.**
  * A WebGL regression is invisible to unit tests, so this project grew a
@@ -124,8 +128,14 @@ const render = `(async () => {
   const want = ${JSON.stringify(what)};
 
   if (want === "music" || want === "cafe") {
-    const { startMusic } = await import("/src/audio/music.ts");
-    startMusic(ctx, ctx.destination, { offlineSeconds: ${seconds} });
+    // The recorded soundtrack if there is one, exactly as the game decides it,
+    // and the generator only when there is not.
+    const { startSoundtrack } = await import("/src/audio/soundtrack.ts");
+    const recorded = await startSoundtrack(ctx, ctx.destination, { offlineSeconds: ${seconds} });
+    if (!recorded) {
+      const { startMusic } = await import("/src/audio/music.ts");
+      startMusic(ctx, ctx.destination, { offlineSeconds: ${seconds} });
+    }
   }
   if (want === "cafe") {
     // The mix as the game plays it: both go to the same master, so the levels
