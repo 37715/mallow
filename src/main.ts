@@ -508,8 +508,8 @@ async function bootstrap(): Promise<void> {
        *
        * Two thirds of the time it is the chirrup rather than the meow, because
        * this is a cat being *pleased*, and a meow is what a cat says when it
-       * wants something. Both are synthesised now (`audio/cat.ts`); this used
-       * to be silent until a recording was dropped in.
+       * wants something. Both are recordings (`public/audio/`), and the
+       * chirrup borrows a meow because no CC0 cat trill exists.
        */
       if (Math.random() < 0.4) {
         const answer = Math.random() < 0.66 ? playChirp : playMeow;

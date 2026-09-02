@@ -2554,7 +2554,7 @@ export function mountUI(root: HTMLElement): MountedUI {
       playReveal(REVEAL_INTENSITY[catDefinition(cat.definitionId).rarity] ?? 0.3);
       // …and the cat says hello, a beat after the chime, so the two read as
       // one arrival rather than as two sounds. The chirrup rather than the
-      // meow: this is the friendly one (`audio/cat.ts`).
+      // meow: this is the friendly one (`playChirp` in `audio/audio.ts`).
       window.setTimeout(playChirp, 520);
       showAdoptionModal(cat);
     });

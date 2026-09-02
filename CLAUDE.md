@@ -23,10 +23,13 @@ This file is the shared brain for the project. **Read it before starting work in
 > starts growing past a screen or two of status, that is the signal to promote
 > and prune again.
 
-**Last updated:** 2026-09-01 (**Ellis's own cat sounds and soundtrack ship** —
-two purrs cut on the pulse, three meows, and a real 71-second OST that fades in
-a few seconds after launch, plays twice through and rests. The synthesis stays
-as the fallback. Earlier: **a chair may go in the corner now** — the
+**Last updated:** 2026-09-02 (**the synthesised music and cats are deleted** —
+they were still playing underneath the real recordings, which is what Ellis
+could hear; and the 2.4 MB soundtrack no longer loads ahead of the 25 kB sound
+effects, which is why cats were silent for the first few seconds. Earlier:
+Ellis's own cat sounds and soundtrack ship — two purrs cut on the pulse, three
+meows, and a real 71-second OST that fades in, plays twice through and rests.
+Earlier still: **a chair may go in the corner now** — the
 placement validator was refusing seats along a walking leg guests stopped using
 in August, and letting a 25 cm cat bed veto a chair the way a counter does.
 Earlier: **the cats are real recordings** —
@@ -124,17 +127,13 @@ pack ships those pieces in one finish.)
   back, newest copy first. A bed with a cat in it and no spare is refused (§8's
   sacred rule). `state/selling.test.ts`.
 - **Ellis's soundtrack and cat sounds ✅** (2026-09-01) — `locklane.m4a`, a
-  71-second loop that fades in a few seconds after launch, plays twice and
-  rests (`audio/soundtrack.ts`); two purrs cut on the pulse and three meows.
-  The generated music and the formant cats stay as the fallback. See §10.
-- **A soundtrack, and cats with voices ✅** (2026-08-27) — the music is
-  *generated* rather than licensed (Ellis: *"i cant find a single ost i like on
-  those marketplace sites"*): five progressions, an electric piano, a bass and
-  a melody that never repeats and never noodles, in a generated room. The cats
-  meow and chirrup, by formant synthesis — which works where three attempts at
-  the purr did not, because **a purr is unvoiced and a meow is not**. And
-  **audio can finally be listened to**: `node tools/render-audio.mjs cafe 60
-  out.wav`. See §10.
+  71-second loop that fades in a few seconds after launch, plays twice through
+  and rests (`audio/soundtrack.ts`); two purrs cut on the pulse and three
+  meows. **The synthesised music and cats were deleted on 2026-09-02**, not
+  kept as fallbacks — the ambient pad was still audible under the real track
+  and during its rests, which is what Ellis was hearing. See §10.
+- **Audio can be listened to ✅** (2026-08-27) — `node tools/render-audio.mjs
+  cafe 240 out.wav` bounces the real mix, fades and all.
 - **Placement tells the truth about its own rules ✅** (2026-08-26) — the
   walkway is measured as an oriented rectangle rather than a disc (a turned
   low table went from 31.7% of the floor refused, down from 40.1%) **and is
@@ -511,6 +510,28 @@ being read into context every session. Every *rule* it taught has been promoted
 into the numbered sections; the archive holds the reasoning and the dead ends.
 **Append new entries there**, and mirror only the newest handful here.
 
+- *2026-09-02* — **"get rid of the old crap i can still hear": the fallbacks
+  were the bug.** ([full entry](docs/session-log.md))
+  - **What I checked yesterday was that the new files load; what I never
+    checked was whether the old ones had stopped.** Dev played the recordings,
+    prod played the recordings, every file fetched and decoded — all true, all
+    beside the point. *"Does the new thing work" and "does only the new thing
+    play" are different claims, and I had tested one of them.*
+  - **Counting oscillators found it in one shot.** Any that had not stopped
+    after four seconds: **8** — `startAmbient`'s four pad voices and four LFOs,
+    running continuously under the real soundtrack and the only thing audible
+    during its 45-second rests.
+  - **A fallback that can be heard is not a safety net.** It is a second
+    implementation nobody chose, and it will get chosen. `audio/music.ts` and
+    `audio/cat.ts` deleted, not disabled — the anniversary-guide call again. A
+    missing file now means quiet, which is the better of the two sounds.
+  - **It was blocking the brief too**: music asked to fade *"out again to
+    silence"* cannot reach silence with a synthesised pad underneath it.
+  - **The load order was a second real bug.** The 2.4 MB track was fetched
+    before the 25 kB effects, so the cats queued behind it and a cat petted in
+    the first seconds made no sound — "no meow sound", with no synthesis needed
+    to explain it. Effects first now: **purr audible 253 ms after the first
+    tap**.
 - *2026-09-01* — **Ellis's own cats and soundtrack, and a purr cut on the
   pulse.** ([full entry](docs/session-log.md))
   - A `sound/` folder arrived — three meows, two purr loops, and a real
@@ -557,32 +578,6 @@ into the numbered sections; the archive holds the reasoning and the dead ends.
   - **The lesson is the disagreement.** Reachability was decided independently
     by the visitor manager (walks through anything) and the validator (refused
     a lot). Either can be right; both cannot be, and the player finds out.
-- *2026-08-27, night* — **Real cats, and a walkthrough that leaves the café
-  looking arranged.** ([full entry](docs/session-log.md))
-  - **Seven CC0/public-domain recordings, 88 kB**, replacing the synthesised
-    purr and meow (which stay as the fallback). **The licence was checked per
-    file, not trusted from the search listing** — the first page of results is
-    mostly CC BY-SA, a different thing entirely for something shipping in an
-    `.ipa`.
-  - **AAC, never Ogg, and this one is a trap.** Ogg Vorbis is the format most
-    freely-licensed audio arrives in and **Safari does not decode it** — an
-    `.ogg` would have worked in every browser used to build this game and in
-    none of the app. `afconvert` reads Ogg and writes AAC, so no new tooling.
-  - **There is no CC0 recording of a cat trilling**, so `playChirp` borrows a
-    real meow before falling back to synthesis: beside six recorded cats, a
-    synthesised anything is the sound the player notices.
-  - **The walkthrough starts each bought piece's ghost somewhere composed** —
-    the armchair at its authored spot by the window (read from `CAFE_LAYOUT`,
-    not copied), the bed at the measured centre of the *usable* floor. A
-    suggestion, not a lock, and scoped to the walkthrough because Ellis asked
-    for the opposite everywhere else on 2026-08-07.
-  - **Mal was never blocking anything** — she is not a placement obstacle. But
-    a person standing on the square you are told to drag furniture onto reads
-    as blocked, and that is the same as being blocked.
-  - **Two false alarms while verifying, both in my test harness**, not the
-    game: `beginPlacing` called before the room rebuilt, and a `fits` helper
-    that let the armchair collide with itself. *Expect the test to be the wrong
-    one when the game is what just changed.*
 - *2026-08-27, evening* — **The till becomes a thing you can point at, and the
   walkthrough loses a step's worth of cleverness.**
   ([full entry](docs/session-log.md))
@@ -2053,151 +2048,83 @@ Use a tween library for easing. Nothing in this game moves linearly or instantly
 - **Tap a cat to pet it** — squash-and-wiggle, a burst of hearts, and a purr. `CatManager.pick()` raycasts; `entities/cat.ts` exposes named parts (`head`, `tail`, `earL`, `earR`, `torso`) as animation hooks. **Rename those and the cats go still.**
 - **Coins pop and arc** out of the seat that paid, as DOM floaters projected from world space (`ui/floaters.ts`) — crisp at any DPI, zero draw calls.
 - **Dust motes** drift in the light: one `THREE.Points`, one draw call (`scene/dust.ts`).
-- **Audio is synthesised at runtime** (`audio/audio.ts`) — WebAudio only, no files, no licensing questions, nothing to load. Coin/purr/tap/purchase/reveal sfx, a quiet room-tone bed, and since 2026-08-27 **a generated soundtrack and a cat's voice** (see below). Reveal intensity scales with rarity. Starts on first tap (browser autoplay policy) and no-ops entirely when there's no `AudioContext`.
+- **Audio** (`audio/audio.ts`) — the cats and the soundtrack are **recordings** (`public/audio/`); the interface sfx (coin, tap, purchase, reveal, typing) are synthesised WebAudio. Reveal intensity scales with rarity. Starts on first tap (browser autoplay policy) and no-ops entirely when there's no `AudioContext`. **Nothing synthesised stands in for a missing recording** — see §10.
 - **Rate-limited on purpose**: a maxed café pays ~2.5×/second, so coin *sounds* are throttled to ~4/s while every payment still shows a floater. A chime that often stops being a reward and becomes a nag — pillar 1 beats feedback density.
 - `prefers-reduced-motion` is respected.
 
-### The cats are recordings; everything else is written (2026-08-27, replaced 2026-09-01)
+### The cats and the music are recordings (2026-09-01, cleaned up 2026-09-02)
 
-Ellis: *"can we source some actgual professionally made cat purr and meows or
-something instead of these ridiculous sounds."* Fair — the formant meow is a
-decent piece of synthesis and it is still a synthesiser pretending to be an
-animal. **Ellis supplied the set that ships** (2026-09-01, replacing the
-Wikimedia one): two purrs and three meows, 83 kB. The synthesised versions in
-`audio/cat.ts` stay as the fallback and are what plays if a file is missing.
+`public/audio/` — a soundtrack, two purrs and three meows, all supplied by
+Ellis. `audio/soundtrack.ts` plays the track; `playPurr`/`playMeow` play the
+rest. **The interface stays synthesised** (coins, taps, purchases, the reveal
+chime, the typing click): those are feedback rather than performances, and
+nobody has ever complained about them.
 
-- **A purr loop has to be cut on the pulse, not on the clock.** Both purrs
-  arrived as 8.3 s and 5.7 s loops and both are real ~27 Hz pulse trains, so
-  the ~2.4 s clips are a whole number of pulses (67 and 63) taken from the
-  stretch whose *quietest* moment is loudest — which is what keeps the cut off
-  the breath gaps a purring cat leaves between rolls.
-- **Two purrs rather than one**, for the reason there are three meows: the
-  thing worse than a synthetic cat is the same cat twice.
-- ⚠️ **These licences are unverified.** The Wikimedia set they replaced was
-  checked file by file; these came from Ellis and from Freesound, which needs
-  an account to read licence metadata. Freesound carries CC0, CC-BY and
-  CC-BY-NC side by side and the last of those cannot ship in a paid or
-  ad-supported app at all. The source ids are recorded in
-  `public/audio/README.md`; **check them before submission.**
+**There are no synthesised stand-ins any more, and deleting them was the fix
+for a real bug.** A generated soundtrack (`audio/music.ts`), a formant meow and
+a filtered-noise purr (`audio/cat.ts`) all survived as "fallbacks" after the
+recordings landed — and the ambient pad among them **kept playing underneath
+the real track**, and was the only thing audible during its rests. Ellis,
+2026-09-02: *"its still only using tyhe old retarded purr. no meow sound. the
+old soundtrack too … get rid of the old crap i can still hear."*
 
-- **This does not repeal §10's rule, because the rule was never "no files".**
-  It was *don't block first paint on a download and don't inherit a licence*.
-  These load lazily after the first tap, and CC0 carries no attribution into
-  the app. 88 kB against a 4 MB character GLB is not a budget question.
-- **AAC in `.m4a`, never Ogg.** Ogg Vorbis is the format most freely-licensed
-  audio arrives in and **Safari does not decode it** — an `.ogg` would have
-  worked in every browser used to develop this and in none of the app. macOS's
-  own `afconvert` reads Ogg and writes AAC, so no tooling was needed.
-- **Six meows, because the one thing worse than a synthetic meow is the same
-  meow.** Four are cut from a single eleven-second public-domain recording of
-  one cat, which is why four sound alike — they are one cat.
-- **There is no CC0 recording of a cat trilling.** `playChirp` therefore
-  borrows a real meow before it falls back to its own synthesis: beside six
-  recorded cats, a synthesised anything is the sound the player notices, and
-  losing the distinction between "hello" and "feed me" costs less than losing
-  the illusion.
+- **A fallback that can be heard is not a safety net.** It is a second
+  implementation nobody chose, and it will be chosen. Same call this project
+  made about the anniversary guide: deleted, not disabled, because a dead
+  branch is something every future reader has to work out is dead.
+- **A missing file now means quiet**, which is the better of the two sounds and
+  is what the brief needed anyway — music that fades *to silence* cannot do
+  that with a synthesised pad playing underneath it.
+- **`audio-files.test.ts` is what makes that safe.** With no fallback a renamed
+  file is a silent sound rather than a wrong one, so the test asserts every
+  declared path exists, is non-empty, and is not an `.ogg`.
 
-### The soundtrack is Ellis's, and it breathes (2026-09-01)
+**A purr loop is cut on the pulse, not on the clock.** Both purrs are real
+~27 Hz pulse trains (a cat's is 25–30) with visible *breath gaps*. A 2.4 s
+window chosen by eye lands on one about a third of the time and sounds like the
+purr stalling, so each clip is a whole number of pulses (67 and 63) taken from
+the stretch whose quietest 50 ms is loudest.
 
-`locklane.m4a` — a 71-second piece that loops seamlessly, handed over with a
-brief: *"it needs a nice little fade in from silence a few seconds after
-logging in and maybe fade out again to silence for a little before fading back
-in again."* `audio/soundtrack.ts`.
+**Load order is sound effects first, soundtrack second.** The track is 2.4 MB
+against 25 kB for a purr; starting them together put the little files behind
+the big one, and a cat petted in the first few seconds made no sound at all.
+The soundtrack can afford to wait — it opens with four seconds of deliberate
+silence — and the effects cannot. Purr is now audible 253 ms after the first tap.
+
+⚠️ **The licences are unverified.** The Wikimedia set these replaced was checked
+file by file; these came from Ellis and from Freesound, which needs an account
+to read licence metadata and carries CC-BY-NC alongside CC0 — and CC-BY-NC
+cannot ship in a paid or ad-supported app. The source ids are in
+`public/audio/README.md`; **check them before submission.**
+
+### The soundtrack breathes (2026-09-01)
+
+`locklane.m4a`, 71 seconds, loops seamlessly. Ellis's brief: *"a nice little
+fade in from silence a few seconds after logging in and maybe fade out again to
+silence for a little before fading back in again."*
 
 - **The rests are the design.** Continuous background music in a game people
-  leave running is wallpaper in ten minutes and an irritant in thirty. The
-  cycle is four seconds of quiet, a five-second fade in, two passes of the
-  piece, a seven-second fade out landing **on the end of the second pass**, and
-  forty-five seconds of café. Measured over a 260-second render: playing 77% of
-  the time. Coming back **at the top of the track** rather than ducking a
-  permanently-looping node is what stops the same middle eight fading in every
-  time.
+  leave running is wallpaper in ten minutes and an irritant in thirty — the
+  same argument §10 makes about the coin chime. The cycle is four seconds of
+  quiet, a five-second fade in, two passes, a seven-second fade out landing
+  **on the end of the second pass** so the piece finishes, then forty-five
+  seconds of café. Measured over 200 s: rms 0.0251 while playing, which is what
+  the generator it replaced measured, so the mix did not move.
+- **It restarts at the top** rather than ducking a permanently-looping node, so
+  the same middle eight never fades in twice.
 - **AAC carries encoder priming and it will break a "perfect" loop.** This file
   declares 1024 frames of priming and 517 of padding; whether a decoder strips
-  them is up to the decoder. Chrome and WebKit both honour the gapless
-  metadata — verified, it decodes to exactly 71.111s — but `contentStart`
-  measures the buffer anyway and sets `loopStart` past any silence, because
-  23 ms of it at every loop point is a stutter that would be blamed on the
-  music. It costs nothing and is true either way.
-- **The generator is the fallback now**, exactly as the cats' synthesis is:
-  recording beats synthesis, synthesis beats silence, and a café with an empty
-  `public/audio/` must sound exactly as it did before any of these files
-  existed.
-- **It is 2.4 MB, which is most of the audio budget** and takes `dist/` to
-  ~17 MB. That is the honest price of a real track against 4 kB of generator.
-  It is 270 kbps stereo; re-encoding to ~128 kbps would halve it, at the cost
-  of a second generation of lossy compression. Ellis's call, not taken.
+  them is up to the decoder. Chrome and WebKit both honour the gapless metadata
+  — verified, it decodes to exactly 71.111 s — and `contentStart` measures the
+  buffer and sets `loopStart` past any silence anyway, because 23 ms of it per
+  repeat is a stutter that would be blamed on the music.
+- **A dip at the loop point turned out to be the composition**, not a bad edit:
+  the track opens sparse where it ends full. Checked by rendering tail and head
+  back to back rather than by arguing about it.
+- **It is 2.4 MB, most of the audio budget**, taking `dist/` to ~17 MB. It is
+  270 kbps stereo; re-encoding to ~128 would halve it at the cost of a second
+  lossy generation. Ellis's call, not taken.
 
-### The soundtrack that is written rather than bought (2026-08-27)
-
-Ellis: *"i need nice music and cat sound fx too. i cant find a single ost i like
-on those marketplace sites."* This section used to say a composer's bed should
-replace the synthesised one; the answer turned out to be the other direction.
-
-**`audio/music.ts` generates the piece.** A four-bar phrase picked from five
-progressions, an electric piano, a bass, and a melody with a lot of rests in it.
-The rules it is built on, because each one is a way it could go wrong:
-
-- **It must not repeat and it must not noodle.** Those are two different
-  failures and a generator has to dodge both. A loop gets recognised, resented,
-  and muted; a random walk over the scale sounds like somebody warming up. What
-  sits between is *the same tune said differently each time* — the melody picks
-  from the **nearest three** notes to the one before it, which is what turns a
-  set of pitches into a line.
-- **Rhythm is where randomness is heard first.** Wrong pitches sound like a
-  choice; wrong rhythm sounds like a mistake. The figures are a fixed handful,
-  not a generator.
-- **No drums.** The obvious model for cosy game music is lo-fi hip hop, which
-  is a beat — and a beat is a pulse you cannot stop noticing. Same argument as
-  the coin chime's rate limit: fine for a minute, a nag for an hour.
-- **Reverb is most of the sound.** A dry synth note is a synth note; the same
-  note in a room is an instrument. The impulse response is generated too.
-- **One switch, and it stops scheduling** rather than just ducking the gain —
-  the fade is what makes muting sound deliberate, the stop is what keeps a
-  silenced café from running a piano for nobody.
-
-**`audio/cat.ts` is the voice**, and the reason it works is worth keeping
-because it corrects a wrong conclusion this file used to record. The purr was
-rebuilt three times out of filtered noise and a note went in saying cats cannot
-be synthesised. That generalised too far: **a purr is unvoiced and a meow is
-not.** A meow has a pitch, so it is a buzzing source shaped by a resonant tube —
-which is exactly an oscillator into three bandpass filters. The synthesis
-matches the anatomy, so it works almost for free. What makes it read as a cat:
-the vowel *moves* (a meow is a journey between three vowels, and the journey is
-what the ear identifies), the pitch arcs and never sits flat, and it starts
-closed — skip the `m` and you get a bird. A chirrup is the same machine with a
-rising pitch and a trill on the folds.
-
-**Recordings still win if any are dropped into `public/audio/`** (`SAMPLE_PATHS`),
-so this is a floor rather than a ceiling.
-
-> **You can listen to it: `node tools/render-audio.mjs cafe 60 out.wav`.**
-> Use it before changing anything in `audio/`. This is `tools/shot.mjs` for
-> sound and it exists for the same reason — audio had *no* way to be inspected
-> until 2026-08-27, and the price of that is written all over this section: a
-> diesel-engine purr shipped twice, a wrong impossibility claim stood for weeks,
-> and the meow's gain was set by eye at a level quieter than a button click.
-> **Levels especially cannot be reasoned about**: three bandpasses at Q 7 throw
-> most of a sawtooth away, so the number in the source is nothing like the
-> number that comes out.
-
-**WebAudio in a WKWebView runs on the app's audio session, and the default one
-obeys the hardware ringer switch.** So a phone on silent plays *nothing* while
-every sound is synthesised correctly and the web build is perfect — a fault no
-browser can ever reveal, in the same family as the never-firing autosave.
-`AppDelegate` sets `.playback` with `.mixWithOthers`: plays on silent, doesn't
-stop somebody's podcast. Don't remove it.
-
-**Compare a sound to its neighbours, not to an argument about it.** The typing
-click was set to 0.022 by reasoning ("it fires 20×/second so it must be tiny")
-and was inaudible; it is 0.13, i.e. comparable to `playTap`. And the purr took
-three passes because "rumble" hid three separate wrongnesses — a purr heard
-across a room has almost nothing below ~150 Hz (that is felt with a hand on the
-cat, and at 25 Hz chop it is an idling diesel), its rasp lives in a band around
-200–600 Hz, and it is a *pulse train* rather than a tremolo. A perfectly fixed
-rate is the clearest tell that a sound is synthetic; drift it.
-
----
 
 ## 11. Data & analytics (validate continuously)
 
@@ -2308,6 +2235,16 @@ Discoverability is the #1 risk, so treat marketing as a first-class workstream, 
   walkway looked over-strict, so `routeClearance` was swept 0.34 → 0.20 over
   the whole floor: it buys 1–3% of placeable area, because the cost is the
   corridor's length in a four-metre room, not its width. The number stayed.
+- **A fallback that can be heard is not a safety net.** It is a second
+  implementation nobody chose, and it will get chosen. The synthesised music
+  and cats sat behind the real recordings as "fallbacks" and went on playing
+  underneath them for a day before anyone noticed. Delete the stand-in when the
+  real thing lands; silence is a better failure than the wrong sound.
+- **"Does the new thing work" and "does only the new thing play" are different
+  claims.** Every check made after shipping the recordings confirmed the first
+  — files fetched, decoded, played, in dev and in prod — and none of them could
+  have caught the second. When replacing something, assert the *absence* of
+  what it replaced, not just the presence of the replacement.
 - **A rule *about* a journey has to be read from the code that makes the
   journey.** `checkPlacement` refused seats by testing a straight line from
   `DOOR_LOBBY`, which was where guests set off from — until they started

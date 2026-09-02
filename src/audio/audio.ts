@@ -1,36 +1,37 @@
 /**
  * Audio (§10 — "audio is half the cosiness").
  *
- * Every sound here is **synthesised at runtime with WebAudio**: no files, no
- * downloads, no licensing questions, and nothing to load before first paint.
+ * Two kinds of sound, and the split is the thing to understand:
  *
- * **That used to be a compromise and it is now the plan.** This header said for
- * months that a real composer's bed should replace `startAmbient()`; Ellis went
- * looking — *"i cant find a single ost i like on those marketplace sites"* —
- * and the answer turned out to be to write one instead (`audio/music.ts`). A
- * bought loop is a fixed two minutes that gets recognised, and then resented,
- * in a game meant to be left running. A generated piece has neither problem.
+ * - **The cats and the music are recordings.** `public/audio/*.m4a`, supplied
+ *   by Ellis. `audio/soundtrack.ts` plays the track; `playPurr`/`playMeow`
+ *   play the rest.
+ * - **The interface is synthesised** — coins, taps, purchases, the reveal
+ *   chime, the typing click. Those are feedback rather than performances, they
+ *   cost nothing, and nobody has ever complained about them.
  *
- * This file is the plumbing and the effects; the two things with real DSP in
- * them live next door, because both are long enough to be read on their own:
- *
- * - `audio/music.ts` — the soundtrack. Chords, bass, melody, a generated room.
- * - `audio/cat.ts` — the voice. Meow and chirrup, by formant synthesis.
+ * **There used to be a third kind and it is gone: synthesised stand-ins.** A
+ * generated soundtrack, a formant meow and a filtered-noise purr all lived
+ * here as "fallbacks" for missing files. They were real work and some of it
+ * was good, but a fallback that can be heard is not a safety net — it is a
+ * second implementation nobody chose, and it kept being chosen. The ambient
+ * pad in particular played *underneath* the real soundtrack and was the only
+ * thing audible during its rests, which is what Ellis was hearing on
+ * 2026-09-02: *"its still only using tyhe old retarded purr. no meow sound.
+ * the old soundtrack too … get rid of the old crap i can still hear."*
+ * Deleted, not disabled — the same call this project made about the
+ * anniversary guide, for the same reason. Missing files now mean quiet, which
+ * is the better of the two sounds. Git has them if they are ever wanted.
  *
  * **There is a way to listen to all of it**: `node tools/render-audio.mjs cafe
- * 60 out.wav` bounces the mix to a file. Use it before changing anything here.
- * Audio had no equivalent of `tools/shot.mjs` until 2026-08-27, and the cost of
- * that shows up in this file's history — the purr was shipped as a diesel
- * engine twice, and a note claiming a synthesised meow was impossible went
- * unchallenged for weeks. Nobody had heard either one.
+ * 240 out.wav` bounces the mix, fades and all. Use it before changing anything
+ * here — §10 is emphatic that audio levels cannot be reasoned about, and the
+ * history in this file is what that rule is made of.
  *
  * Everything is gentle by construction: soft attacks, no transients that could
  * startle, and a master gain low enough to sit under a podcast.
  */
-
-import { chirp, meow, renderCry } from "@/audio/cat";
-import { startMusic, type MusicHandle } from "@/audio/music";
-import { startSoundtrack } from "@/audio/soundtrack";
+import { startSoundtrack, type MusicHandle } from "@/audio/soundtrack";
 
 const MASTER_VOLUME = 0.3;
 const MUTE_KEY = "mallow-muted";
@@ -40,7 +41,6 @@ let master: GainNode | null = null;
 /** The ambient bed's own gain, so music mutes without muting the sfx. */
 let musicGain: GainNode | null = null;
 let music: MusicHandle | null = null;
-let ambientGain: GainNode | null = null;
 let muted = readMuted();
 /** Held so it is never garbage-collected — see `keepMediaSessionAwake`. */
 let keepalive: HTMLAudioElement | null = null;
@@ -169,8 +169,8 @@ export function setMuted(next: boolean): void {
  * both, and a game whose ambience you cannot silence separately is one people
  * silence entirely.
  *
- * The bed is currently synthesised (§10). When a composed loop lands it should
- * hang off this same gain node and this same switch.
+ * The recorded soundtrack hangs off this gain node, so one switch silences the
+ * music without touching the purr or the coin chime.
  */
 let musicMuted = false;
 
@@ -224,28 +224,36 @@ export function initAudio(): void {
   musicGain.gain.value = musicMuted ? 0 : 1;
   musicGain.connect(master);
 
-  startAmbient();
-  /**
-   * **The recording if there is one, the generator if there is not** — the
-   * same arrangement the cats have (`SAMPLE_PATHS`), and the fallback is not
-   * decoration: a café with an empty `public/audio/` has to sound exactly as
-   * it did before any of these files existed.
-   *
-   * The await is free rather than a delay to be hidden. The soundtrack opens
-   * with a few seconds of deliberate silence anyway (Ellis: *"a nice little
-   * fade in from silence a few seconds after logging in"*), so the fetch
-   * happens inside a gap that was always going to be there.
-   */
   // Captured, because `ctx` and `musicGain` are module-level and nullable and
-  // this resolves a tick later — TypeScript is right to insist.
+  // the chain below resolves a tick later — TypeScript is right to insist.
   const context = ctx;
   const bus = musicGain;
-  void startSoundtrack(context, bus).then((recorded) => {
-    // A mute that arrived while the file was loading still has to win.
-    music = recorded ?? startMusic(context, bus);
-    if (musicMuted) music.setPlaying(false);
-  });
-  void loadSamples();
+
+  /**
+   * **Cats first, then the soundtrack, and the order is the whole point.**
+   *
+   * These used to start together, and `locklane.m4a` is 2.4 MB against 25 kB
+   * for a purr — so on anything slower than localhost the little files queued
+   * behind the big one and a cat petted in the first few seconds made no sound
+   * at all. Nothing was broken; the samples simply had not arrived yet.
+   *
+   * The soundtrack can afford to wait and the sound effects cannot: it opens
+   * with four seconds of deliberate silence anyway (Ellis: *"a nice little
+   * fade in from silence a few seconds after logging in"*), so loading it
+   * second costs nothing anybody can hear, while loading it first cost the
+   * cats their voice for as long as it took to arrive.
+   */
+  void loadSamples()
+    .then(() => startSoundtrack(context, bus))
+    .then((track) => {
+      music = track;
+      // A mute that arrived while the files were loading still has to win.
+      if (music && musicMuted) music.setPlaying(false);
+    })
+    // `loadSamples` swallows its own failures, so this cannot fire today. It is
+    // here so that a future edit which lets it throw loses the *cats* rather
+    // than silently taking the soundtrack down with them.
+    .catch(() => {});
 }
 
 /** Short helper: an oscillator with an attack/decay envelope, auto-cleaned up. */
@@ -310,7 +318,8 @@ function tone(
  * against the 4 MB character GLB, and §10's rule was never "no files": it was
  * *don't block first paint on a download and don't inherit a licence*. Both
  * hold. They are fetched lazily after the first tap, a missing one is silently
- * fine, and the synthesised versions in `audio/cat.ts` remain as the fallback.
+ * fine — the café is simply quiet, which since 2026-09-02 is what a missing
+ * file means. Nothing synthesised stands in any more; see the file header.
  *
  * **AAC in `.m4a`, not MP3 or Ogg.** Ogg Vorbis is the format most CC0 audio
  * arrives in and Safari does not decode it, so it would have worked in every
@@ -324,7 +333,7 @@ export const SAMPLE_PATHS: Record<string, string[]> = {
   meow: ["/audio/meow-1.m4a", "/audio/meow-2.m4a", "/audio/meow-3.m4a"],
   // Empty on purpose: there is no CC0 recording of a cat trilling anywhere I
   // could find, and `playChirp` would rather borrow a real meow than play a
-  // synthesised cat next to six recorded ones. Drop files here if any turn up.
+  // synthetic cat next to real ones. Drop files here if any turn up.
   chirp: [],
 };
 
@@ -350,7 +359,7 @@ async function loadSamples(): Promise<void> {
         if (!response.ok) continue;
         decoded.push(await ctx.decodeAudioData(await response.arrayBuffer()));
       } catch {
-        // No file, or not decodable. The synthesised version stands in.
+        // No file, or not decodable. That sound is simply silent.
       }
     }
     if (decoded.length > 0) samples.set(name, decoded);
@@ -380,95 +389,6 @@ function playSample(name: string, gain = 1): boolean {
   return true;
 }
 
-/** Looping buffer of gentle noise — used for room tone and the purr. */
-function noiseBuffer(seconds: number): AudioBuffer | null {
-  if (!ctx) return null;
-  const length = Math.floor(ctx.sampleRate * seconds);
-  const buffer = ctx.createBuffer(1, length, ctx.sampleRate);
-  const data = buffer.getChannelData(0);
-  let last = 0;
-  for (let i = 0; i < length; i++) {
-    // Brown-ish noise: softer and warmer than white.
-    last = (last + Math.random() * 2 - 1) * 0.5;
-    data[i] = last;
-  }
-  return buffer;
-}
-
-/**
- * The ambient bed: a slow, barely-there chord of detuned sines plus quiet room
- * tone. Non-repetitive enough not to grate because the pad voices drift on
- * independent LFOs rather than looping a sample.
- */
-function startAmbient(): void {
-  if (!ctx || !master || ambientGain) return;
-
-  ambientGain = ctx.createGain();
-  // **Dropped from 0.16 when the music landed** (2026-08-27). The bed used to be
-  // the whole soundtrack; it is now a floor under one, and two things competing
-  // for the same quiet register is how a mix turns to mud. Quiet enough that
-  // what it does is fill the gaps between phrases.
-  ambientGain.gain.value = 0.09;
-  ambientGain.connect(musicGain ?? master);
-
-  const warmth = ctx.createBiquadFilter();
-  warmth.type = "lowpass";
-  warmth.frequency.value = 900;
-  warmth.connect(ambientGain);
-
-  // A soft, open chord — root, fifth, octave, tenth. No thirds low down.
-  for (const [freq, depth, rate] of [
-    [110, 0.05, 0.037],
-    [164.81, 0.04, 0.029],
-    [220, 0.035, 0.023],
-    [277.18, 0.025, 0.019],
-  ] as const) {
-    const osc = ctx.createOscillator();
-    osc.type = "sine";
-    osc.frequency.value = freq;
-    osc.detune.value = (Math.random() - 0.5) * 8;
-
-    const voice = ctx.createGain();
-    voice.gain.value = depth;
-
-    // Each voice breathes on its own slow LFO, so the bed never repeats.
-    const lfo = ctx.createOscillator();
-    lfo.frequency.value = rate;
-    const lfoDepth = ctx.createGain();
-    lfoDepth.gain.value = depth * 0.7;
-    lfo.connect(lfoDepth).connect(voice.gain);
-
-    osc.connect(voice).connect(warmth);
-    osc.start();
-    lfo.start();
-  }
-
-  // Very quiet room tone underneath.
-  const buffer = noiseBuffer(3);
-  if (buffer) {
-    const room = ctx.createBufferSource();
-    room.buffer = buffer;
-    room.loop = true;
-    const roomFilter = ctx.createBiquadFilter();
-    roomFilter.type = "lowpass";
-    roomFilter.frequency.value = 420;
-    const roomGain = ctx.createGain();
-    roomGain.gain.value = 0.05;
-    room.connect(roomFilter).connect(roomGain).connect(ambientGain);
-    room.start();
-  }
-}
-
-/**
- * Minimum gap between coin chimes.
- *
- * A busy café pays out several times a second. This started at 0.22s, which
- * playtesting immediately flagged as "so annoying" — of course it was, that's
- * still four chimes a second, forever, while you're trying to relax. Pillar 1
- * (§2) beats feedback density every time: the coin floaters already show every
- * single payment, so the sound only needs to say "money is happening", not
- * count it. If in doubt, make this longer, not shorter.
- */
 const COIN_MIN_GAP_S = 1.3;
 let lastCoinAt = -Infinity;
 
@@ -485,159 +405,41 @@ export function playCoin(): void {
 }
 
 /**
- * The pulse a purr is built on.
- *
- * **Nearly a sine, and that is the correction.** A purr *is* a train of pulses
- * — the folds close about 25 times a second — but the previous version gave
- * that pulse a full harmonic stack, and a hard-edged 25 Hz buzz with strong
- * harmonics is a **motor**. Ellis: *"fix the cat purr so it doesnt sound like
- * a diesel engine starting up."* A cat is soft-edged: the flutter is felt more
- * than heard, and what you actually hear is breath being interrupted. Two
- * quiet harmonics keep it from being a plain tremolo without building an
- * engine.
- */
-function purrWave(context: AudioContext): PeriodicWave {
-  const harmonics = [0, 1, 0.3, 0.1];
-  const real = new Float32Array(harmonics.length);
-  const imag = new Float32Array(harmonics);
-  return context.createPeriodicWave(real, imag, { disableNormalization: false });
-}
-
-/**
  * Petting a cat.
  *
- * **The diesel was coming from underneath.** This has now been built three
- * times: lowpassed noise with a sine tremolo (a boomy wobble), then a hard
- * pulse train over a low band (an engine), and now this. Three things were
- * making it a motor, in order of how much each contributed:
- *
- * 1. **Energy below ~150 Hz.** A low band chopped at 25 Hz is the exact recipe
- *    for an idling diesel. There is a highpass now, and the "chest" lowpass
- *    that sat at 180 Hz — the loudest offender — is gone entirely. A purr
- *    heard from across a room has almost nothing down there; the rumble is
- *    something you feel with a hand on the cat, not a sound.
- * 2. **A hard pulse shape**, with harmonics stacked to the seventh. See
- *    `purrWave`.
- * 3. **Modulation far too deep** — it swung from 0.1 to 1.0 of the carrier,
- *    which is a chopper. It is 0.62→1.0 now: a flutter across a continuous
- *    breath, rather than the breath being switched on and off.
- *
- * What is left is an airy band around 400–900 Hz, fluttered gently, with the
- * rate drifting through the breath because a perfectly fixed rate is the
- * clearest tell that a sound is synthetic.
+ * **Recording only.** There was a synthesised purr here, rebuilt three times —
+ * a boomy wobble, a diesel engine, then *"heavy rain with reverb"* — and it
+ * survived as a "fallback" long after real recordings landed, which is how
+ * Ellis was still hearing it (2026-09-02: *"its still only using tyhe old
+ * retarded purr … get rid of the old crap i can still hear"*). A fallback that
+ * can be heard is not a safety net, it is a second implementation nobody
+ * chose. If the file is missing the café is quiet, which is the better of the
+ * two sounds.
  */
 export function playPurr(): void {
-  if (!ctx || !master) return;
-  // A recording if there is one — see `SAMPLE_PATHS`.
-  if (playSample("purr", 0.9)) return;
-  const buffer = noiseBuffer(1.9);
-  if (!buffer) return;
-  const now = ctx.currentTime;
-  const length = 1.7;
-
-  const source = ctx.createBufferSource();
-  source.buffer = buffer;
-
-  // **Nothing below here.** This one filter is most of the difference between
-  // a cat and a generator.
-  const cut = ctx.createBiquadFilter();
-  cut.type = "highpass";
-  cut.frequency.value = 190;
-  cut.Q.value = 0.7;
-
-  // The rasp: airy and soft-edged, not chesty.
-  const rasp = ctx.createBiquadFilter();
-  rasp.type = "bandpass";
-  rasp.frequency.value = 560;
-  rasp.Q.value = 0.45;
-
-  // Take the hiss off the top so it reads as breath rather than static.
-  const soften = ctx.createBiquadFilter();
-  soften.type = "lowpass";
-  soften.frequency.value = 1500;
-  soften.Q.value = 0.6;
-
-  /**
-   * The flutter, as a gain the noise passes *through* — not as an addition to
-   * the envelope's own gain. Keeping the two stages separate is what stops the
-   * depth changing as the envelope moves.
-   */
-  const flutter = ctx.createGain();
-  flutter.gain.value = 0;
-  const floor = ctx.createConstantSource();
-  floor.offset.value = 0.81;
-  floor.connect(flutter.gain);
-
-  const pulse = ctx.createOscillator();
-  pulse.setPeriodicWave(purrWave(ctx));
-  pulse.frequency.setValueAtTime(28, now);
-  pulse.frequency.linearRampToValueAtTime(25.5, now + length * 0.55);
-  pulse.frequency.linearRampToValueAtTime(27.5, now + length);
-  const depth = ctx.createGain();
-  depth.gain.value = 0.19;
-  pulse.connect(depth).connect(flutter.gain);
-
-  // The breath: one swell, in and out, rather than a flat block of sound.
-  const env = ctx.createGain();
-  env.gain.setValueAtTime(0.0001, now);
-  env.gain.exponentialRampToValueAtTime(0.4, now + 0.26);
-  env.gain.exponentialRampToValueAtTime(0.28, now + length * 0.62);
-  env.gain.exponentialRampToValueAtTime(0.0001, now + length);
-
-  source.connect(cut).connect(rasp).connect(soften).connect(flutter);
-  flutter.connect(env).connect(master);
-
-  source.start(now);
-  source.stop(now + length + 0.05);
-  pulse.start(now);
-  pulse.stop(now + length + 0.05);
-  floor.start(now);
-  floor.stop(now + length + 0.05);
-  source.onended = () => {
-    source.disconnect();
-    cut.disconnect();
-    rasp.disconnect();
-    soften.disconnect();
-    flutter.disconnect();
-    depth.disconnect();
-    env.disconnect();
-  };
+  playSample("purr", 0.9);
 }
 
 
 /**
- * A meow. A recording wins if one has been dropped in (`SAMPLE_PATHS`);
- * otherwise it is synthesised, and has been since 2026-08-27.
- *
- * **The note that used to sit here said a synthesised meow was worse than
- * silence, and it was wrong.** It generalised from the purr — three failed
- * attempts at shaping noise into an animal — without noticing that the two
- * sounds are made in completely different ways. A purr is unvoiced; a meow has
- * a pitch, which puts it in the one corner of this problem that is easy. See
- * `audio/cat.ts`.
+ * A meow. Recording only — see `playPurr` for why there is no longer a
+ * synthesised one behind it.
  */
 export function playMeow(): void {
-  if (!ctx || !master) return;
-  if (playSample("meow", 0.85)) return;
-  renderCry(ctx, master, meow());
+  playSample("meow", 0.85);
 }
 
 /**
  * The pleased-to-see-you chirrup.
  *
- * **Falls back to a real meow before it falls back to synthesis**, which is the
- * one interesting line here. There is no CC0 recording of a cat trilling, so
- * the choice is between a synthesised chirrup and a recorded meow — and beside
- * six real meows, a synthesised anything is the sound the player notices.
- * Losing the distinction between "hello" and "feed me" costs less than losing
- * the illusion. See `chirp` in `audio/cat.ts` for the synthesis that is still
- * the last resort.
+ * **Borrows a meow**, because there is no CC0 recording of a cat trilling and
+ * the alternative — a synthesised one — is the thing this file just stopped
+ * doing. Losing the distinction between "hello" and "feed me" costs less than
+ * one synthetic cat among real ones. Drop `chirp-1.m4a` in and it is used.
  */
 export function playChirp(): void {
-  if (!ctx || !master) return;
   if (playSample("chirp", 0.8)) return;
-  if (playSample("meow", 0.8)) return;
-  renderCry(ctx, master, chirp());
+  playSample("meow", 0.8);
 }
 
 /** Generic soft UI tap. */

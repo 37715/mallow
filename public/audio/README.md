@@ -1,9 +1,11 @@
 # Audio that ships
 
-Everything else in the game is synthesised (§10). These are the exception, and
-`src/audio/audio.ts` explains why in one line: a cat is a vocal tract, and a
-real recording settles an argument three rebuilds of a synthesised purr could
-not. The soundtrack is here for a plainer reason — Ellis wrote/sourced one.
+**These are the game's cats and its music.** Not extras layered over
+synthesised versions — there are no synthesised versions any more. A generated
+soundtrack, a formant meow and a filtered-noise purr all used to live in
+`src/audio/` as fallbacks, and were deleted on 2026-09-02 because a fallback
+that can be heard is not a safety net. If a file here goes missing, that sound
+is silent.
 
     locklane.m4a   the soundtrack. 71.111s, loops seamlessly.
     purr-1.m4a     busier purr  ┐ one picked per tap, so petting the same cat
@@ -12,9 +14,9 @@ not. The soundtrack is here for a plainer reason — Ellis wrote/sourced one.
     meow-2.m4a     ├ one picked per meow
     meow-3.m4a     ┘
 
-Loaded lazily after the first tap. **A missing file is silently fine** — the
-synthesis in `src/audio/cat.ts` and `src/audio/music.ts` stands in — so
-deleting any of these is safe and the café will still have cats and music.
+Loaded lazily after the first tap, **sound effects first and the soundtrack
+second** — the track is 2.4 MB against 25 kB for a purr, and loading it first
+put the cats behind it for several seconds on anything slower than localhost.
 
 ## AAC, not MP3 and definitely not Ogg
 

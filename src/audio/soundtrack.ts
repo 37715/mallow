@@ -1,4 +1,19 @@
-import type { MusicHandle } from "@/audio/music";
+/**
+ * A running soundtrack, as far as the rest of the game is concerned.
+ *
+ * Lived in `audio/music.ts` until 2026-09-02, alongside a generator that wrote
+ * its own chords. That generator is deleted — see this file's header.
+ */
+export interface MusicHandle {
+  /**
+   * Follow the music switch. **Stops scheduling rather than just ducking the
+   * gain**: a silenced café should not be decoding a 2.4 MB track for nobody,
+   * and the piece restarts from the top anyway, so there is no position to
+   * lose.
+   */
+  setPlaying(on: boolean): void;
+  stop(): void;
+}
 
 /**
  * The recorded soundtrack, and the quiet it leaves between plays.
@@ -16,9 +31,13 @@ import type { MusicHandle } from "@/audio/music";
  * somebody notices the café again. It also means one 71-second piece can carry
  * a whole session without ever being *the thing you are listening to*.
  *
- * This supersedes `audio/music.ts` when the file is present. That generator
- * stays as the fallback — the same arrangement the cats have, and for the same
- * reason: a real recording beats synthesis, and synthesis beats silence.
+ * **There is no synthesised fallback any more.** There was one — `music.ts`
+ * generated a chord progression, a bass and a melody, and it was genuinely
+ * nice work — but it kept *playing*, underneath this, and Ellis could hear it
+ * (2026-09-02: *"the old soundtrack too … get rid of the old crap i can still
+ * hear"*). A fallback that can be heard is not a safety net, it is a second
+ * implementation nobody chose. It is in the history if it is ever wanted; the
+ * café is quiet without a file, which is the better of the two sounds.
  */
 
 /**
@@ -65,9 +84,10 @@ const REST = CYCLE.rest;
  * Level, relative to the file.
  *
  * **Measured against the generator it replaces, not chosen.** The track is
- * mastered a good deal hotter than `audio/music.ts` renders (rms 0.059 against
- * 0.024), and dropping a commercial master straight into a mix balanced around
- * synthesised parts is how the coin chimes end up inaudible. Re-check with
+ * mastered a good deal hotter than the generator it replaced (rms 0.059
+ * against 0.024), and dropping a commercial master into a mix balanced around
+ * quieter parts is how the coin chimes end up inaudible. Measured again after
+ * the generator was deleted: 0.0251 while playing. Re-check with
  * `node tools/render-audio.mjs cafe 60 out.wav` after touching this — §10's
  * standing rule is that levels cannot be reasoned about.
  */
@@ -113,7 +133,7 @@ export interface SoundtrackOptions {
   /**
    * Schedule this many seconds of the cycle up front and run no timers.
    *
-   * Same escape hatch `startMusic` has and for the same reason: an
+   * An escape hatch for the render tool, and it is needed because an
    * `OfflineAudioContext` renders faster than real time and its clock only
    * advances *during* the render, so anything driven by `setTimeout` produces
    * one play and then nothing. This is what lets
@@ -126,9 +146,9 @@ export interface SoundtrackOptions {
 /**
  * Start the recorded soundtrack, or return null if there isn't one.
  *
- * Null is the signal to fall back to `startMusic` — it is not an error, and a
- * café with no `public/audio/*.m4a` has to sound exactly as it did before
- * these files existed.
+ * Null means there is no track to play and the café stays quiet. It is not an
+ * error — a build with an empty `public/audio/` is a valid build — but it is
+ * no longer a *fallback*: nothing synthesised takes over. See the header.
  */
 export async function startSoundtrack(
   ctx: BaseAudioContext,

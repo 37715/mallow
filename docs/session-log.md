@@ -17,6 +17,50 @@ The five most recent entries also remain inline in `CLAUDE.md` §0. New entries 
 ---
 
 **Session log:**
+- *2026-09-02* — **"get rid of the old crap i can still hear": the fallbacks
+  were the bug.**
+  - Ellis, on yesterday's audio work: *"its still only using tyhe old retarded
+    purr. no meow sound. the old soundtrack too. i gave you so many new sounds
+    to use as m4a files."* Three symptoms, one cause, and I had "verified" the
+    opposite the day before — which is the part worth writing down.
+  - **What I checked yesterday was that the new files load. What I never
+    checked was whether the old ones had stopped.** Dev played the recordings,
+    prod played the recordings, every file fetched and decoded. All true, all
+    beside the point. The question was never "does the new thing work", it was
+    "is the old thing still running", and no amount of confirming the first
+    answers the second.
+  - **Counting oscillators found it in one shot.** Patching
+    `AudioContext.prototype.createOscillator` and flagging any that had not
+    stopped after four seconds: **8 still running**. That is
+    `startAmbient` — four pad voices and four LFOs — playing continuously
+    *underneath* the real soundtrack, and the only thing audible during its
+    45-second rests. "The old soundtrack too" was exactly right.
+  - **A fallback that can be heard is not a safety net.** It is a second
+    implementation nobody chose, and it will get chosen. `audio/music.ts` and
+    `audio/cat.ts` are deleted, not disabled — the same call this project made
+    about the anniversary guide, for the same reason: a dead branch is
+    something every future reader has to work out is dead. A missing file now
+    means quiet, and quiet is the better of the two sounds. `audio-files.test.ts`
+    is what keeps that honest.
+  - **It was also required by the brief.** Ellis asked for music that fades
+    *"out again to silence"*. With a synthesised pad running underneath, it
+    could never reach silence — so the fallback was not merely audible, it was
+    preventing the feature from working as asked.
+  - **The load order was a second real bug.** `locklane.m4a` is 2.4 MB against
+    25 kB for a purr, and the soundtrack fetch was kicked off *before* the
+    sample fetches — so on anything slower than localhost the little files
+    queued behind the big one and a cat petted in the first few seconds made no
+    sound at all. That is "no meow sound", and it needed no synthesis to
+    explain it. Effects load first now: **purr audible 253 ms after the first
+    tap**, and the soundtrack can afford to wait because it opens on four
+    seconds of deliberate silence anyway.
+  - **Verification, this time, was of the absence.** `neverStopping=0` and
+    `buffers=[71.11]` on the production build — no permanent synthesised
+    sources, and the only long buffer is the real track. Then the recordings:
+    meows cycling all three variants (0.56/1.34/0.88 s), purrs both (2.41/2.39),
+    chirrups borrowing meows.
+  - *Assert the thing you actually claim.* "The new audio works" and "only the
+    new audio plays" are different claims and only one of them was tested.
 - *2026-09-01* — **Ellis's own cats and soundtrack, and a purr cut on the
   pulse.**
   - A `sound/` folder arrived: three meows, two purr *loops*, and

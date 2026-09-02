@@ -1,5 +1,5 @@
 /**
- * Bounce the game's synthesised audio to a `.wav` you can actually listen to.
+ * Bounce the game's audio to a `.wav` you can actually listen to.
  *
  *   npm run dev                      # in one terminal
  *   node tools/render-audio.mjs cafe 240 cafe.wav   # music + cats, as mixed
@@ -25,8 +25,9 @@
  * audio is several megabytes of base64 and one `Runtime.evaluate` will not
  * carry it.
  *
- * Vite serves `/src/**` as ES modules in dev, so `import('/src/audio/music.ts')`
- * works from the page with no build step.
+ * Vite serves `/src/**` as ES modules in dev, so
+ * `import('/src/audio/soundtrack.ts')` works from the page with no build step,
+ * and `public/` is served at the root so the `.m4a` files fetch normally.
  */
 
 import { spawn } from "node:child_process";
@@ -127,35 +128,39 @@ const render = `(async () => {
 
   const want = ${JSON.stringify(what)};
 
+  // Everything is a recording now, so both modes are buffers on a clock.
+  const clip = async (path) => {
+    const r = await fetch(path);
+    if (!r.ok) throw new Error(path + ' → ' + r.status);
+    return ctx.decodeAudioData(await r.arrayBuffer());
+  };
+  const play = (buf, at, gain) => {
+    const n = ctx.createBufferSource();
+    n.buffer = buf;
+    const g = ctx.createGain();
+    g.gain.value = gain;
+    n.connect(g).connect(ctx.destination);
+    n.start(at);
+  };
+
   if (want === "music" || want === "cafe") {
-    // The recorded soundtrack if there is one, exactly as the game decides it,
-    // and the generator only when there is not.
     const { startSoundtrack } = await import("/src/audio/soundtrack.ts");
-    const recorded = await startSoundtrack(ctx, ctx.destination, { offlineSeconds: ${seconds} });
-    if (!recorded) {
-      const { startMusic } = await import("/src/audio/music.ts");
-      startMusic(ctx, ctx.destination, { offlineSeconds: ${seconds} });
-    }
+    await startSoundtrack(ctx, ctx.destination, { offlineSeconds: ${seconds} });
   }
-  if (want === "cafe") {
-    // The mix as the game plays it: both go to the same master, so the levels
-    // here are the levels you will hear. This is the one worth listening to.
-    const { renderCry, meow, chirp } = await import("/src/audio/cat.ts");
-    let at = 3;
-    while (at < ${seconds} - 1) {
-      renderCry(ctx, ctx.destination, Math.random() < 0.4 ? chirp() : meow(), at);
-      at += 5 + Math.random() * 7;
-    }
-  }
-  if (want === "cats") {
-    const { renderCry, meow, chirp } = await import("/src/audio/cat.ts");
-    // Alternating, with room between them, so each one can be heard on its own
-    // and the variation between repeats is audible — which is the thing that
-    // decides whether it reads as an animal or as a machine.
-    let at = 0.4;
-    for (let i = 0; at < ${seconds} - 1.5; i++) {
-      renderCry(ctx, ctx.destination, i % 3 === 2 ? chirp() : meow(), at);
-      at += 1.5 + Math.random() * 0.7;
+  if (want === "cafe" || want === "cats") {
+    // The real files, at the gains audio.ts plays them with, so the balance
+    // heard here is the balance the game has. (No backticks in this block: it
+    // is inside a template literal and they would end the string.)
+    const purrs = await Promise.all(['/audio/purr-1.m4a', '/audio/purr-2.m4a'].map(clip));
+    const meows = await Promise.all(
+      ['/audio/meow-1.m4a', '/audio/meow-2.m4a', '/audio/meow-3.m4a'].map(clip));
+    const pick = (a) => a[Math.floor(Math.random() * a.length)];
+    const spaced = want === "cafe";
+    let at = spaced ? 3 : 0.4;
+    while (at < ${seconds} - 2.5) {
+      const purr = Math.random() < (spaced ? 0.5 : 0.34);
+      play(purr ? pick(purrs) : pick(meows), at, purr ? 0.9 : 0.85);
+      at += spaced ? 5 + Math.random() * 7 : 2.6 + Math.random() * 0.6;
     }
   }
 
