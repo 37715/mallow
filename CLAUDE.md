@@ -631,9 +631,9 @@ into the numbered sections; the archive holds the reasoning and the dead ends.
   - **The level was measured, not chosen** — the track is mastered far hotter
     than the generator (rms 0.059 vs 0.024), which at unity would have buried
     the coin chimes.
-  - ⚠️ **The licences are unverified** — Freesound needs an account to read
-    them and it carries CC-BY-NC alongside CC0. Ids are in
-    `public/audio/README.md`. Not a blocker for building; one for submitting.
+  - ⚠️ **The licences were unverified** at the time — resolved 2026-09-05: all
+    three meows are CC0 and the music is Ellis's own. Only the purrs are still
+    unaccounted for. See §10.
 - *2026-08-30* — **A chair refused from a corner guests were already sitting
   in.** ([full entry](docs/session-log.md))
   - Ellis: *"i wanted to put the chair in the corner … but its red and says the
@@ -2180,11 +2180,14 @@ the big one, and a cat petted in the first few seconds made no sound at all.
 The soundtrack can afford to wait — it opens with four seconds of deliberate
 silence — and the effects cannot. Purr is now audible 253 ms after the first tap.
 
-⚠️ **The licences are unverified.** The Wikimedia set these replaced was checked
-file by file; these came from Ellis and from Freesound, which needs an account
-to read licence metadata and carries CC-BY-NC alongside CC0 — and CC-BY-NC
-cannot ship in a paid or ad-supported app. The source ids are in
-`public/audio/README.md`; **check them before submission.**
+**Licences, checked 2026-09-05 before TestFlight.** All three meows are **CC0**
+— confirmed on each sound's own Freesound page rather than from a search
+listing, since Freesound carries CC0, CC-BY and CC-BY-NC side by side and only
+CC0 is free of obligations. `locklane.m4a` is Ellis's own. ⚠️ **The two purrs
+are the open item**: no attribution in the filename and no metadata in the file
+(bare `fmt`/`data`, nothing to trace). Probably a commercial pack, which would
+be fine — worth confirming before the app is ever sold or carries ads. Nothing
+here blocks a TestFlight build.
 
 ### The soundtrack breathes (2026-09-01)
 

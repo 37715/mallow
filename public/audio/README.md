@@ -48,14 +48,20 @@ root, which is the untouched originals).
 | `meow-2.m4a` | `sound/fx/436541__mafon2__cat-meow.wav` | Freesound #436541, *mafon2* |
 | `meow-3.m4a` | `sound/fx/689324__sadiquecat__cat-meow.flac` | Freesound #689324, *sadiquecat* |
 
-> ⚠️ **The licences on these have not been verified in-repo.** The Wikimedia set
-> they replaced was checked file by file (CC0 / public domain, no attribution
-> owed). These came from Ellis and Freesound needs an account to read licence
-> metadata, so nothing here confirms them. Freesound carries CC0, CC-BY and
-> CC-BY-NC side by side — **CC-BY needs a credit screen and CC-BY-NC cannot ship
-> in a paid or ad-supported app at all** — so the three IDs above want checking
-> before submission, and the two purrs want whatever pack they came from
-> naming. The IDs are preserved above precisely so that is a two-minute job.
+**Checked 2026-09-05, before TestFlight.** Every meow is **CC0** — public
+domain dedication, no attribution owed, commercial use fine — confirmed on each
+sound's own Freesound page rather than taken from a search listing, because
+Freesound carries CC0, CC-BY and CC-BY-NC side by side and only the first is
+free of obligations. `locklane.m4a` is Ellis's own work.
+
+> ⚠️ **The two purrs are the one thing still unaccounted for.** They arrived as
+> `cat_purractive_loop.wav` / `cat_purrsleepy_loop.wav` with no attribution in
+> the filename, and the files carry no metadata at all — bare `fmt` and `data`
+> chunks, no `LIST`/`INFO`/`bext`, nothing to trace. The naming reads like a
+> commercial game-audio pack, and most of those grant royalty-free commercial
+> use, in which case there is nothing to do. **Worth confirming before the app
+> is ever sold or carries ads**, since a CC-BY-NC purr would be the one thing
+> here that could not ship. Nothing blocks a TestFlight build either way.
 
 `sound/fx/dont use/` is left alone, as labelled.
 

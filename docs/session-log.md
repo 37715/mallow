@@ -17,6 +17,29 @@ The five most recent entries also remain inline in `CLAUDE.md` §0. New entries 
 ---
 
 **Session log:**
+- *2026-09-05, later* — **The audio licences, settled before TestFlight.**
+  - Ellis, asked what would have to be pulled: *"so we gotta get rid of the cc
+    by nc sounds? dw about the music i made that."* The honest answer turned
+    out to be **nothing** — I had flagged the licences as unverified three
+    times without ever going and checking them.
+  - **All three meows are CC0.** Public domain dedication: no attribution owed,
+    no non-commercial restriction, safe in a paid or ad-supported app.
+    Confirmed on each sound's own Freesound page (`freesound.org/s/<id>/`),
+    reading the licence out of the page rather than trusting a search listing —
+    the same discipline the Wikimedia set got on 2026-08-27, and it matters for
+    the same reason: Freesound carries CC0, CC-BY and CC-BY-NC side by side and
+    only the first is free of obligations.
+  - **The music is Ellis's own**, which removes the largest single question.
+  - **The two purrs are the only open item, and the files cannot answer it.**
+    No attribution in the filename, and no metadata at all inside — bare `fmt`
+    and `data` chunks, no `LIST`, `INFO` or `bext`, nothing to trace. The
+    naming (`cat_purractive_loop`) reads like a commercial game-audio pack, and
+    most of those grant royalty-free commercial use, so this is probably
+    nothing. It is a question for before the app is *sold*, not for TestFlight.
+  - *A warning repeated is not a check performed.* "Licences unverified" sat in
+    three commits and two documents while the answer was a thirty-second fetch
+    away, and it would have gone on being re-read as a risk by everyone who
+    passed it.
 - *2026-09-05* — **Loud enough, a shorter purr, and a fade that is actually
   gradual.**
   - Ellis, now that the recordings play: *"i want the purrr to be shorter. i
