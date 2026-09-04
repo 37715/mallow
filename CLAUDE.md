@@ -23,7 +23,11 @@ This file is the shared brain for the project. **Read it before starting work in
 > starts growing past a screen or two of status, that is the signal to promote
 > and prune again.
 
-**Last updated:** 2026-09-02 (**the synthesised music and cats are deleted** —
+**Last updated:** 2026-09-04 (**the recordings finally play in the app** — the
+loaders rejected every file on `response.ok`, which is always false behind
+Capacitor's custom URL scheme, so no `.m4a` had ever played on the phone.
+`tools/webkit-probe.swift` is the tool that could see it. Earlier:
+**the synthesised music and cats are deleted** —
 they were still playing underneath the real recordings, which is what Ellis
 could hear; and the 2.4 MB soundtrack no longer loads ahead of the 25 kB sound
 effects, which is why cats were silent for the first few seconds. Earlier:
@@ -215,7 +219,7 @@ pack ships those pieces in one finish.)
   tracked Xcode project, portrait-locked, and it **compiles** (verified with
   `xcodebuild` against a simulator destination). `npm run ios` does
   build → sync → open Xcode. Signing is Ellis's to do; see §16.
-- `npm test` — 373 tests over the pure systems, save migrations, café geometry,
+- `npm test` — 377 tests over the pure systems, save migrations, café geometry,
   the visitor loop, contentment maths, the camera controls (pan/zoom clamps,
   tap-vs-drag, press-and-hold), the placement rules the authored café itself
   has to pass, which objects the validator is allowed to ignore, the expansion
@@ -510,6 +514,29 @@ being read into context every session. Every *rule* it taught has been promoted
 into the numbered sections; the archive holds the reasoning and the dead ends.
 **Append new entries there**, and mirror only the newest handful here.
 
+- *2026-09-04* — **`response.ok` is false on a phone: why no recording had ever
+  played in the app.** ([full entry](docs/session-log.md))
+  - **The clue was what still worked.** Synthesised sfx played, every `.m4a`
+    was silent — so the context, the master gain and the audio session were all
+    fine and only the files were missing. And Ellis heard the *synthesised*
+    purr on 2026-09-01, which means the recordings had never once played on the
+    phone, including the Wikimedia set from 2026-08-27.
+  - Ruled out first, by measurement: the iOS bundle was fresh and complete, the
+    Xcode folder reference and build phase were right, and a real WKWebView
+    decoded all six files — which killed the "WKWebView cannot decode AAC"
+    theory I was about to act on.
+  - **Then a Capacitor-shaped scheme handler found it in one line:**
+    `ok=false status=0 bytes=24607`, then `decode OK 2.41s`. A custom URL
+    scheme answers with a plain `URLResponse`, so WebKit synthesises status 0,
+    so `response.ok` is false for a file that loaded perfectly — and both
+    loaders said `if (!response.ok) return`.
+  - **Three.js was immune by accident** (its loaders use `XMLHttpRequest`),
+    which is why only audio broke and nothing looked wrong.
+  - **Every tool here drives headless Chrome over http** and all of them
+    reported the audio working, three times. `tools/webkit-probe.swift` is the
+    missing one — real WKWebView, real bundle, Capacitor-shaped scheme.
+  - *A guard copied from HTTP semantics is wrong wherever the transport is not
+    HTTP.*
 - *2026-09-02* — **"get rid of the old crap i can still hear": the fallbacks
   were the bug.** ([full entry](docs/session-log.md))
   - **What I checked yesterday was that the new files load; what I never
@@ -521,7 +548,24 @@ into the numbered sections; the archive holds the reasoning and the dead ends.
     after four seconds: **8** — `startAmbient`'s four pad voices and four LFOs,
     running continuously under the real soundtrack and the only thing audible
     during its 45-second rests.
-  - **A fallback that can be heard is not a safety net.** It is a second
+  - **`response.ok` is false for every file the app loads, and it is not an
+  error.** Capacitor serves the built app over a **custom URL scheme**, and a
+  `WKURLSchemeHandler` answers with a plain `URLResponse` rather than an
+  `HTTPURLResponse`. No HTTP status means WebKit synthesises `status = 0`, and
+  `Response.ok` is defined as 200–299 — so `if (!response.ok) return` throws
+  away files that downloaded perfectly. **This silenced every recording in the
+  app for a week** while all of them played in every browser. Three.js is
+  immune only because its loaders use `XMLHttpRequest`; it warns
+  "THREE.FileLoader: HTTP Status 0 received" on every asset and carries on.
+  Anything in this codebase that uses `fetch` must go through
+  `audio/fetch-audio.ts`'s rule, or repeat the bug.
+- **A browser cannot test the app, and now something can.**
+  `swift tools/webkit-probe.swift dist` runs the built bundle in a real
+  `WKWebView` behind a scheme handler shaped like Capacitor's. Every existing
+  tool — `tools/shot.mjs`, `tools/render-audio.mjs` — drives headless *Chrome*,
+  which is the wrong engine served the wrong way, and all of them reported the
+  audio working while the phone was silent.
+- **A fallback that can be heard is not a safety net.** It is a second
     implementation nobody chose, and it will get chosen. `audio/music.ts` and
     `audio/cat.ts` deleted, not disabled — the anniversary-guide call again. A
     missing file now means quiet, which is the better of the two sounds.
@@ -578,33 +622,6 @@ into the numbered sections; the archive holds the reasoning and the dead ends.
   - **The lesson is the disagreement.** Reachability was decided independently
     by the visitor manager (walks through anything) and the validator (refused
     a lot). Either can be right; both cannot be, and the player finds out.
-- *2026-08-27, evening* — **The till becomes a thing you can point at, and the
-  walkthrough loses a step's worth of cleverness.**
-  ([full entry](docs/session-log.md))
-  - **The till was visible all along and nothing said it was the till.**
-    `ComputerCashier_A` has stood on that counter since the room was rebuilt
-    from the reference render. A marker on it now — a quarter of a drawer or
-    more, the amount on the pill, tap to cash up. **A marker rather than a
-    raycast on the mesh**: the cashier is 0.59 × 0.19 seen from across the
-    room, and a thumb cannot be asked to hit that.
-  - **The upgrade changes the object now.** Measured first: all five
-    `ComputerCashier_*` are the same 324 vertices and the same size, differing
-    only in atlas cells — **finishes, not bigger machines**, exactly like
-    yesterday's wall pieces. Taken anyway, because §8 requires a purchase to be
-    visible and `till` was the last lever still moving a hidden number.
-  - **A live label needs identity and content separated.** `WorldMarker.set`
-    returned early on a matching `id` — right for the arrival animation, wrong
-    for a number that climbs while you watch, so the pill offered £640 long
-    after there was £900 in the drawer. Every marker before this one had a
-    fixed phrase, which is why the guard looked complete.
-  - **`buildCafeRoom` took an options object** rather than a seventh positional
-    argument: six optional slices of the save, three of them arrays, so a
-    mis-ordered call would have type-checked and built the wrong café.
-  - **Furniture before the drink in the walkthrough**, because buy-and-place is
-    the *verb* of this game and inventing a blend is an aside in a panel; *"on
-    your menu"* instead of *"straight on the board"*, because the board is a
-    décor item you may not own and the drink never appears on it; and the
-    replay row is gone from settings, surviving only on `window.__mallow`.
 - *2026-08-26, later* — **A chair that vanished overnight, a walkway drawn as a
   circle, and the woodwork gets a colour.** ([full entry](docs/session-log.md))
   - **The disappearing chair was the save deleting it.** `sanitizeInstances`
@@ -2068,6 +2085,23 @@ the real track**, and was the only thing audible during its rests. Ellis,
 2026-09-02: *"its still only using tyhe old retarded purr. no meow sound. the
 old soundtrack too … get rid of the old crap i can still hear."*
 
+- **`response.ok` is false for every file the app loads, and it is not an
+  error.** Capacitor serves the built app over a **custom URL scheme**, and a
+  `WKURLSchemeHandler` answers with a plain `URLResponse` rather than an
+  `HTTPURLResponse`. No HTTP status means WebKit synthesises `status = 0`, and
+  `Response.ok` is defined as 200–299 — so `if (!response.ok) return` throws
+  away files that downloaded perfectly. **This silenced every recording in the
+  app for a week** while all of them played in every browser. Three.js is
+  immune only because its loaders use `XMLHttpRequest`; it warns
+  "THREE.FileLoader: HTTP Status 0 received" on every asset and carries on.
+  Anything in this codebase that uses `fetch` must go through
+  `audio/fetch-audio.ts`'s rule, or repeat the bug.
+- **A browser cannot test the app, and now something can.**
+  `swift tools/webkit-probe.swift dist` runs the built bundle in a real
+  `WKWebView` behind a scheme handler shaped like Capacitor's. Every existing
+  tool — `tools/shot.mjs`, `tools/render-audio.mjs` — drives headless *Chrome*,
+  which is the wrong engine served the wrong way, and all of them reported the
+  audio working while the phone was silent.
 - **A fallback that can be heard is not a safety net.** It is a second
   implementation nobody chose, and it will be chosen. Same call this project
   made about the anniversary guide: deleted, not disabled, because a dead
@@ -2235,6 +2269,23 @@ Discoverability is the #1 risk, so treat marketing as a first-class workstream, 
   walkway looked over-strict, so `routeClearance` was swept 0.34 → 0.20 over
   the whole floor: it buys 1–3% of placeable area, because the cost is the
   corridor's length in a four-metre room, not its width. The number stayed.
+- **`response.ok` is false for every file the app loads, and it is not an
+  error.** Capacitor serves the built app over a **custom URL scheme**, and a
+  `WKURLSchemeHandler` answers with a plain `URLResponse` rather than an
+  `HTTPURLResponse`. No HTTP status means WebKit synthesises `status = 0`, and
+  `Response.ok` is defined as 200–299 — so `if (!response.ok) return` throws
+  away files that downloaded perfectly. **This silenced every recording in the
+  app for a week** while all of them played in every browser. Three.js is
+  immune only because its loaders use `XMLHttpRequest`; it warns
+  "THREE.FileLoader: HTTP Status 0 received" on every asset and carries on.
+  Anything in this codebase that uses `fetch` must go through
+  `audio/fetch-audio.ts`'s rule, or repeat the bug.
+- **A browser cannot test the app, and now something can.**
+  `swift tools/webkit-probe.swift dist` runs the built bundle in a real
+  `WKWebView` behind a scheme handler shaped like Capacitor's. Every existing
+  tool — `tools/shot.mjs`, `tools/render-audio.mjs` — drives headless *Chrome*,
+  which is the wrong engine served the wrong way, and all of them reported the
+  audio working while the phone was silent.
 - **A fallback that can be heard is not a safety net.** It is a second
   implementation nobody chose, and it will get chosen. The synthesised music
   and cats sat behind the real recordings as "fallbacks" and went on playing
@@ -2345,7 +2396,7 @@ npm run dev:lan    # same, exposed on the LAN — open on a phone, Add to Home
                    # Screen. This is the day-to-day device loop; a native
                    # rebuild is only needed to measure performance.
 npm run build      # production web build → dist/
-npm test           # 373 tests, no renderer needed
+npm test           # 377 tests, no renderer needed
 npm run balance    # simulate weeks of play under four player habits
 
 npm run ios        # build + sync + open Xcode. The one to use.
@@ -2370,6 +2421,14 @@ python3 tools/build-face-atlas.py                           # eye + mouth atlase
 # in headless Chrome, because that is where the synths and a real WebAudio are.
 node tools/render-audio.mjs cafe 60 out.wav
 node tools/render-audio.mjs cats 18 cats.wav
+
+# Run the BUILT bundle in a real WKWebView, behind a scheme handler shaped like
+# Capacitor's. This is the only tool that tests the engine and the transport the
+# app actually uses — everything else here drives headless Chrome over http, and
+# all of it happily reported the audio working while the phone was silent for a
+# week. Reach for this whenever something works in the browser and not on the
+# phone. Needs `npm run build` first; no dev server.
+swift tools/webkit-probe.swift dist
 
 # Headless screenshot + console errors, at iPhone 14 Pro size. Needs `npm run
 # dev` running. This is the only way an agent can see the scene when the Chrome

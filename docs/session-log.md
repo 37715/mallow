@@ -17,6 +17,59 @@ The five most recent entries also remain inline in `CLAUDE.md` §0. New entries 
 ---
 
 **Session log:**
+- *2026-09-04* — **`response.ok` is false on a phone: why no recording has ever
+  played in the app.**
+  - Ellis: *"i just press build on xcode every time. i cant hear any music and
+    i cant hear any purrs or meows either at all. only a few feedback sound fx
+    which isnt good enough."*
+  - **The clue was in what still worked.** The synthesised interface sfx play;
+    every `.m4a` is silent. So the AudioContext runs, the master gain works and
+    the audio session is fine — the files are the only thing missing. And
+    looking back, on 2026-09-01 Ellis reported hearing the *synthesised* purr,
+    which means **the recordings had never played on the phone**, not even the
+    Wikimedia ones from 2026-08-27. The bug predated everything I changed.
+  - Ruled out by measurement, in order: the iOS bundle was fresh and complete
+    (all six files, JS hash matching `dist`); the Xcode `public` folder
+    reference and the "Build web app" phase were both correct; and a real
+    `WKWebView` decoded all six files without complaint, which killed the
+    "AAC/m4a is not supported by WebAudio in WKWebView" theory I had been about
+    to act on.
+  - **Then a scheme handler shaped like Capacitor's found it in one line:**
+    `purr-1.m4a fetched ok=false status=0 bytes=24607` — followed by
+    `decode OK 2.41s`. The bytes were always there. Capacitor serves the app
+    over a **custom URL scheme**, its `WKURLSchemeHandler` answers with a plain
+    `URLResponse` rather than an `HTTPURLResponse`, and with no HTTP status
+    WebKit synthesises **status 0**. `Response.ok` is 200–299, so `ok` is
+    `false` for every file that loaded perfectly — and both loaders said
+    `if (!response.ok) return`.
+  - **Three.js is immune by accident**: `GLTFLoader` and `TextureLoader` use
+    `XMLHttpRequest`, so the 4 MB character model and the café atlas always
+    loaded. The probe shows it shrugging — thirteen `THREE.FileLoader: HTTP
+    Status 0 received` warnings, and the café renders anyway. That is why only
+    the audio was ever affected, and why nothing looked wrong.
+  - **Every tool this project has drives headless Chrome over http**, which is
+    the wrong engine served the wrong way. `tools/shot.mjs` and
+    `tools/render-audio.mjs` both said the audio was fine, three separate
+    times, and they were right about the environment they test.
+    `tools/webkit-probe.swift` is the missing one: the built bundle, a real
+    WKWebView, a Capacitor-shaped scheme handler. It prints
+    `response.ok=false <- the old guard rejected this` next to a successful
+    decode, so the next person meets the fact rather than the mystery.
+  - The rule now lives in `audio/fetch-audio.ts` and is a pure function:
+    refuse `status >= 400` (a real HTTP error, and a dev server's 404 HTML page
+    is worth refusing), refuse an empty body, accept everything else including
+    status 0. Unit-tested, because it is one line that can silence the whole
+    game.
+  - **Failures are logged now.** Both loaders swallowed everything in a bare
+    `catch {}` with a comment saying a missing file was fine. It is fine; being
+    unable to say so is not, and that silence is most of why this took four
+    rounds. A missing file now prints which file and which half failed —
+    "did not arrive" and "arrived but would not decode" are fixed in completely
+    different places.
+  - *Lesson, and it is not about audio: **a guard copied from HTTP semantics
+    will be wrong wherever the transport is not HTTP.** `response.ok`,
+    `status === 200`, `Content-Length` — none of them mean what they look like
+    behind a custom scheme.*
 - *2026-09-02* — **"get rid of the old crap i can still hear": the fallbacks
   were the bug.**
   - Ellis, on yesterday's audio work: *"its still only using tyhe old retarded

@@ -31,6 +31,7 @@
  * Everything is gentle by construction: soft attacks, no transients that could
  * startle, and a master gain low enough to sit under a podcast.
  */
+import { loadAudioBuffer } from "@/audio/fetch-audio";
 import { startSoundtrack, type MusicHandle } from "@/audio/soundtrack";
 
 const MASTER_VOLUME = 0.3;
@@ -342,28 +343,31 @@ const samples = new Map<string, AudioBuffer[]>();
 let samplesRequested = false;
 
 /**
- * Fetch and decode whatever is present. Called once, after the context exists.
+ * Fetch and decode every sound the game names. Called once, after the context
+ * exists.
  *
- * Failures are expected and silent: a café with no audio files is the normal
- * case until somebody adds them, and it must sound exactly as it does today
- * rather than logging errors on every boot.
+ * **Failures are logged, not swallowed.** They used to be — a bare `catch {}`
+ * with a comment saying a missing file was fine — and that is precisely how a
+ * phone with no cat sounds looked identical to a phone with no cat *files* for
+ * four rounds of "I still can't hear anything". A silent café is a legitimate
+ * state; a silent café that cannot say why is not. See `fetch-audio.ts`.
+ *
+ * Fetched in parallel now rather than one at a time: these are five small
+ * files and the old sequential loop meant the last meow waited on the first
+ * purr for no reason.
  */
 async function loadSamples(): Promise<void> {
   if (samplesRequested || !ctx) return;
   samplesRequested = true;
-  for (const [name, paths] of Object.entries(SAMPLE_PATHS)) {
-    const decoded: AudioBuffer[] = [];
-    for (const path of paths) {
-      try {
-        const response = await fetch(path);
-        if (!response.ok) continue;
-        decoded.push(await ctx.decodeAudioData(await response.arrayBuffer()));
-      } catch {
-        // No file, or not decodable. That sound is simply silent.
-      }
-    }
-    if (decoded.length > 0) samples.set(name, decoded);
-  }
+  const context = ctx;
+  await Promise.all(
+    Object.entries(SAMPLE_PATHS).map(async ([name, paths]) => {
+      const decoded = (
+        await Promise.all(paths.map((path) => loadAudioBuffer(context, path)))
+      ).filter((buffer): buffer is AudioBuffer => buffer !== null);
+      if (decoded.length > 0) samples.set(name, decoded);
+    }),
+  );
 }
 
 /**

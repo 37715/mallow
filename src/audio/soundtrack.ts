@@ -1,3 +1,5 @@
+import { loadAudioBuffer } from "@/audio/fetch-audio";
+
 /**
  * A running soundtrack, as far as the rest of the game is concerned.
  *
@@ -118,17 +120,6 @@ function contentStart(buffer: AudioBuffer): number {
   return at / buffer.sampleRate;
 }
 
-async function loadTrack(ctx: BaseAudioContext, path: string): Promise<AudioBuffer | null> {
-  try {
-    const response = await fetch(path);
-    if (!response.ok) return null;
-    return await ctx.decodeAudioData(await response.arrayBuffer());
-  } catch {
-    // No file, or not decodable. `audio.ts` falls back to the generator.
-    return null;
-  }
-}
-
 export interface SoundtrackOptions {
   /**
    * Schedule this many seconds of the cycle up front and run no timers.
@@ -155,11 +146,8 @@ export async function startSoundtrack(
   destination: AudioNode,
   options: SoundtrackOptions = {},
 ): Promise<MusicHandle | null> {
-  const tracks: AudioBuffer[] = [];
-  for (const path of TRACK_PATHS) {
-    const buffer = await loadTrack(ctx, path);
-    if (buffer) tracks.push(buffer);
-  }
+  const loaded = await Promise.all(TRACK_PATHS.map((path) => loadAudioBuffer(ctx, path)));
+  const tracks = loaded.filter((buffer): buffer is AudioBuffer => buffer !== null);
   if (tracks.length === 0) return null;
 
   const gain = ctx.createGain();
