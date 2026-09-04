@@ -85,15 +85,17 @@ const REST = CYCLE.rest;
 /**
  * Level, relative to the file.
  *
- * **Measured against the generator it replaces, not chosen.** The track is
- * mastered a good deal hotter than the generator it replaced (rms 0.059
- * against 0.024), and dropping a commercial master into a mix balanced around
- * quieter parts is how the coin chimes end up inaudible. Measured again after
- * the generator was deleted: 0.0251 while playing. Re-check with
- * `node tools/render-audio.mjs cafe 60 out.wav` after touching this — §10's
- * standing rule is that levels cannot be reasoned about.
+ * **Above 1, because the file is quiet.** `locklane.m4a` peaks at 0.327 —
+ * about −10 dBFS — so at unity it can only ever be background no matter what
+ * the master does. Ellis, 2026-09-05: *"everything other than the meow is way
+ * too quiet. all sfx, the ost."* At 1.45 it peaks around 0.40 after the master,
+ * which is a real music level with room left for a cat on top of it.
+ *
+ * Re-check with `node tools/render-audio.mjs cafe 200 out.wav` after touching
+ * this — §10's standing rule is that levels cannot be reasoned about, and that
+ * tool now renders through the same master gain and limiter the game uses.
  */
-const TRACK_GAIN = 0.62;
+const TRACK_GAIN = 1.45;
 
 /**
  * Where real audio starts in the decoded buffer, in seconds.
@@ -109,6 +111,22 @@ const TRACK_GAIN = 0.62;
  * Deliberately only applied to the *loop* point: the first pass plays from
  * zero, so a track that genuinely opens on a soft swell keeps it.
  */
+/**
+ * A raised-cosine ramp between two gains — smooth at both ends.
+ *
+ * 96 points over a fade of a few seconds is one value every ~125 ms, which
+ * WebAudio interpolates between; far finer than the ear can resolve on a
+ * change this slow.
+ */
+function fadeCurve(from: number, to: number, points = 96): Float32Array {
+  const curve = new Float32Array(points);
+  for (let i = 0; i < points; i++) {
+    const x = i / (points - 1);
+    curve[i] = from + (to - from) * (0.5 - 0.5 * Math.cos(Math.PI * x));
+  }
+  return curve;
+}
+
 function contentStart(buffer: AudioBuffer): number {
   const data = buffer.getChannelData(0);
   // −60 dB. Anything under this is either padding or an attack too quiet to
@@ -154,7 +172,14 @@ export async function startSoundtrack(
   gain.gain.value = 0.0001;
   gain.connect(destination);
 
-  let playing = true;
+  /**
+   * **Starts stopped.** The caller turns it on, because "when may music play"
+   * is a game question rather than an audio one — Ellis, 2026-09-05: *"only
+   * fade in AFTER the tutorial just finishes."* Mal talks over a speech bubble
+   * with the text typing out, and a soundtrack rising underneath that is one
+   * thing too many in the first two minutes of the game.
+   */
+  let playing = false;
   let source: AudioBufferSourceNode | null = null;
   let timer: number | null = null;
 
@@ -193,14 +218,24 @@ export async function startSoundtrack(
     // The first pass is the whole file; every repeat is the file minus its head.
     const span = buffer.duration + (buffer.duration - head) * (PASSES - 1);
 
-    // Exponential ramps, which is how a fade sounds even rather than sudden at
-    // one end — and they can never touch zero, hence the floor.
-    gain.gain.setValueAtTime(0.0001, at);
-    gain.gain.exponentialRampToValueAtTime(TRACK_GAIN, at + FADE_IN);
+    /**
+     * **An S-curve, not an exponential ramp**, and over twelve seconds the
+     * difference is the whole feature.
+     *
+     * An exponential ramp is linear in *decibels*, so from a near-silent floor
+     * it spends most of its length inaudible and then rushes in over the last
+     * few seconds — the opposite of gradual, and precisely what "more gradual
+     * fadein" was asking to fix. A raised cosine spreads the movement evenly
+     * across the whole twelve seconds and is smooth at both ends, so there is
+     * no moment where the music can be said to have started.
+     *
+     * It also gets to touch zero, which an exponential ramp cannot.
+     */
+    gain.gain.setValueCurveAtTime(fadeCurve(0, TRACK_GAIN), at, FADE_IN);
     // **Timed so the fade lands on the end of the last pass**, not somewhere in
     // the middle of a bar: the piece gets to finish before the café goes quiet.
-    gain.gain.setValueAtTime(TRACK_GAIN, at + Math.max(FADE_IN, span - FADE_OUT));
-    gain.gain.exponentialRampToValueAtTime(0.0001, at + span);
+    gain.gain.setValueAtTime(TRACK_GAIN, at + FADE_IN);
+    gain.gain.setValueCurveAtTime(fadeCurve(TRACK_GAIN, 0), at + span - FADE_OUT, FADE_OUT);
 
     node.start(at);
     node.stop(at + span + 0.1);
@@ -220,15 +255,17 @@ export async function startSoundtrack(
     return { setPlaying: () => {}, stop: () => {} };
   }
 
-  timer = window.setTimeout(play, INTRO_DELAY * 1000);
-
   return {
     setPlaying(on) {
       if (on === playing) return;
       playing = on;
       if (on) {
-        // Back at the top of a piece rather than half way through one.
-        play();
+        // **A beat of quiet first, every time.** Straight in on the same tap
+        // that finished the tutorial would make the music feel like a reward
+        // screen; a few seconds of café, then twelve seconds of fade, and it
+        // arrives without ever announcing itself. Back at the top of the piece
+        // rather than half way through one.
+        timer = window.setTimeout(play, INTRO_DELAY * 1000);
       } else {
         if (timer !== null) window.clearTimeout(timer);
         timer = null;

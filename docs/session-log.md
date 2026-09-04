@@ -17,6 +17,49 @@ The five most recent entries also remain inline in `CLAUDE.md` §0. New entries 
 ---
 
 **Session log:**
+- *2026-09-05* — **Loud enough, a shorter purr, and a fade that is actually
+  gradual.**
+  - Ellis, now that the recordings play: *"i want the purrr to be shorter. i
+    want the ost to have a more gradual fadein and also only fade in AFTER the
+    tutorial just finishes. and everything other than the meow is way too
+    quiet … i have my phone on MAX volume."*
+  - **The meow is the reference, and that shapes the whole fix.** It was the
+    one sound at roughly the right level, so it barely moves (0.18 → 0.20 peak)
+    and everything else is brought *up to it* rather than the whole mix being
+    scaled. Music ~6.6× louder, the interface ~8.5×, the purr ~1.5×.
+    `MASTER_VOLUME` 0.3 → 0.85, and the comment claiming the game should sit
+    politely under a podcast went with it: that was a guess about how people
+    play, and Ellis has now said twice that it was wrong.
+  - **A limiter is what makes loud safe.** At this level a purr, a coin and the
+    soundtrack can sum past 1.0. Threshold −3 dB, ratio 12, fast attack — it
+    does nothing on any single sound and only catches overlaps.
+  - **One multiplier for the interface, not eleven edited numbers.** The
+    balance *between* the coin, the tap, the purchase and the reveal was tuned
+    by ear and was fine; only the group was quiet. `UI_GAIN` scales them
+    together and leaves that decision alone.
+  - **The fade was the interesting one.** Making `FADE_IN` longer did almost
+    nothing, because an `exponentialRampToValueAtTime` is linear in *decibels*
+    — from a 0.0001 floor it spends most of its length inaudible and then
+    rushes in at the end. Twelve seconds of that is *less* gradual than five,
+    not more. Replaced with `setValueCurveAtTime` and a raised cosine, which
+    spreads the movement evenly and can touch zero. Measured as a percentage of
+    full level every half-second: `0 0 0 0 0 0 0 1 2 4 16 28 77` before,
+    `0 0 0 2 2 13 13 53 43 48 42 72 77` after.
+  - **The music now waits for Mal to leave.** `allowMusic()` — called when the
+    walkthrough finishes, and at boot for any café that has already been shown
+    round, so it only ever delays a first session. Kept separate from
+    `musicMuted` because they are different questions: one is the player's
+    setting, the other is the game saying the moment is right.
+  - Purrs recut to ~1.2 s from 2.4 s, still on whole pulses (33 and 32) and
+    still from the stretch with no breath in it. All five effects are now
+    mastered to the same 0.95 peak, so per-sound balance lives in one place
+    (the gains in `audio.ts`) instead of half in the files and half in the code.
+  - **`tools/render-audio.mjs` was measuring a mix nobody hears.** It rendered
+    straight to the destination, bypassing the master gain entirely — so every
+    level I have "verified" with it this week was the balance, never the
+    loudness. It renders through the same gain and limiter as the game now.
+    *A tool that measures the wrong stage will confirm whatever you already
+    believe.*
 - *2026-09-04* — **`response.ok` is false on a phone: why no recording has ever
   played in the app.**
   - Ellis: *"i just press build on xcode every time. i cant hear any music and

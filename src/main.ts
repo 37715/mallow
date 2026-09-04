@@ -51,7 +51,7 @@ import { levelProgress } from "@/data/progression";
 import { FloaterLayer } from "@/ui/floaters";
 import { initAnalytics } from "@/analytics/analytics";
 import { emitGameEvent, onGameEvent } from "@/core/events";
-import { initAudio, playChirp, playCoin, playMeow, playPurchase, playPurr, playTap, setMusicMuted } from "@/audio/audio";
+import { allowMusic, initAudio, playChirp, playCoin, playMeow, playPurchase, playPurr, playTap, setMusicMuted } from "@/audio/audio";
 
 async function bootstrap(): Promise<void> {
   const canvas = document.getElementById("scene") as HTMLCanvasElement;
@@ -644,7 +644,12 @@ async function bootstrap(): Promise<void> {
 
   function startTutorial(force = false): void {
     const player = gameStore.getState().player;
-    if ((player.tutorialDone && !force) || guide) return;
+    if ((player.tutorialDone && !force) || guide) {
+      // Nobody is being shown round, so there is nothing for the music to wait
+      // for. This is the path every returning café takes.
+      allowMusic();
+      return;
+    }
     // The chore marker keeps out of her way while she is talking — on a replay
     // the save already says the tutorial is done, so `tutorialDone` can no
     // longer stand in for "is the guide on screen".
@@ -664,6 +669,11 @@ async function bootstrap(): Promise<void> {
           ui.setGuideTalking(false);
           guide?.dispose();
           guide = null;
+          // **The music waits for her to leave** (Ellis, 2026-09-05). A
+          // soundtrack rising under a typing speech bubble is one thing too
+          // many in the first two minutes; it fades in a few seconds after
+          // this, over twelve seconds. See `allowMusic`.
+          allowMusic();
           // **The money has to be *seen* to arrive**, or a thousand pounds is a
           // number that was already there when the player next looked at the
           // till. It flies out of the doorway she has just walked through.

@@ -23,7 +23,11 @@ This file is the shared brain for the project. **Read it before starting work in
 > starts growing past a screen or two of status, that is the signal to promote
 > and prune again.
 
-**Last updated:** 2026-09-04 (**the recordings finally play in the app** — the
+**Last updated:** 2026-09-05 (**the game is loud now** — the meow was the only
+sound at the right level, so everything else came up to it, with a limiter to
+keep it clean; the purr is half as long; and the soundtrack waits for the
+walkthrough to end, then fades in over twelve seconds on a proper curve.
+Earlier: **the recordings finally play in the app** — the
 loaders rejected every file on `response.ok`, which is always false behind
 Capacitor's custom URL scheme, so no `.m4a` had ever played on the phone.
 `tools/webkit-probe.swift` is the tool that could see it. Earlier:
@@ -514,6 +518,24 @@ being read into context every session. Every *rule* it taught has been promoted
 into the numbered sections; the archive holds the reasoning and the dead ends.
 **Append new entries there**, and mirror only the newest handful here.
 
+- *2026-09-05* — **Loud enough, a shorter purr, and a fade that is actually
+  gradual.** ([full entry](docs/session-log.md))
+  - **The meow is the reference.** It was the one sound at about the right
+    level, so it barely moves and everything else comes *up to it*: music
+    ~6.6× louder, interface ~8.5×, purr ~1.5×. `MASTER_VOLUME` 0.3 → 0.85, plus
+    a limiter so "loud" cannot become "clipping".
+  - **Making the fade longer did almost nothing**, because
+    `exponentialRampToValueAtTime` is linear in *decibels* — from a near-zero
+    floor it stays inaudible most of its length then rushes in at the end.
+    Twelve seconds of that is less gradual than five. A raised cosine via
+    `setValueCurveAtTime` spreads the movement evenly and can touch zero.
+  - **The music waits for the walkthrough** (`allowMusic`), kept separate from
+    `musicMuted` because one is the player's setting and the other is the game
+    saying the moment is right.
+  - **`tools/render-audio.mjs` was measuring a mix nobody hears** — straight to
+    the destination, bypassing the master gain. Every level "verified" with it
+    this week was the balance and never the loudness. *A tool that measures the
+    wrong stage will confirm whatever you already believe.*
 - *2026-09-04* — **`response.ok` is false on a phone: why no recording had ever
   played in the app.** ([full entry](docs/session-log.md))
   - **The clue was what still worked.** Synthesised sfx played, every `.m4a`
@@ -576,12 +598,22 @@ into the numbered sections; the archive holds the reasoning and the dead ends.
     the first seconds made no sound — "no meow sound", with no synthesis needed
     to explain it. Effects first now: **purr audible 253 ms after the first
     tap**.
-- *2026-09-01* — **Ellis's own cats and soundtrack, and a purr cut on the
-  pulse.** ([full entry](docs/session-log.md))
-  - A `sound/` folder arrived — three meows, two purr loops, and a real
-    71-second OST. All of it supersedes the Wikimedia cats and the generated
-    music, both of which stay as fallbacks.
-  - **A purr loop is cut on the pulse, not on the clock.** Both purrs are real
+- **A limiter across the output is what makes loud safe.** At this level a
+  purr, a coin and the soundtrack together can sum past 1.0, and digital
+  clipping is a horrible sound to put in a cosy game. Threshold −3 dB, ratio
+  12: silent on any single sound, engaging only on overlaps.
+- **One `UI_GAIN` multiplier, not eleven edited literals.** The balance
+  *between* the coin, the tap, the purchase and the reveal was tuned by ear and
+  is right; only the group was too quiet. Scaling in one place keeps the
+  decision that was already made.
+- **`TRACK_GAIN` is above 1 because the file is quiet.** `locklane.m4a` peaks
+  at 0.327 (≈ −10 dBFS), so at unity it can only ever be background.
+- **`tools/render-audio.mjs` renders through the same master gain and limiter**
+  now. It used to render straight to the destination — measuring a mix nobody
+  hears, which is how the game came to ship three times quieter than anyone
+  wanted while the tool reported it fine.
+
+**A purr loop is cut on the pulse, not on the clock.** Both purrs are real
     ~27 Hz pulse trains with visible *breath gaps*; a 2.4 s window chosen by eye
     lands on one about a third of the time and sounds like the purr stalling.
     Each clip is a whole number of pulses (67, 63) from the stretch whose
@@ -2113,6 +2145,29 @@ old soundtrack too … get rid of the old crap i can still hear."*
   file is a silent sound rather than a wrong one, so the test asserts every
   declared path exists, is non-empty, and is not an `.ogg`.
 
+**The game is loud, and the meow is the reference.** Ellis, 2026-09-05: *"i
+have my phone on MAX volume and the only thing that is even close to being too
+loud is the meow. the rest is still average when it should be super loud."* So
+the meow's level barely moved and everything else was brought **up to it**:
+music ~6.6× louder, the interface ~8.5×, the purr ~1.5×. `MASTER_VOLUME` went
+0.3 → 0.85, and the comment about sitting politely under a podcast went with
+it — that was a guess about how people play, and it was wrong.
+
+- **A limiter across the output is what makes loud safe.** At this level a
+  purr, a coin and the soundtrack together can sum past 1.0, and digital
+  clipping is a horrible sound to put in a cosy game. Threshold −3 dB, ratio
+  12: silent on any single sound, engaging only on overlaps.
+- **One `UI_GAIN` multiplier, not eleven edited literals.** The balance
+  *between* the coin, the tap, the purchase and the reveal was tuned by ear and
+  is right; only the group was too quiet. Scaling in one place keeps the
+  decision that was already made.
+- **`TRACK_GAIN` is above 1 because the file is quiet.** `locklane.m4a` peaks
+  at 0.327 (≈ −10 dBFS), so at unity it can only ever be background.
+- **`tools/render-audio.mjs` renders through the same master gain and limiter**
+  now. It used to render straight to the destination — measuring a mix nobody
+  hears, which is how the game came to ship three times quieter than anyone
+  wanted while the tool reported it fine.
+
 **A purr loop is cut on the pulse, not on the clock.** Both purrs are real
 ~27 Hz pulse trains (a cat's is 25–30) with visible *breath gaps*. A 2.4 s
 window chosen by eye lands on one about a third of the time and sounds like the
@@ -2137,10 +2192,22 @@ cannot ship in a paid or ad-supported app. The source ids are in
 fade in from silence a few seconds after logging in and maybe fade out again to
 silence for a little before fading back in again."*
 
+- **It waits for the walkthrough to finish** (`allowMusic`, 2026-09-05). Mal
+  talks over a speech bubble with the text typing out for the first couple of
+  minutes, and a soundtrack rising underneath that is one thing too many. A
+  café that has already been shown round allows it at boot, so this only ever
+  delays a first session. Two separate conditions, deliberately: `musicMuted`
+  is the player's setting, this is the game saying the moment is right.
+- **The fade in is a raised cosine, not an exponential ramp**, and over twelve
+  seconds that is the whole feature. An exponential ramp is linear in decibels,
+  so from a near-silent floor it stays inaudible for eight seconds and then
+  rushes in over the last three — the opposite of gradual. Measured, as a
+  percentage of full level every half-second: `0 0 0 0 0 0 0 1 2 4 16 28 77`
+  before, `0 0 0 2 2 13 13 53 43 48 42 72 77` after.
 - **The rests are the design.** Continuous background music in a game people
   leave running is wallpaper in ten minutes and an irritant in thirty — the
   same argument §10 makes about the coin chime. The cycle is four seconds of
-  quiet, a five-second fade in, two passes, a seven-second fade out landing
+  quiet, a twelve-second fade in, two passes, a seven-second fade out landing
   **on the end of the second pass** so the piece finishes, then forty-five
   seconds of café. Measured over 200 s: rms 0.0251 while playing, which is what
   the generator it replaced measured, so the mix did not move.

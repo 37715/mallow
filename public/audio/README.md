@@ -61,13 +61,14 @@ root, which is the untouched originals).
 
 ## If you replace any of them
 
-Keep them **mono**, meows under about 1.2 s, purrs 2–3 s, and normalise the
-peak to around **0.7**. The game applies its own gain on top (0.85 for a meow,
-0.9 for the purr) and then a 0.3 master, so a file mastered loud will jump out
-at whoever is holding the phone.
+Keep them **mono**, meows under about 1.2 s, purrs around 1.2 s, and normalise
+the peak to **0.95** — every file here is mastered the same, so the balance
+between sounds lives in one place (the gains in `src/audio/audio.ts`) rather
+than half in the files and half in the code. Those gains are 0.25 for a meow
+and 0.35 for a purr, into a 0.85 master and a limiter.
 
-The purrs were cut from 8.3 s and 5.7 s loops down to ~2.4 s. Both are real
-~27 Hz pulse trains, so they were cut at a **whole number of pulses** (67 and
-63) and on the stretch with the loudest quiet moment, which is what keeps a
+The purrs were cut from 8.3 s and 5.7 s loops down to ~1.2 s. Both are real
+~27 Hz pulse trains, so they were cut at a **whole number of pulses** (33 and
+32) and on the stretch with the loudest quiet moment, which is what keeps a
 clip off the breath gaps a purring cat leaves. `tools/render-audio.mjs` is how
 to hear the result.

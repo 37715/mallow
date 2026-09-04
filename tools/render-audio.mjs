@@ -128,6 +128,25 @@ const render = `(async () => {
 
   const want = ${JSON.stringify(what)};
 
+  // **Through the same master gain and limiter the game uses**, so the numbers
+  // this prints are the numbers that reach a speaker. Rendering straight to the
+  // destination measured a mix nobody hears, which is how the whole game came
+  // to be shipped three times quieter than anybody wanted. Kept in step with
+  // audio.ts by hand — there is no way to import it without starting a real
+  // AudioContext.
+  const MASTER = 0.85;
+  const limiter = ctx.createDynamicsCompressor();
+  limiter.threshold.value = -3;
+  limiter.knee.value = 0;
+  limiter.ratio.value = 12;
+  limiter.attack.value = 0.003;
+  limiter.release.value = 0.25;
+  limiter.connect(ctx.destination);
+  const master = ctx.createGain();
+  master.gain.value = MASTER;
+  master.connect(limiter);
+  const out = master;
+
   // Everything is a recording now, so both modes are buffers on a clock.
   const clip = async (path) => {
     const r = await fetch(path);
@@ -139,13 +158,13 @@ const render = `(async () => {
     n.buffer = buf;
     const g = ctx.createGain();
     g.gain.value = gain;
-    n.connect(g).connect(ctx.destination);
+    n.connect(g).connect(out);
     n.start(at);
   };
 
   if (want === "music" || want === "cafe") {
     const { startSoundtrack } = await import("/src/audio/soundtrack.ts");
-    await startSoundtrack(ctx, ctx.destination, { offlineSeconds: ${seconds} });
+    await startSoundtrack(ctx, out, { offlineSeconds: ${seconds} });
   }
   if (want === "cafe" || want === "cats") {
     // The real files, at the gains audio.ts plays them with, so the balance
@@ -159,7 +178,8 @@ const render = `(async () => {
     let at = spaced ? 3 : 0.4;
     while (at < ${seconds} - 2.5) {
       const purr = Math.random() < (spaced ? 0.5 : 0.34);
-      play(purr ? pick(purrs) : pick(meows), at, purr ? 0.9 : 0.85);
+      // The gains from audio.ts: purr 0.35, meow 0.25.
+      play(purr ? pick(purrs) : pick(meows), at, purr ? 0.35 : 0.25);
       at += spaced ? 5 + Math.random() * 7 : 2.6 + Math.random() * 0.6;
     }
   }

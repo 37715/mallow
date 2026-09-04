@@ -34,11 +34,49 @@
 import { loadAudioBuffer } from "@/audio/fetch-audio";
 import { startSoundtrack, type MusicHandle } from "@/audio/soundtrack";
 
-const MASTER_VOLUME = 0.3;
+/**
+ * How loud the game is, before the limiter.
+ *
+ * **0.85, up from 0.3.** Ellis, 2026-09-05: *"i have my phone on MAX volume and
+ * the only thing that is even close to being too loud is the meow. the rest is
+ * still average when it should be super loud if on max vol."* The old value
+ * came with a comment about sitting politely under a podcast, which was a
+ * guess about how people would play and turned out to be wrong — a cosy game
+ * is still a game and it has to be able to fill a room.
+ *
+ * **The meow is the reference and it barely moves.** It was the one sound at
+ * roughly the right level, so it stays where it is (0.18 → 0.20 peak) and
+ * everything else is brought *up to it* rather than everything being scaled
+ * together. Music is ~6.6× louder than it was, the interface ~8.5×, the purr
+ * ~1.5×.
+ */
+const MASTER_VOLUME = 0.85;
+
+/**
+ * Everything the interface says, scaled in one place.
+ *
+ * The *relative* balance between the coin chime, the tap, the purchase and the
+ * reveal was tuned by ear and is right; only the whole group was too quiet
+ * against the recordings. One multiplier keeps that balance intact — editing
+ * eleven literals would have re-opened a decision that was already made.
+ */
+const UI_GAIN = 3;
+
 const MUTE_KEY = "mallow-muted";
 
 let ctx: AudioContext | null = null;
 let master: GainNode | null = null;
+/**
+ * A limiter across the whole output.
+ *
+ * **This is what makes "loud" safe.** With the master at 0.85 a purr, a coin
+ * and the soundtrack together can sum past 1.0, and digital clipping is a nasty
+ * sound to put in a cosy game. A compressor with a high ratio and a fast attack
+ * catches the overlaps and costs nothing audible on a single sound: the music
+ * alone never reaches the threshold, so it only engages when something actually
+ * lands on top of it.
+ */
+let limiter: DynamicsCompressorNode | null = null;
 /** The ambient bed's own gain, so music mutes without muting the sfx. */
 let musicGain: GainNode | null = null;
 let music: MusicHandle | null = null;
@@ -187,12 +225,35 @@ export function setMusicMuted(next: boolean): void {
   }
   // **The fade and the stop are both needed.** The gain ramp is what makes
   // muting sound deliberate rather than like a dropout; stopping the scheduler
-  // is what stops a silenced café running a piano for nobody. Delayed by the
+  // is what stops a silenced café decoding a track for nobody. Delayed by the
   // length of the fade so the last chord gets to ring out through it.
-  if (music) {
-    if (next) window.setTimeout(() => music?.setPlaying(false), 800);
-    else music.setPlaying(true);
-  }
+  if (next) window.setTimeout(syncMusic, 800);
+  else syncMusic();
+}
+
+/**
+ * May the soundtrack play yet?
+ *
+ * **Two conditions, and they are different questions.** `musicMuted` is the
+ * player's setting; this is the game saying the moment is right. Ellis,
+ * 2026-09-05: *"only fade in AFTER the tutorial just finishes."* Mal talks over
+ * a typing speech bubble for the first couple of minutes, and music rising
+ * underneath that is one thing too many.
+ *
+ * A café that has already been shown round allows it at boot, so this only ever
+ * delays the very first session.
+ */
+let musicAllowed = false;
+
+function syncMusic(): void {
+  music?.setPlaying(musicAllowed && !musicMuted);
+}
+
+/** The walkthrough is over (or was already over). Let the soundtrack in. */
+export function allowMusic(): void {
+  if (musicAllowed) return;
+  musicAllowed = true;
+  syncMusic();
 }
 
 /**
@@ -215,9 +276,19 @@ export function initAudio(): void {
   if (!AudioCtor) return; // No WebAudio — the game is perfectly playable silent.
 
   ctx = new AudioCtor();
+  limiter = ctx.createDynamicsCompressor();
+  // −3 dB, hard knee, high ratio: a limiter rather than a compressor. It should
+  // do nothing at all until something would otherwise clip.
+  limiter.threshold.value = -3;
+  limiter.knee.value = 0;
+  limiter.ratio.value = 12;
+  limiter.attack.value = 0.003;
+  limiter.release.value = 0.25;
+  limiter.connect(ctx.destination);
+
   master = ctx.createGain();
   master.gain.value = muted ? 0 : MASTER_VOLUME;
-  master.connect(ctx.destination);
+  master.connect(limiter);
 
   // The bed goes through its own gain so it can be silenced without touching
   // the coin chimes and purrs.
@@ -248,8 +319,9 @@ export function initAudio(): void {
     .then(() => startSoundtrack(context, bus))
     .then((track) => {
       music = track;
-      // A mute that arrived while the files were loading still has to win.
-      if (music && musicMuted) music.setPlaying(false);
+      // Whatever was decided while the files were loading — a mute, or the
+      // walkthrough finishing — still has to win.
+      syncMusic();
     })
     // `loadSamples` swallows its own failures, so this cannot fire today. It is
     // here so that a future edit which lets it throw loses the *cats* rather
@@ -282,6 +354,9 @@ function tone(
   } = options;
 
   const start = ctx.currentTime + delay;
+  // See `UI_GAIN`: the balance between these sounds is right, the group level
+  // was not.
+  const level = gain * UI_GAIN;
   const osc = ctx.createOscillator();
   osc.type = type;
   osc.frequency.setValueAtTime(frequency, start);
@@ -292,7 +367,7 @@ function tone(
 
   const env = ctx.createGain();
   env.gain.setValueAtTime(0.0001, start);
-  env.gain.exponentialRampToValueAtTime(gain, start + attack);
+  env.gain.exponentialRampToValueAtTime(level, start + attack);
   env.gain.exponentialRampToValueAtTime(0.0001, start + duration);
 
   osc.connect(env).connect(master);
@@ -421,7 +496,7 @@ export function playCoin(): void {
  * two sounds.
  */
 export function playPurr(): void {
-  playSample("purr", 0.9);
+  playSample("purr", 0.35);
 }
 
 
@@ -430,7 +505,7 @@ export function playPurr(): void {
  * synthesised one behind it.
  */
 export function playMeow(): void {
-  playSample("meow", 0.85);
+  playSample("meow", 0.25);
 }
 
 /**
@@ -442,8 +517,8 @@ export function playMeow(): void {
  * one synthetic cat among real ones. Drop `chirp-1.m4a` in and it is used.
  */
 export function playChirp(): void {
-  if (playSample("chirp", 0.8)) return;
-  playSample("meow", 0.8);
+  if (playSample("chirp", 0.25)) return;
+  playSample("meow", 0.25);
 }
 
 /** Generic soft UI tap. */
