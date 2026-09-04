@@ -30,12 +30,25 @@ The five most recent entries also remain inline in `CLAUDE.md` §0. New entries 
     the same reason: Freesound carries CC0, CC-BY and CC-BY-NC side by side and
     only the first is free of obligations.
   - **The music is Ellis's own**, which removes the largest single question.
-  - **The two purrs are the only open item, and the files cannot answer it.**
-    No attribution in the filename, and no metadata at all inside — bare `fmt`
-    and `data` chunks, no `LIST`, `INFO` or `bext`, nothing to trace. The
-    naming (`cat_purractive_loop`) reads like a commercial game-audio pack, and
-    most of those grant royalty-free commercial use, so this is probably
-    nothing. It is a question for before the app is *sold*, not for TestFlight.
+  - **The two purrs could not be traced from the files at all** — no
+    attribution in the filename and no metadata inside, just `fmt` and `data`,
+    no `LIST`/`INFO`/`bext`. Ellis confirmed they are free to use, which closes
+    the last question: **the whole audio folder is clear for commercial
+    release.**
+  - **Then the plist, while the Developer Program enrolment runs.** Three
+    entries the Capacitor template leaves wrong or missing, all found by
+    actually archiving rather than by reading:
+    `ITSAppUsesNonExemptEncryption = false` (without it App Store Connect asks
+    the encryption question on *every* upload), `UIRequiresFullScreen = true`
+    (the game is portrait-locked, and Xcode warns on every build without it),
+    and `UIRequiredDeviceCapabilities` from `armv7` to `arm64` — the binary has
+    only ever been 64-bit, so the template's value was not merely stale but
+    contradictory. Archive re-run: clean, and the warning is gone.
+  - **`plutil -extract` rewrites the file in place.** Without `-o -` it
+    replaced the entire Info.plist with `["armv7"]` — the extracted value — and
+    the only symptom was an archive failing with "unable to read property
+    list". Restored from git; `PlistBuddy` is the tool for this. *A read
+    command that writes by default is worth knowing about once.*
   - *A warning repeated is not a check performed.* "Licences unverified" sat in
     three commits and two documents while the answer was a thirty-second fetch
     away, and it would have gone on being re-read as a risk by everyone who

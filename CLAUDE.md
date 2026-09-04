@@ -2183,11 +2183,10 @@ silence — and the effects cannot. Purr is now audible 253 ms after the first t
 **Licences, checked 2026-09-05 before TestFlight.** All three meows are **CC0**
 — confirmed on each sound's own Freesound page rather than from a search
 listing, since Freesound carries CC0, CC-BY and CC-BY-NC side by side and only
-CC0 is free of obligations. `locklane.m4a` is Ellis's own. ⚠️ **The two purrs
-are the open item**: no attribution in the filename and no metadata in the file
-(bare `fmt`/`data`, nothing to trace). Probably a commercial pack, which would
-be fine — worth confirming before the app is ever sold or carries ads. Nothing
-here blocks a TestFlight build.
+CC0 is free of obligations. `locklane.m4a` is Ellis's own. The two purrs carry no
+attribution and no metadata (bare `fmt`/`data`, nothing to trace); Ellis
+confirmed they are free to use. **The whole folder is clear for commercial
+release** — nothing owed, nothing restricted.
 
 ### The soundtrack breathes (2026-09-01)
 
@@ -2528,6 +2527,38 @@ node tools/shot.mjs --dpr 3
 In a dev build `window.__mallow` exposes `{ camera, controls, store, catManager }`
 for poking at the scene from the console or over CDP. It is compiled out of
 production by `import.meta.env.DEV`.
+
+**Getting to TestFlight** (2026-09-05). The app archives clean for arm64 and
+the audio is licence-clear (§10). What is left is Ellis's, because it needs a
+paid account:
+
+1. **Enrol in the Apple Developer Program**, $99/yr. This is the only real
+   blocker — TestFlight cannot be reached on a free Apple ID, and the keychain
+   here has only an *Apple Development* certificate. Xcode makes the
+   distribution certificate itself once the membership is live.
+2. **Create the app in App Store Connect** and answer **App Privacy**. The
+   analytics are live (`VITE_TELEMETRYDECK_APP_ID` is set) and send a random
+   per-install UUID, so that is a declared collection — *Identifiers → User
+   ID*, not linked to identity, used for Analytics. An undeclared collection is
+   a rejection.
+3. **Archive** with the destination set to *Any iOS Device (arm64)* — not a
+   simulator — then Organizer → Distribute App → TestFlight & App Store.
+4. **Internal testers first** (up to 100, no review). External testing needs a
+   Beta App Review and is the one-shot first impression §4 warns about
+   spending early.
+
+Three Info.plist entries were added on 2026-09-05 so the first upload is clean:
+`ITSAppUsesNonExemptEncryption = false` (otherwise App Store Connect asks the
+encryption question on *every* upload), `UIRequiresFullScreen = true` (the game
+is portrait-locked, and without it Xcode warns that all orientations must be
+supported), and `UIRequiredDeviceCapabilities` corrected from the Capacitor
+template's `armv7` to `arm64` — the binary has only ever been 64-bit.
+
+> **Edit that plist with `PlistBuddy`, never `plutil -extract`.** `plutil
+> -extract KEY FMT FILE` **rewrites the file in place** with the extracted
+> value unless you pass `-o -`; it replaced the whole Info.plist with
+> `["armv7"]` on 2026-09-05 and the only symptom was an archive failing with
+> "unable to read property list".
 
 **Running on a real phone**, first time only — the parts that are Ellis's
 because they need his Apple ID:

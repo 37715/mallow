@@ -54,14 +54,11 @@ sound's own Freesound page rather than taken from a search listing, because
 Freesound carries CC0, CC-BY and CC-BY-NC side by side and only the first is
 free of obligations. `locklane.m4a` is Ellis's own work.
 
-> ⚠️ **The two purrs are the one thing still unaccounted for.** They arrived as
-> `cat_purractive_loop.wav` / `cat_purrsleepy_loop.wav` with no attribution in
-> the filename, and the files carry no metadata at all — bare `fmt` and `data`
-> chunks, no `LIST`/`INFO`/`bext`, nothing to trace. The naming reads like a
-> commercial game-audio pack, and most of those grant royalty-free commercial
-> use, in which case there is nothing to do. **Worth confirming before the app
-> is ever sold or carries ads**, since a CC-BY-NC purr would be the one thing
-> here that could not ship. Nothing blocks a TestFlight build either way.
+The two purrs came with no attribution in the filename and no metadata in the
+file at all — bare `fmt` and `data` chunks, nothing to trace. Ellis confirmed
+on 2026-09-05 that they are free to use. **Everything in this folder is
+therefore clear for commercial release**, with no attribution owed and no
+non-commercial restriction.
 
 `sound/fx/dont use/` is left alone, as labelled.
 
