@@ -928,6 +928,37 @@ textarea,
   text-transform: none;
 }
 
+/* The way out of the walkthrough, shown only to somebody who has been stuck on
+   one step for half a minute (`armEscape` in main.ts).
+
+   **Quiet on purpose.** It is a real escape hatch and it must be findable, but
+   it is competing with the honey instruction directly above it, and a skip that
+   draws the eye is a skip a first-time player takes by mistake — which is the
+   reason this control did not exist for the six weeks §0 spent listing it as a
+   known gap. Underlined rather than boxed so it reads as a link out rather than
+   as the next step.
+
+   `pointer-events: auto` is not optional: `#ui-root` is `pointer-events: none`
+   so gestures reach the café, and anything wanting a tap has to opt back in
+   (§9). Without it this is a decal and the one control that exists to unstick
+   the player is itself dead. */
+.speech-escape {
+  display: block;
+  margin-top: 10px;
+  padding: 0;
+  border: 0;
+  background: none;
+  /* A <button> inherits neither colour nor font — see §9. */
+  font: inherit;
+  font-size: var(--t-xs);
+  color: var(--chalk-dim);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-transform: lowercase;
+  pointer-events: auto;
+  cursor: pointer;
+}
+
 /* The walkthrough's pointing arrow.
 
    A ring alone was not enough — it reads as decoration next to everything else

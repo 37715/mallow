@@ -101,6 +101,8 @@ async function bootstrap(): Promise<void> {
   // the room — otherwise the thing you just paid to improve looks identical
   // until something unrelated happens to trigger a rebuild.
   let shownUpgrades = gameStore.getState().upgrades;
+  /** Resolves when the room group matches the current state. See below. */
+  let roomReady: Promise<unknown> = Promise.resolve();
   gameStore.subscribe(() => {
     const { customisation, placements, purchased, tiles, instances, windows, upgrades } =
       gameStore.getState();
@@ -122,7 +124,19 @@ async function bootstrap(): Promise<void> {
     shownInstances = instances;
     shownWindows = windows;
     shownUpgrades = upgrades;
-    void rebuildRoom({ choice: customisation, placements, purchased, tiles, instances, windows, upgrades }).then(() => {
+    /**
+     * **Kept, so placement can wait for it rather than race it.**
+     *
+     * `rebuildRoom` is async — it may have assets to fetch — and a piece only
+     * becomes findable in the room group once it resolves. `startPlacing` used
+     * to retry for thirty frames and then give up *silently*, which on a phone
+     * is about a second: long enough for a first purchase whose GLB is not yet
+     * in memory to lose the race. The player had then paid for a piece with no
+     * ghost to place, and if the walkthrough was the thing that asked for it,
+     * that is a dead end with no way out (Ellis, 2026-09-08: *"im stuck on the
+     * tutorial tapping and its not progressin"*).
+     */
+    roomReady = rebuildRoom({ choice: customisation, placements, purchased, tiles, instances, windows, upgrades }).then(() => {
       // Three of the four movable pieces are cat spots, so a moved bed has to
       // take its cat with it.
       // Cat spots depend on *both*: where furniture is, and whether it has
@@ -186,6 +200,33 @@ async function bootstrap(): Promise<void> {
   // say different things — see `entities/tutorial-guide.ts`.
   const speech = new SpeechBubble(uiRoot, { msPerChar: SPEECH_MS_PER_CHAR });
   let guide: TutorialGuide | null = null;
+
+  /**
+   * Reveal the walkthrough's way out, but only to somebody who is stuck.
+   *
+   * **The delay is the whole design.** A skip that is visible from the first
+   * line gets pressed by accident and the introduction is gone; a skip that
+   * does not exist leaves a player who hits a step that will not complete with
+   * no way forward and no way back — and relaunching just starts the
+   * walkthrough over, which is what turned a dead end into an infinite loop for
+   * Ellis (2026-09-08). Thirty seconds on one step is far longer than any of
+   * these tasks takes when it is working, and it resets on every step, so the
+   * only person who ever sees this button is the one who needs it.
+   */
+  const STUCK_MS = 30_000;
+  let escapeTimer: number | null = null;
+  function armEscape(waiting: boolean): void {
+    if (escapeTimer !== null) window.clearTimeout(escapeTimer);
+    escapeTimer = null;
+    speech.showEscape(null);
+    if (!waiting) return;
+    escapeTimer = window.setTimeout(() => {
+      speech.showEscape(() => {
+        speech.showEscape(null);
+        guide?.skip(performance.now());
+      });
+    }, STUCK_MS);
+  }
   /**
    * Settle an unpaid piece if the session ends while it is still in the
    * player's hands. `pendingPurchase` is runtime-only, so without this a
@@ -550,7 +591,7 @@ async function bootstrap(): Promise<void> {
   // panel leaves for it (§8 step 5).
   const shopPreview = createShopPreview(environment);
   ui.attachShopPreview(shopPreview);
-  ui.attachPlacer(beginPlacing);
+  ui.attachPlacer(beginPlacing, () => roomReady);
   ui.attachGraphics(setQuality);
   ui.attachBackdrop(setBackdrop);
   setMusicMuted(gameStore.getState().player.musicMuted);
@@ -747,7 +788,10 @@ async function bootstrap(): Promise<void> {
           tutorialTask = target;
           ui.point(target);
         },
-        waiting: (hint) => speech.setWaitHint(hint),
+        waiting: (hint) => {
+          speech.setWaitHint(hint);
+          armEscape(hint !== null);
+        },
       },
     );
     guide.setMirror(guidePortrait);

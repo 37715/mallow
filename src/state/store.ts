@@ -819,6 +819,24 @@ export const gameStore = createStore<GameState>((set, get) => ({
     return taken;
   },
 
+  /**
+   * The piece has landed: take the money, and *now* award the xp.
+   *
+   * **The xp moves when the money moves.** Both used to happen at the moment
+   * the shop button was pressed, which meant the ring filled and the level-up
+   * card could fly past while the ghost was still in the player's hand — and
+   * then `undoPurchase` had to subtract it again if they changed their mind, so
+   * cancelling visibly *un*-levelled you. Ellis, 2026-09-08: *"why the fuck am
+   * i getting the xp and level up feedback before i placed it and then it
+   * undoes it if cancelled."*
+   *
+   * §8 already had the rule for money — *"money moves **when the piece lands**,
+   * not when the button is pressed… the till must not drop for a decision the
+   * player has not finished making"* — and xp is the same kind of thing said
+   * with a different number. Granting it here means there is nothing to claw
+   * back, so the buy-then-cancel xp tap the old clawback existed to plug simply
+   * cannot be expressed.
+   */
   settlePurchase: () => {
     const state = get();
     const pending = state.pendingPurchase;
@@ -827,6 +845,7 @@ export const gameStore = createStore<GameState>((set, get) => ({
       money: Math.max(0, state.money - pending.cost),
       pendingPurchase: null,
     });
+    get().grantXp(XP_AWARDS.furniture(pending.cost));
     return pending.cost;
   },
 
@@ -995,12 +1014,18 @@ export const gameStore = createStore<GameState>((set, get) => ({
   /**
    * Back out of a purchase that is still in the player's hands.
    *
-   * **Nothing is refunded, because nothing was taken.** Money moves when the
-   * piece lands (`settlePurchase`), so cancelling only has to remove the piece
-   * and take the xp back — without that last part, buy-then-cancel is a free
-   * xp tap you can hold down forever. A refund is still issued for a pending
-   * record that has somehow already been settled, so this can never silently
-   * charge for something the player does not end up with.
+   * **Nothing is refunded and nothing is un-levelled, because neither was ever
+   * given.** Money and xp both move when the piece lands (`settlePurchase`), so
+   * cancelling an unpaid piece only has to remove it. This used to subtract the
+   * xp again, which is what made cancelling visibly *undo* a level-up; moving
+   * the award to settlement means the buy-then-cancel xp tap it was guarding
+   * against cannot be expressed in the first place.
+   *
+   * The `settled` branch is the exception and still does both: a pending record
+   * that has somehow already been paid (a force-quit mid-placement, which
+   * `settleOnLeave` covers) gets its money *and* its xp taken back with the
+   * piece, so this can never leave the player charged and levelled for
+   * something they do not own.
    */
   undoPurchase: (id) => {
     const state = get();
@@ -1017,7 +1042,8 @@ export const gameStore = createStore<GameState>((set, get) => ({
       set({
         money: refund(cost),
         instances: state.instances.filter((i) => i.id !== id),
-        xp: Math.max(0, state.xp - XP_AWARDS.furniture(cost)),
+        // Only if it was already paid for — see the note above.
+        xp: unpaid ? state.xp : Math.max(0, state.xp - XP_AWARDS.furniture(cost)),
         pendingPurchase: unpaid ? null : state.pendingPurchase,
       });
       return;
@@ -1028,7 +1054,7 @@ export const gameStore = createStore<GameState>((set, get) => ({
     set({
       money: refund(item.price),
       purchased: state.purchased.filter((p) => p !== id),
-      xp: Math.max(0, state.xp - XP_AWARDS.furniture(item.price)),
+      xp: unpaid ? state.xp : Math.max(0, state.xp - XP_AWARDS.furniture(item.price)),
       pendingPurchase: unpaid ? null : state.pendingPurchase,
     });
   },
@@ -1164,7 +1190,7 @@ export const gameStore = createStore<GameState>((set, get) => ({
       pendingPurchase: { id, cost },
     });
     logEvent({ name: "shop_item_bought", item: itemId, cost });
-    get().grantXp(XP_AWARDS.furniture(cost));
+    // No xp here — it is awarded when the piece lands (`settlePurchase`).
     return id;
   },
 
@@ -1272,7 +1298,7 @@ export const gameStore = createStore<GameState>((set, get) => ({
       chores: acquireSubjects(state.chores, state, { ...state, purchased }, Date.now()),
     });
     logEvent({ name: "shop_item_bought", item: id, cost: item.price });
-    get().grantXp(XP_AWARDS.furniture(item.price));
+    // No xp here — it is awarded when the piece lands (`settlePurchase`).
     return true;
   },
 

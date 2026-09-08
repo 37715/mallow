@@ -139,7 +139,11 @@ export interface MountedUI {
    * this in; the shop closes itself and calls it. Returns false if the piece
    * isn't in the room yet, which is the caller's cue to try again next frame.
    */
-  attachPlacer: (place: (layoutId: string, justBought?: boolean) => boolean) => void;
+  attachPlacer: (
+    place: (layoutId: string, justBought?: boolean) => boolean,
+    /** Resolves when the room group matches the store — see `startPlacing`. */
+    roomReady?: () => Promise<unknown>,
+  ) => void;
   /** Turn the in-world "buy this floor" ghosts on and off (§8 step 6). */
   attachExpander: (setOpen: (on: boolean) => void) => void;
   /** Hand the HUD the renderer's quality knob (§ data/graphics.ts). */
@@ -526,6 +530,8 @@ export function mountUI(root: HTMLElement): MountedUI {
    * often would fight the player's own taps and text fields.
    */
   let panelUpdate: (() => void) | null = null;
+  /** See `startPlacing` — resolves when the room group matches the store. */
+  let whenRoomReady: (() => Promise<unknown>) | null = null;
 
   function closePanel(): void {
     panelLayer.classList.remove("open");
@@ -1547,11 +1553,30 @@ export function mountUI(root: HTMLElement): MountedUI {
    * happening is invisible, and a missed handoff would leave a bought item
    * sitting in its authored spot with no explanation.
    */
-  function startPlacing(layoutId: string, justBought = false, attemptsLeft = 30): void {
+  /**
+   * Open the placer on a piece, once the room actually contains it.
+   *
+   * **Waits for the rebuild rather than racing it.** A purchase changes the
+   * store, the room rebuilds *asynchronously* from that, and the piece is only
+   * findable once it has. This used to retry for thirty frames and then give up
+   * without a word — about a second on a phone, which a first purchase whose
+   * model is not yet in memory can easily exceed. The player was then left
+   * having paid for something with no ghost in their hands, and if the
+   * walkthrough was what asked for it there was no way forward and no way out
+   * (Ellis, 2026-09-08: *"im stuck on the tutorial tapping and its not
+   * progressin"*).
+   *
+   * The frame retries stay as a backstop for the case where the room was
+   * already up to date and something else is a beat behind, but the promise is
+   * what makes this correct rather than lucky.
+   */
+  async function startPlacing(layoutId: string, justBought = false): Promise<void> {
     closePanel();
     if (placePiece?.(layoutId, justBought)) return;
-    if (attemptsLeft > 0) {
-      requestAnimationFrame(() => startPlacing(layoutId, justBought, attemptsLeft - 1));
+    await whenRoomReady?.();
+    for (let attempt = 0; attempt < 90; attempt++) {
+      if (placePiece?.(layoutId, justBought)) return;
+      await new Promise((resolve) => requestAnimationFrame(resolve));
     }
   }
 
@@ -2988,8 +3013,9 @@ export function mountUI(root: HTMLElement): MountedUI {
 
   return {
     showWelcomeBack,
-    attachPlacer(place) {
+    attachPlacer(place, ready) {
       placePiece = place;
+      whenRoomReady = ready ?? null;
     },
     attachExpander(setOpen) {
       setExpanding = setOpen;

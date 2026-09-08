@@ -28,6 +28,7 @@ export class SpeechBubble {
   private readonly portrait: HTMLCanvasElement;
   private readonly textNode: HTMLElement;
   private readonly hint: HTMLElement;
+  private readonly escape: HTMLButtonElement;
   private readonly ndc = new THREE.Vector3();
 
   private full = "";
@@ -75,9 +76,31 @@ export class SpeechBubble {
     this.hint = document.createElement("span");
     this.hint.className = "speech-hint";
     this.hint.textContent = "tap to continue";
+
+    /**
+     * The way out, and it is deliberately hard to find.
+     *
+     * `TutorialGuide.skip()` has been written, correct and **called from
+     * nowhere** since it was added — §0 has carried it as a known gap for
+     * weeks, and it stopped being theoretical the day Ellis got stuck on a
+     * step that would not complete and found that relaunching only started the
+     * walkthrough again. A tutorial with a failure mode and no exit is a game
+     * you cannot play.
+     *
+     * The reason it was never wired up is real, though: a skip that is easy to
+     * hit means a first-time player misses the introduction with a stray tap.
+     * So this is not on the tap-anywhere path — it is its own small control,
+     * and `showEscape` only reveals it once somebody has been stuck on the same
+     * step long enough that they are plainly not about to finish it.
+     */
+    this.escape = document.createElement("button");
+    this.escape.className = "speech-escape";
+    this.escape.textContent = "skip this";
+    this.escape.hidden = true;
+
     const body = document.createElement("div");
     body.className = "speech-body";
-    body.append(this.textNode, this.hint);
+    body.append(this.textNode, this.hint, this.escape);
     this.bubble.append(this.portrait, body);
     this.layer.append(this.bubble);
     root.appendChild(this.layer);
@@ -106,8 +129,27 @@ export class SpeechBubble {
     this.hint.classList.toggle("speech-hint-task", hint !== null);
   }
 
+  /**
+   * Offer a way out of the walkthrough, or take the offer away.
+   *
+   * Called with a handler only when the player has been waiting on one step for
+   * long enough to count as stuck — see `speech-escape` above.
+   */
+  showEscape(onSkip: (() => void) | null): void {
+    this.escape.hidden = onSkip === null;
+    this.escape.onclick = onSkip
+      ? (event) => {
+          // The bubble sits over the canvas and the canvas listens for taps to
+          // advance the line; without this the same press does both.
+          event.stopPropagation();
+          onSkip();
+        }
+      : null;
+  }
+
   hide(): void {
     this.visible = false;
+    this.showEscape(null);
     this.layer.style.display = "none";
     // Undock on the way out, or the notch stays cut in the panel's dim with
     // nobody standing in it — a hole in the interface that no later action
