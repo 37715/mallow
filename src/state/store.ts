@@ -18,7 +18,8 @@ import {
   menuAppeal,
   type CustomDrink,
 } from "@/data/drinks";
-import { menuItems, menuPayMultiplier, pickOrder } from "@/systems/menu";
+import { menuItems, menuPayMultiplier, pickOrderWithNovelty } from "@/systems/menu";
+import { claimValue } from "@/systems/goals";
 import { occupiedWalls, wallSegments } from "@/scene/cafe-tiles";
 import {
   HOME_TILE,
@@ -136,6 +137,14 @@ export interface GameState {
   sales: Record<string, number>;
   /** Counter so blend ids never collide, the same trick as `nextCatId`. */
   nextDrinkId: number;
+  /**
+   * Goals whose reward has been taken (`data/goals.ts`).
+   *
+   * Ids rather than an index, so reordering or removing a goal can never
+   * silently re-open one somebody has already done — the same reason upgrades
+   * are stored sparsely by id.
+   */
+  goalsClaimed: string[];
   /** Floor tiles owned, as "x,z". Always contains the home tile (§8 step 6). */
   tiles: TileKey[];
   /** Backdrop colours paid for. The setup pick is free and never listed. */
@@ -278,6 +287,8 @@ export interface GameState {
   unlockIngredient: (id: string) => boolean;
   /** Put a blend on the menu. Returns the new drink, or null if refused. */
   createBlend: (name: string, base: string, ingredients: string[]) => CustomDrink | null;
+  /** Take a goal's reward. Returns what was paid, or 0 if it was not ready. */
+  claimGoal: (id: string) => number;
   /** Take a blend off the menu. Its sales history goes with it. */
   removeBlend: (id: string) => void;
   /** Buy a piece of floor. False if it's out of reach, owned or unaffordable. */
@@ -439,6 +450,7 @@ type PersistedState = Pick<
   | "ingredients"
   | "customDrinks"
   | "sales"
+  | "goalsClaimed"
   | "nextDrinkId"
   | "tiles"
   | "backdropsOwned"
@@ -482,6 +494,7 @@ function freshState(): PersistedState {
     ingredients: [],
     customDrinks: [],
     sales: {},
+    goalsClaimed: [],
     nextDrinkId: 1,
     tiles: [HOME_TILE],
     backdropsOwned: [],
@@ -559,6 +572,7 @@ export const gameStore = createStore<GameState>((set, get) => ({
         ingredients: saved.ingredients,
         customDrinks: saved.customDrinks,
         sales: saved.sales,
+        goalsClaimed: saved.goalsClaimed,
         nextDrinkId: saved.nextDrinkId,
         tiles: saved.tiles,
         backdropsOwned: saved.backdropsOwned,
@@ -588,21 +602,48 @@ export const gameStore = createStore<GameState>((set, get) => ({
       now,
       lastVisitorSpawnAt || now,
       currentCafeStats(state),
+      Math.random,
+      // What a new arrival orders. The novelty weighting is what guarantees a
+      // freshly invented blend gets tried while its inventor is still watching
+      // — see `pickOrderWithNovelty`.
+      (roll) => {
+        const item = pickOrderWithNovelty(currentMenu(state), state.sales, roll);
+        return item ? { id: item.id, pay: item.pay } : null;
+      },
     );
 
     if (result.moneyEarned > 0) {
       logEvent({ name: "visitor_paid", amount: result.moneyEarned, money: money + result.moneyEarned });
     }
-    // One cup per paying guest, chosen from the menu. Tallied here rather than
-    // in `tickVisitors` so the visitor system stays free of café content.
+    /**
+     * The sales chart counts the cup the guest actually carried (2026-09-08).
+     * It used to roll a random menu item at the moment of payment — a tally
+     * with no person attached — which is why the menu felt like it did nothing
+     * (Ellis: *"the coffee blend section seems a bit random"*). The order is
+     * chosen at the door now (see the picker passed into `tickVisitors`), so
+     * the chip over their head, the money they hand over and the row on the
+     * chart are all the same drink.
+     */
     let sales = state.sales;
-    if (result.paidSeatIndexes.length > 0) {
-      const menu = currentMenu(state);
+    if (result.paid.length > 0) {
       sales = { ...sales };
-      for (const seatIndex of result.paidSeatIndexes) {
-        const order = pickOrder(menu, Math.random());
-        if (order) sales[order.id] = (sales[order.id] ?? 0) + 1;
-        emitGameEvent("visitorPaid", { seatIndex });
+      const customs = new Set(state.customDrinks.map((d) => d.id));
+      for (const visit of result.paid) {
+        if (visit.drinkId) {
+          const cupsBefore = sales[visit.drinkId] ?? 0;
+          sales[visit.drinkId] = cupsBefore + 1;
+          // The payoff moment for inventing a drink: the first time somebody
+          // buys it. Once per blend, ever — cupsBefore does the guarding.
+          if (cupsBefore === 0 && customs.has(visit.drinkId)) {
+            const blend = state.customDrinks.find((d) => d.id === visit.drinkId);
+            if (blend) emitGameEvent("blendFirstSale", { name: blend.name });
+          }
+        }
+        emitGameEvent("visitorPaid", {
+          seatIndex: visit.seatIndex,
+          amount: visit.amount,
+          drinkId: visit.drinkId,
+        });
       }
     }
 
@@ -902,6 +943,25 @@ export const gameStore = createStore<GameState>((set, get) => ({
     logEvent({ name: "blend_created", ingredients: ingredients.length });
     get().grantXp(XP_AWARDS.blend);
     return drink;
+  },
+
+  /**
+   * Take a goal's reward.
+   *
+   * **Straight to the bank, not the till.** This is paid for something the
+   * player *did*, exactly like a chore — routing it through the till would let
+   * a full drawer swallow it, which is a rule nobody can see (§8).
+   */
+  claimGoal: (id) => {
+    const state = get();
+    const paid = claimValue(state, state.goalsClaimed, id);
+    if (paid <= 0) return 0;
+    set({
+      money: state.money + paid,
+      goalsClaimed: [...state.goalsClaimed, id],
+    });
+    logEvent({ name: "goal_claimed", goal: id, reward: paid });
+    return paid;
   },
 
   removeBlend: (id) => {

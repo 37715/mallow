@@ -39,6 +39,17 @@ const ICONS: Record<string, string> = {
     <ellipse cx="12" cy="14.4" rx="6.9" ry="6.3"/>
   `,
 
+  /* A ticked list — the goal ladder. Two ruled lines and a tick, because a
+     list of three identical lines reads as a menu and a list with a tick in it
+     reads as something to finish. */
+  list: `
+    <rect x="3" y="5.2" width="9.5" height="2.2" rx="1.1"/>
+    <rect x="3" y="10.9" width="9.5" height="2.2" rx="1.1"/>
+    <rect x="3" y="16.6" width="6.5" height="2.2" rx="1.1"/>
+    <path d="M14.4 16.1 17.1 18.8 21.6 13.2" fill="none"
+          stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+  `,
+
   /* A quaver, for the "now playing" chip and the credits row.
 
      Drawn as a filled notehead with a *stroked* stem and flag rather than one

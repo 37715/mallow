@@ -15,10 +15,10 @@ import { INTERACTIVE_FPS, TARGET_FPS, startLoop, type GameLoop } from "@/core/lo
 import {
   gameStore,
   bootAwayMs,
-  currentCafeStats,
   firstIngredientIsFree,
   ownedCount,
   setSandbox,
+  currentMenu,
 } from "@/state/store";
 import { initAutosave } from "@/state/save";
 import { CatManager } from "@/entities/cat-manager";
@@ -27,7 +27,6 @@ import { VisitorManager } from "@/entities/visitor-manager";
 import { DustMotes } from "@/scene/dust";
 import { COUNTER_POSITION, doorPositions, seatFacings, seatPositions, seatStandPositions } from "@/scene/room";
 import { catHomes } from "@/scene/cat-homes";
-import { visitorPayAmount } from "@/data/economy";
 import { servedRefreshments } from "@/data/shop";
 import { createChoreWipe } from "@/ui/chore-wipe";
 import { CHORES_BY_ID } from "@/data/chores";
@@ -41,6 +40,8 @@ import { createWorldMarker } from "@/ui/world-marker";
 import { mountUI } from "@/ui/ui";
 import { CatLabelLayer, NameTag } from "@/ui/cat-labels";
 import { createNowPlaying } from "@/ui/now-playing";
+import { OrderChipLayer, type OrderChipEntry } from "@/ui/order-chips";
+import { phaseOf } from "@/systems/visitors";
 import { beds } from "@/data/beds";
 import { loadCharacterAssets } from "@/entities/character-library";
 import { SpeechBubble } from "@/ui/speech-bubble";
@@ -178,6 +179,7 @@ async function bootstrap(): Promise<void> {
    * naming a track before it is audible reads as a bug.
    */
   const nowPlaying = createNowPlaying(uiRoot);
+  const orderChips = new OrderChipLayer(uiRoot);
   setTrackListener((track) => nowPlaying.show(track));
   const nameTag = new NameTag(uiRoot);
   // Same milliseconds-per-character as the lip sync, or the mouth and the text
@@ -212,7 +214,7 @@ async function bootstrap(): Promise<void> {
   });
 
   // --- Juice: coins pop out of the seat a guest just paid at (§10) ---------
-  onGameEvent("visitorPaid", ({ seatIndex }) => {
+  onGameEvent("visitorPaid", ({ seatIndex, amount }) => {
     // **−1 is the counter**: a takeaway pays and leaves without ever having a
     // chair, so the coin pops where the money actually changed hands.
     // Otherwise: live positions, because a coin must pop out of wherever that
@@ -222,8 +224,8 @@ async function bootstrap(): Promise<void> {
         ? new THREE.Vector3(COUNTER_POSITION.x, 0.55, COUNTER_POSITION.z)
         : seatPositions(gameStore.getState().placements)[seatIndex];
     if (seat) {
-      const stats = currentCafeStats(gameStore.getState());
-      const amount = visitorPayAmount(stats.appeal, stats.payMultiplier);
+      // The figure the guest actually handed over — which varies by the drink
+      // they ordered now — not a recomputed approximation of it (§8).
       floaters.spawn(
         new THREE.Vector3(seat.x, seat.y + 0.7, seat.z),
         camera,
@@ -232,6 +234,23 @@ async function bootstrap(): Promise<void> {
       );
     }
     playCoin();
+  });
+
+  /**
+   * Somebody ordered the player's blend for the first time (§8 — the menu).
+   *
+   * The one moment the whole menu system was missing: the drink you invented
+   * and *named*, chosen by a stranger. It lands at the counter, where the
+   * order chip with the name on it is already showing.
+   */
+  onGameEvent("blendFirstSale", ({ name }) => {
+    floaters.spawn(
+      new THREE.Vector3(COUNTER_POSITION.x, 1.1, COUNTER_POSITION.z),
+      camera,
+      "coin",
+      `someone ordered ${name}!`,
+    );
+    playPurchase();
   });
 
   /**
@@ -982,6 +1001,35 @@ async function bootstrap(): Promise<void> {
      * nothing is left stranded if onboarding is abandoned.
      */
     catLabels.sync(onboarding ? [] : cats, catManager.getLabelAnchors(), camera);
+    /**
+     * Orders over the guests at the counter (`ui/order-chips.ts`).
+     *
+     * Names come from the live menu rather than being stored on the visitor,
+     * so renaming a blend renames the chip mid-order — and a drink that has
+     * been deleted while somebody was buying it degrades to the generic line
+     * rather than a stale name.
+     */
+    {
+      const menuNames = new Map(currentMenu(state).map((item) => [item.id, item.name]));
+      const entries: OrderChipEntry[] = [];
+      for (const visitor of state.visitors) {
+        // **`now`, not `Date.now()`.** The visitor sim runs on the loop's
+        // clock, which is `requestAnimationFrame`'s — a page-relative
+        // `performance.now()`. Comparing a visitor's timestamps against wall
+        // time puts every guest about 1.7 trillion milliseconds in the past,
+        // so `phaseOf` answers "walkingOut" for everybody and no chip ever
+        // appears. Nothing throws; the feature is simply absent.
+        if (phaseOf(visitor, now) !== "ordering") continue;
+        const at = visitorManager.positionOf(visitor.id);
+        if (!at) continue;
+        entries.push({
+          id: visitor.id,
+          text: (visitor.drinkId && menuNames.get(visitor.drinkId)) || "a coffee",
+          at,
+        });
+      }
+      orderChips.sync(entries, camera);
+    }
     nameTag.update(camera, now);
     // Held locally because the guide's `finished` callback sets `guide` to
     // null *during* this update — so reading `guide.anchor` on the next line

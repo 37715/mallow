@@ -42,6 +42,32 @@ export interface Visitor {
   hasPaid: boolean;
   /** Taking it with them rather than sitting down. */
   takeaway: boolean;
+  /**
+   * What they came in for — a menu item id, chosen when they walk in.
+   *
+   * **This is what makes the menu real** (2026-09-08). Sales used to be
+   * tallied by rolling a random menu item at the moment of payment, so no
+   * guest ever *had* a drink — the chart was a random tally and inventing a
+   * blend moved a hidden average. Ellis: *"the coffee blend section seems a
+   * bit random and unnecessary"* — right, because it literally was random.
+   * Now the order is a property of the person: it shows over their head at
+   * the counter, it decides what they pay, and it is the cup the sales chart
+   * counts.
+   *
+   * Optional, and the system stays content-free: this file never looks inside
+   * the id, it just carries what `pickDrink` handed it.
+   */
+  drinkId?: string;
+  /** That drink's pay multiplier, captured at order time. */
+  drinkPay?: number;
+}
+
+/** What a paying guest actually handed over, and for what. */
+export interface PaidVisit {
+  /** −1 means the counter — a takeaway pays where they stand. */
+  seatIndex: number;
+  drinkId?: string;
+  amount: number;
 }
 
 export interface VisitorTickResult {
@@ -51,10 +77,13 @@ export interface VisitorTickResult {
   /** True if a visitor was seated/paid this tick — useful for juice/analytics hooks. */
   spawnedThisTick: boolean;
   /**
-   * Seat of each visitor who paid this tick — drives the coin-pop juice (§10).
-   * **−1 means the counter**, which is where a takeaway pays.
+   * Each visitor who paid this tick — drives the coin pops, the sales chart
+   * and the analytics (§10, §11). Carries the true amount, so the floater can
+   * show the figure that was actually charged rather than re-deriving an
+   * approximation of it (§8 — the price shown and the price charged must be
+   * one call).
    */
-  paidSeatIndexes: number[];
+  paid: PaidVisit[];
 }
 
 let nextVisitorId = 0;
@@ -89,6 +118,7 @@ function spawnVisitor(
   seatIndex: number,
   dwellMs: number,
   takeaway: boolean,
+  order: { id: string; pay: number } | null,
 ): Visitor {
   const orderedAt = now + ECONOMY_CONFIG.walkInDurationMs * 0.65;
   const servedAt = orderedAt + ECONOMY_CONFIG.orderDurationMs;
@@ -106,6 +136,8 @@ function spawnVisitor(
     doneAt,
     hasPaid: false,
     takeaway,
+    drinkId: order?.id,
+    drinkPay: order?.pay,
   };
 }
 
@@ -118,11 +150,18 @@ export function tickVisitors(
   now: number,
   lastSpawnAt: number,
   stats: CafeStats,
-  /** Injectable for tests — the takeaway roll is the only randomness here. */
+  /** Injectable for tests — the takeaway roll and the order roll. */
   random: () => number = Math.random,
+  /**
+   * What a new arrival orders. The store passes the menu picker; this system
+   * never learns what a drink is. Null means "no menu" and the guest pays the
+   * café's average, which is also what every visitor spawned before this
+   * existed does — an absent `drinkPay` falls back rather than paying nothing.
+   */
+  pickDrink: (roll: number) => { id: string; pay: number } | null = () => null,
 ): VisitorTickResult {
   let moneyEarned = 0;
-  const paidSeatIndexes: number[] = [];
+  const paid: PaidVisit[] = [];
 
   const next = visitors
     .map((visitor) => {
@@ -131,9 +170,19 @@ export function tickVisitors(
       // puts the coin pop next to the barista rather than beside an empty
       // chair.
       if (!visitor.hasPaid && now >= visitor.servedAt) {
-        const pay = visitorPayAmount(stats.appeal, stats.payMultiplier);
-        moneyEarned += visitor.takeaway ? pay * ECONOMY_CONFIG.takeawayPayFactor : pay;
-        paidSeatIndexes.push(visitor.takeaway ? -1 : visitor.seatIndex);
+        // **They pay for their drink, not for the menu's average.** The
+        // expected value across guests is still the average (the picker is
+        // the same one the sales chart always used), so the balance holds —
+        // but a guest with your £2 blend in hand now visibly pays more than
+        // the one with a filter coffee, which is the whole point of a menu.
+        const pay = visitorPayAmount(stats.appeal, visitor.drinkPay ?? stats.payMultiplier);
+        const amount = visitor.takeaway ? pay * ECONOMY_CONFIG.takeawayPayFactor : pay;
+        moneyEarned += amount;
+        paid.push({
+          seatIndex: visitor.takeaway ? -1 : visitor.seatIndex,
+          drinkId: visitor.drinkId,
+          amount,
+        });
         return { ...visitor, hasPaid: true };
       }
       return visitor;
@@ -188,7 +237,7 @@ export function tickVisitors(
     const noSeatFree = seat === null;
     const takeaway = stats.seats.length > 0 && (noSeatFree || random() < ECONOMY_CONFIG.takeawayChance);
     if (seat !== null || takeaway) {
-      next.push(spawnVisitor(now, seat ?? -1, stats.dwellDurationMs, takeaway));
+      next.push(spawnVisitor(now, seat ?? -1, stats.dwellDurationMs, takeaway, pickDrink(random())));
       spawnedThisTick = true;
     }
     // Reset the spawn timer even if nobody came, so we don't spam-check every frame.
@@ -200,6 +249,6 @@ export function tickVisitors(
     moneyEarned,
     lastSpawnAt: updatedLastSpawnAt,
     spawnedThisTick,
-    paidSeatIndexes,
+    paid,
   };
 }

@@ -15,6 +15,7 @@ import { SHOP_ITEMS, shopItem } from "@/data/shop";
 import { DEFAULT_PLAYER, sanitizePlayer, type PlayerProfile } from "@/data/player";
 import { sanitizeChores, type ChoreLog } from "@/systems/chores";
 import { TIP_JAR_CAPACITY } from "@/data/tips";
+import { GOALS } from "@/data/goals";
 import { HOME_TILE, HOME_WINDOW, ownedTiles, tileKey, type TileKey } from "@/data/expansion";
 import {
   MAX_CUSTOM_DRINKS,
@@ -81,6 +82,13 @@ import {
  *            "Walls & floor". An existing café keeps its exact look — the new
  *            `floor` choice inherits the wall style — and a paid-for wall style
  *            grants the matching floor rather than charging twice for it.
+ * v25 → v26: the goal ladder (`data/goals.ts`). Purely additive and starts
+ *            **empty**, which is the deliberate choice: an existing café has
+ *            already done most of the early rungs, so it comes back to a list
+ *            of things it can claim immediately. Granting them as pre-claimed
+ *            would hand a returning player an empty ladder and none of the
+ *            money, which is the wrong way round — the rewards are for having
+ *            built the café, and they built it.
  * v24 → v25: the till (`systems/till.ts`), and the day the bank stopped having
  *            a ceiling. It starts empty — an existing café's takings are
  *            already banked — and nothing is taken off anybody.
@@ -91,7 +99,7 @@ import {
  */
 
 const SAVE_KEY = "mallow-save";
-const SAVE_VERSION = 25;
+const SAVE_VERSION = 26;
 
 /**
  * The bank ceiling as it stood when the v11→v12 refund was written.
@@ -105,7 +113,7 @@ const SAVE_VERSION = 25;
 const TILL_CAPACITY = 9999;
 
 interface SaveDataCurrent {
-  version: 25;
+  version: 26;
   money: number;
   nextCatId: number;
   cats: CatInstance[];
@@ -122,6 +130,7 @@ interface SaveDataCurrent {
   ingredients: string[];
   customDrinks: CustomDrink[];
   sales: Record<string, number>;
+  goalsClaimed: string[];
   nextDrinkId: number;
   tiles: TileKey[];
   backdropsOwned: string[];
@@ -152,6 +161,7 @@ export interface LoadedSave
     | "ingredients"
     | "customDrinks"
     | "sales"
+    | "goalsClaimed"
     | "nextDrinkId"
     | "tiles"
     | "backdropsOwned"
@@ -487,6 +497,8 @@ const MIGRATIONS: Record<number, (data: RawSave) => RawSave> = {
    * every penny; it is simply no longer at a ceiling.
    */
   24: (data) => ({ ...data, version: 25, till: 0 }),
+  // Empty on purpose — see the v25 → v26 note above.
+  25: (data) => ({ ...data, version: 26, goalsClaimed: [] }),
 };
 
 /** Keep only blends that still make sense: a real base, real add-ins, a name. */
@@ -661,6 +673,13 @@ export function loadSave(): LoadedSave | null {
     return {
       money: Math.max(0, data.money),
       cats: data.cats,
+      // Unknown ids are dropped the way retired upgrade levels are: a goal
+      // removed from the catalogue must not keep occupying a slot for ever.
+      goalsClaimed: Array.isArray(data.goalsClaimed)
+        ? data.goalsClaimed.filter(
+            (id): id is string => typeof id === "string" && GOALS.some((goal) => goal.id === id),
+          )
+        : [],
       nextCatId,
       savedAt,
       upgrades: sanitizeUpgrades(data.upgrades),
@@ -746,6 +765,7 @@ function persist(state: GameState): void {
     money: state.money,
     nextCatId: state.nextCatId,
     cats: state.cats,
+    goalsClaimed: state.goalsClaimed,
     savedAt: Date.now(),
     upgrades: state.upgrades,
     customisation: state.customisation,

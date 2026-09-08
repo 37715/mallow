@@ -7,13 +7,13 @@ describe("game events", () => {
     onGameEvent("visitorPaid", ({ seatIndex }) => seen.push(seatIndex));
     onGameEvent("visitorPaid", ({ seatIndex }) => seen.push(seatIndex * 100));
 
-    emitGameEvent("visitorPaid", { seatIndex: 3 });
+    emitGameEvent("visitorPaid", { seatIndex: 3, amount: 12 });
     expect(seen).toEqual([3, 300]);
   });
 
   it("is a no-op when nothing is listening", () => {
     // The store emits on every payout whether or not a renderer is attached —
     // in tests and on a headless tick there are no subscribers at all.
-    expect(() => emitGameEvent("visitorPaid", { seatIndex: 0 })).not.toThrow();
+    expect(() => emitGameEvent("visitorPaid", { seatIndex: 0, amount: 1 })).not.toThrow();
   });
 });

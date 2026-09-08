@@ -77,6 +77,38 @@ export function pickOrder(items: MenuItem[], roll: number): MenuItem | null {
   return items[items.length - 1];
 }
 
+/**
+ * `pickOrder`, but a freshly invented blend gets tried.
+ *
+ * A new custom blend at fair weight takes a long while to come up, and the
+ * player who just named a drink is watching the counter *right now* — the
+ * payoff for the whole menu feature is the first time somebody orders their
+ * drink by name, and leaving that to an even roll means most players close the
+ * app before it happens. So a player's own blend with fewer than three cups
+ * sold is three times as tempting, and then the novelty wears off and it takes
+ * its place in the rotation. Guests trying the new thing on the board is also
+ * just true of cafés.
+ */
+export function pickOrderWithNovelty(
+  items: MenuItem[],
+  sales: Record<string, number>,
+  roll: number,
+): MenuItem | null {
+  if (items.length === 0) return null;
+  const weights = items.map((item) => {
+    const base = Math.max(0.1, item.pay);
+    const novel = item.own && (sales[item.id] ?? 0) < 3;
+    return novel ? base * 3 : base;
+  });
+  const total = weights.reduce((a, b) => a + b, 0);
+  let target = Math.min(0.999999, Math.max(0, roll)) * total;
+  for (let i = 0; i < items.length; i++) {
+    target -= weights[i];
+    if (target < 0) return items[i];
+  }
+  return items[items.length - 1];
+}
+
 export interface SalesRow {
   id: string;
   name: string;

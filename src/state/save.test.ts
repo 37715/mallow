@@ -431,6 +431,60 @@ describe("loadSave", () => {
     expect(armchair.rot).toBeCloseTo(Math.PI / 4);
   });
 
+  /**
+   * v25 → v26: the goal ladder.
+   *
+   * It starts **empty** on purpose. An existing café has already done most of
+   * the early rungs, so it comes back to a list it can claim immediately —
+   * granting them as pre-claimed would hand a returning player an empty ladder
+   * and none of the money, which is the wrong way round.
+   */
+  it("gives an existing café an unclaimed goal ladder", () => {
+    write({
+      version: 25,
+      money: 400,
+      nextCatId: 1,
+      cats: CATS,
+      savedAt: 1,
+      upgrades: {},
+      customisation: {},
+      owned: [],
+      purchased: ["low-table", "armchair", "climber"],
+      placements: {},
+      instances: [],
+      nextInstanceId: 1,
+      till: 0,
+      player: { ...DEFAULT_PLAYER, created: true, tutorialDone: true },
+    });
+    const save = loadSave()!;
+    expect(save.goalsClaimed).toEqual([]);
+    // …and nothing was taken off them for the privilege.
+    expect(save.money).toBe(400);
+    expect(save.purchased).toContain("armchair");
+  });
+
+  it("drops a claimed goal the catalogue no longer has", () => {
+    // Same rule as a retired upgrade level: an unknown id stops counting
+    // rather than sitting in the save for ever.
+    write({
+      version: 26,
+      money: 10,
+      nextCatId: 1,
+      cats: CATS,
+      savedAt: 1,
+      upgrades: {},
+      customisation: {},
+      owned: [],
+      purchased: [],
+      placements: {},
+      instances: [],
+      nextInstanceId: 1,
+      goalsClaimed: ["settle-in", "a-goal-that-was-removed"],
+      player: { ...DEFAULT_PLAYER, created: true },
+    });
+    expect(loadSave()!.goalsClaimed).toEqual(["settle-in"]);
+  });
+
   it("never refunds past the till ceiling", () => {
     write({
       version: 11,

@@ -58,7 +58,12 @@ export type AnalyticsEvent =
   // mechanic** (`systems/till.ts`): collections per session says whether it is
   // a small pleasure or a chore, and a café whose till is always at the brim
   // when collected is one whose capacity has fallen behind its income.
-  | { name: "till_collected"; amount: number; money: number };
+  | { name: "till_collected"; amount: number; money: number }
+  // **The retention funnel now runs on these** (§4). The goal ladder is what
+  // the game asks a player to do next, so where people stop claiming is where
+  // they stop playing — a far sharper read than session counts, and the one
+  // number that says whether the ladder is pitched right.
+  | { name: "goal_claimed"; goal: string; reward: number };
 
 /** The one numeric per event TelemetryDeck can average/sum (floatValue). */
 function primaryValue(event: AnalyticsEvent): number | undefined {
@@ -75,6 +80,8 @@ function primaryValue(event: AnalyticsEvent): number | undefined {
       return event.earned;
     case "visitor_paid":
       return event.amount;
+    case "goal_claimed":
+      return event.reward;
     case "till_collected":
       return event.amount;
     default:

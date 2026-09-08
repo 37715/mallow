@@ -26,6 +26,7 @@ import { UPGRADE_DEFINITIONS } from "@/data/upgrades";
 import { tillCapacity, tillFullness, tillIsFull } from "@/systems/till";
 import { emitGameEvent } from "@/core/events";
 import { CREDITS, CREDITS_INTRO } from "@/data/credits";
+import { hasClaimable, ladderProgress, visibleGoals } from "@/systems/goals";
 import { levelProgress } from "@/data/progression";
 import { CAT_BED_ITEM, bedAsset, bedCost, beds, freeBeds } from "@/data/beds";
 import {
@@ -423,6 +424,14 @@ export function mountUI(root: HTMLElement): MountedUI {
   const rosterButton = navButton("cat", "cats");
   const cafeButton = navButton("cup", "café");
   const shopButton = navButton("shop", "shop");
+  /**
+   * **The ladder gets a permanent slot, not a corner of another panel.**
+   *
+   * It is the thing that answers "what now", so it has to be reachable in one
+   * tap from anywhere — burying it inside café or shop would make the answer
+   * to *"idk what to buy"* something you have to already know where to find.
+   */
+  const goalsButton = navButton("list", "to do");
   // `data-guide` marks the things the walkthrough's arrow can point at. It is
   // an attribute rather than a class so it never collides with styling, and it
   // is read by selector so the arrow can find a control that did not exist when
@@ -434,6 +443,9 @@ export function mountUI(root: HTMLElement): MountedUI {
   // Gentle "something's affordable" dot — an invitation, never a nag (§2).
   const cafeDot = el("span", "nudge-dot");
   cafeButton.appendChild(cafeDot);
+  const goalsDot = el("span", "nudge-dot");
+  goalsButton.appendChild(goalsDot);
+  secondaryRow.appendChild(goalsButton);
   secondaryRow.appendChild(rosterButton);
   secondaryRow.appendChild(cafeButton);
   secondaryRow.appendChild(shopButton);
@@ -2669,6 +2681,93 @@ export function mountUI(root: HTMLElement): MountedUI {
     });
     renderRosterPanel();
   }
+  /**
+   * The ladder (`data/goals.ts`).
+   *
+   * **Three at a time, in order, with the finished ones first.** A new player
+   * with £500 and fourteen unlocked shop rows does not have a choice, they
+   * have a wall — Ellis, 2026-09-08: *"idk what to buy as a new user and dont
+   * know i should buy."* This panel is the game having an opinion about what
+   * is worth doing next, which is the one thing the shop cannot express.
+   */
+  function renderGoalsPanel(): void {
+    panelLayer.innerHTML = "";
+    const panel = el("div", "panel");
+    panel.appendChild(panelHeader("to do"));
+
+    const list = el("div", "goal-list");
+    panel.appendChild(list);
+
+    // Live, because the counters move while the panel is open — "serve
+    // twenty-five cups" filling up as you watch is most of the appeal.
+    const paint = () => {
+      const state = gameStore.getState();
+      const views = visibleGoals(state, state.goalsClaimed);
+      const ladder = ladderProgress(state.goalsClaimed);
+      list.innerHTML = "";
+
+      if (views.length === 0) {
+        list.appendChild(
+          el(
+            "div",
+            "goal-empty",
+            "that is everything on the list. the café is yours now — put it where you like.",
+          ),
+        );
+        return;
+      }
+
+      for (const view of views) {
+        const row = el("div", `goal-row${view.ready ? " ready" : ""}`);
+        const head = el("div", "goal-head");
+        head.appendChild(el("div", "goal-label", view.goal.label));
+        head.appendChild(el("div", "goal-reward", formatMoney(view.goal.reward)));
+        row.appendChild(head);
+        row.appendChild(el("div", "goal-hint", view.goal.hint));
+
+        const track = el("div", "goal-track");
+        const fill = el("div", "goal-fill");
+        fill.style.width = `${Math.round(view.fraction * 100)}%`;
+        track.appendChild(fill);
+        row.appendChild(track);
+
+        if (view.ready) {
+          const claim = el("button", "goal-claim") as HTMLButtonElement;
+          claim.textContent = "collect";
+          claim.addEventListener("click", () => {
+            const paid = gameStore.getState().claimGoal(view.goal.id);
+            if (paid <= 0) {
+              playTap();
+              return;
+            }
+            playPurchase();
+            paint();
+          });
+          row.appendChild(claim);
+        } else {
+          row.appendChild(el("div", "goal-count", `${view.done} / ${view.needed}`));
+        }
+        list.appendChild(row);
+      }
+
+      list.appendChild(
+        el("div", "goal-ladder", `${ladder.done} of ${ladder.total} done`),
+      );
+    };
+
+    paint();
+    panelUpdate = paint;
+    panelLayer.appendChild(panel);
+    panelLayer.classList.add("open");
+  }
+
+  goalsButton.addEventListener("click", () => {
+    initAudio();
+    playTap();
+    setExpanding?.(false);
+    renderGoalsPanel();
+  });
+
   rosterButton.addEventListener("click", openRoster);
   catChip.addEventListener("click", openRoster);
 
@@ -2804,6 +2903,9 @@ export function mountUI(root: HTMLElement): MountedUI {
     profileSub.textContent = `${state.player.name} · ${progress.into}/${progress.needed}`;
 
     cafeDot.classList.toggle("visible", hasAffordableUpgrade(money, upgrades));
+    // A reward waiting is the one nudge worth making — it is money the player
+    // has already earned and simply has not been told about.
+    goalsDot.classList.toggle("visible", hasClaimable(state, state.goalsClaimed));
     panelUpdate?.();
   }
 

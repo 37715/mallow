@@ -17,6 +17,53 @@ The five most recent entries also remain inline in `CLAUDE.md` §0. New entries 
 ---
 
 **Session log:**
+- *2026-09-08, later* — **"why is this game so damn boring": systems without
+  structure.**
+  - Ellis: *"finish the tutorial and i got 500 bux and idk what to buy as a new
+    user … the coffee blend section seems a bit random and unnecessary … i
+    quickly run out of things to do — clearly wiping the stuff every now and
+    then isnt enough … this has no retention properties."*
+  - **Those are one complaint, not four.** The café has plenty of systems and
+    nothing on top of them. A shop with fourteen unlocked rows and no opinion
+    about which matters is a wall of buttons, not a choice; and a game whose
+    only prompt is a chore on a timer is telling the player their job is
+    maintenance.
+  - **§0 has answered D7 with *content* for two months** — more furniture, more
+    colourways, more cats — and that was the wrong axis. A catalogue is only
+    legible once something says why you wanted the next thing in it.
+  - **The menu was literally random, which is why it felt random.** Sales were
+    tallied by rolling a menu item *at the moment of payment*: no guest ever
+    had a drink, the chart was a random tally, and inventing a blend moved a
+    hidden multiplier. Now a visitor picks an order when they walk in, carries
+    it (`Visitor.drinkId`), shows it over their head at the counter, and pays
+    for *that drink*. Expected value across guests is unchanged — same picker —
+    so the balance holds.
+    - **A new blend is weighted ×3 until it has sold three cups.** At a fair
+      roll most players would close the app before anybody ordered the drink
+      they had just named, and that first order *is* the payoff for the entire
+      feature. It is also just true of cafés: people try the new thing.
+    - **The first sale is announced.** A stranger ordering the thing you named
+      is the same trick as naming a cat, pointed at the menu.
+  - **Then the ladder** (`data/goals.ts`, `systems/goals.ts`) — twelve small
+    asks, three shown at a time, in order, finished ones first. Every goal
+    observes state the game already keeps, so a new one is a row rather than
+    code. They pay out, generously early, because the walkthrough's £1,000 gift
+    was the *last* money a café was ever given. Nothing expires — a timed goal
+    would be exactly the anxiety §1 forbids — and they tick over while the app
+    is closed, which is the honest version of a reason to return.
+  - It **ends**, and says so. A ladder with no top is a treadmill, and the
+    whole point is that the café eventually becomes yours to potter in.
+  - **Two clock bugs found by verifying rather than reasoning.** The order chip
+    never appeared because I compared visitor timestamps against `Date.now()`
+    while the sim runs on the loop's `requestAnimationFrame` clock — about 1.7
+    trillion milliseconds apart, so `phaseOf` said "walkingOut" for everybody
+    and nothing threw. And the HUD tests indexed nav buttons positionally, so
+    adding a fourth shifted every one of them; they select by *label* now,
+    which is what a player does anyway.
+  - `goal_claimed` is now the sharpest retention signal the game has: where
+    people stop claiming is where they stop playing, which is a far better read
+    than session counts and the one number that says whether the ladder is
+    pitched right.
 - *2026-09-08* — **Three more tracks, and the discovery that only one of them
   is a loop.**
   - Ellis: *"i added more tracks to the ost.. lock lane is by ellis, the other

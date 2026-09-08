@@ -358,6 +358,19 @@ export class VisitorManager {
     }
   }
 
+  /**
+   * Where this guest's head is, for the order chip (`ui/order-chips.ts`).
+   *
+   * Null while their body has not been built yet — the character pack loads
+   * after the sim starts, and a chip floating over nobody is worse than a chip
+   * arriving a beat late.
+   */
+  positionOf(visitorId: string): THREE.Vector3 | null {
+    const character = this.charactersById.get(visitorId);
+    if (!character) return null;
+    return character.group.position.clone().setY(character.group.position.y + 1.72);
+  }
+
   /** Has this guest finished walking the given leg? See `legReached`. */
   private arrived(visitor: Visitor, leg: Leg, route: THREE.Vector3[]): boolean {
     return legReached(this.walks.get(visitor.id), leg, routeLength(route));

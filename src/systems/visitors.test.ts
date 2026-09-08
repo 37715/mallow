@@ -24,7 +24,7 @@ function simulate(durationMs: number, stepMs = 100, stats = STATS, random = () =
     visitors = result.visitors;
     lastSpawnAt = result.lastSpawnAt;
     earned += result.moneyEarned;
-    paidSeats.push(...result.paidSeatIndexes);
+    paidSeats.push(...result.paid.map((visit) => visit.seatIndex));
     peakConcurrent = Math.max(peakConcurrent, visitors.length);
   }
 

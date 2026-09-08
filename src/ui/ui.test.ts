@@ -53,13 +53,29 @@ beforeEach(() => {
   });
 });
 
+/**
+ * Find a nav button by its label rather than its position.
+ *
+ * The row grew a "to do" entry on 2026-09-08 and every positional index in
+ * here shifted by one, which is the wrong kind of failure — a test should
+ * break when the *behaviour* changes, not when a sibling is added. Labels are
+ * also what a player actually navigates by.
+ */
+function navButton(root: HTMLElement, label: string): HTMLButtonElement {
+  const found = [...root.querySelectorAll<HTMLButtonElement>(".roster-button")].find(
+    (button) => button.textContent?.trim().toLowerCase().includes(label),
+  );
+  if (!found) throw new Error(`no nav button labelled "${label}"`);
+  return found;
+}
+
 describe("HUD", () => {
   it("mounts the core controls", () => {
     const { root } = mount();
     expect(root.querySelector(".money-pill")).not.toBeNull();
     expect(root.querySelector(".adopt-button")).not.toBeNull();
     expect(root.querySelector(".sound-button")).not.toBeNull();
-    expect(root.querySelectorAll(".roster-button")).toHaveLength(3); // cats, café, shop
+    expect(root.querySelectorAll(".roster-button")).toHaveLength(4); // to do, cats, café, shop
   });
 
   it("marks adoption unavailable until affordable — but never disables it", () => {
@@ -127,7 +143,11 @@ describe("HUD", () => {
 
   it("shows the affordability dot only when something is actually affordable", () => {
     const { root } = mount();
-    const dot = q(root, ".nudge-dot");
+    // **Scoped to the café button.** There are two nudge dots now — the other
+    // is the goal ladder's — and a bare `.nudge-dot` picks whichever happens
+    // to be first in the row, which is a test that passes for the wrong
+    // reason the moment somebody reorders the nav.
+    const dot = q(navButton(root, "café"), ".nudge-dot");
     expect(dot.classList.contains("visible")).toBe(false);
 
     gameStore.setState({ money: 100_000 });
@@ -136,7 +156,7 @@ describe("HUD", () => {
 
   it("opens the café panel with a card per upgrade, and no HUD duplicates", () => {
     const { root } = mount();
-    const cafeButton = root.querySelectorAll<HTMLButtonElement>(".roster-button")[1];
+    const cafeButton = navButton(root, "café");
     cafeButton.click();
 
     expect(root.querySelectorAll(".upgrade-card")).toHaveLength(UPGRADE_DEFINITIONS.length);
@@ -151,7 +171,7 @@ describe("HUD", () => {
   it("buys an upgrade from the café panel and reflects the new level", () => {
     const { root } = mount();
     gameStore.setState({ money: 100_000 });
-    root.querySelectorAll<HTMLButtonElement>(".roster-button")[1].click();
+    navButton(root, "café").click();
 
     const firstBuy = q<HTMLButtonElement>(root, ".upgrade-buy");
     firstBuy.click();
@@ -163,7 +183,7 @@ describe("HUD", () => {
 
   it("opens the roster and lists every owned cat plus the full cat-dex", () => {
     const { root } = mount();
-    root.querySelectorAll<HTMLButtonElement>(".roster-button")[0].click();
+    navButton(root, "cats").click();
 
     const cats = gameStore.getState().cats;
     expect(root.querySelectorAll(".roster-row")).toHaveLength(cats.length);
@@ -172,7 +192,7 @@ describe("HUD", () => {
 
   it("renames a cat from the roster", () => {
     const { root } = mount();
-    root.querySelectorAll<HTMLButtonElement>(".roster-button")[0].click();
+    navButton(root, "cats").click();
 
     q<HTMLElement>(root, ".roster-cat-name").click();
     const input = q<HTMLInputElement>(root, ".roster-rename-input");

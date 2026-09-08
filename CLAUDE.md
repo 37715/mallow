@@ -23,7 +23,11 @@ This file is the shared brain for the project. **Read it before starting work in
 > starts growing past a screen or two of status, that is the signal to promote
 > and prune again.
 
-**Last updated:** 2026-09-08 (**four tracks now** — three by Lily M alongside
+**Last updated:** 2026-09-08, later (**the game now says what to do next** —
+a twelve-rung goal ladder that pays out, never expires and ticks over while you
+are away, which is the first real answer §0 has had to D7; and the menu became
+visible, because guests now carry the drink they ordered rather than the sales
+chart rolling dice at payment time. Earlier: **four tracks** — three by Lily M alongside
 Ellis's *lock lane*, each looped enough to fill the same ~140-second session,
 crossfaded because only one of them was written to loop, and level-matched
 because they were mastered a third apart. A chip names the piece when it
@@ -227,7 +231,7 @@ pack ships those pieces in one finish.)
   tracked Xcode project, portrait-locked, and it **compiles** (verified with
   `xcodebuild` against a simulator destination). `npm run ios` does
   build → sync → open Xcode. Signing is Ellis's to do; see §16.
-- `npm test` — 384 tests over the pure systems, save migrations, café geometry,
+- `npm test` — 396 tests over the pure systems, save migrations, café geometry,
   the visitor loop, contentment maths, the camera controls (pan/zoom clamps,
   tap-vs-drag, press-and-hold), the placement rules the authored café itself
   has to pass, which objects the validator is allowed to ignore, the expansion
@@ -242,7 +246,8 @@ pack ships those pieces in one finish.)
   oscillating, where the till stands and which one each upgrade level wears,
   where the walkthrough puts the furniture it hands you, that every seat guests
   are sent to is one the player may place, that every audio file the game names
-  is really shipped, and a jsdom smoke suite for the HUD.
+  is really shipped, the goal ladder's ordering and its refusal to pay twice,
+  and a jsdom smoke suite for the HUD.
 
 > ## ⭐ DIRECTION — 2026-08-06. The café editor is the plan now.
 >
@@ -440,7 +445,9 @@ holds, and the editor is now how that week gets built.</summary>
   merged pack adds `Social_Stand_Discussion_1/2` and the nods, which are
   exactly what two guests at one table should be doing.
 - **The game runs out of things to do in about a day, and it is too passive
-  even before then.** Five cats, two maxed upgrades and four style categories
+  even before then.** *(2026-09-08: the goal ladder is the first real answer to
+  this — see §8. The catalogue is still small; what changed is that there is now
+  something telling the player what to do with it.)* Five cats, two maxed upgrades and four style categories
   is the whole of it. Confirmed on device 2026-08-06 — *"its like so idle its
   not engaging"* — which is the D7 question being answered in the negative.
   **The café editor (§8) is the fix and it is now the plan.** Note the two
@@ -522,6 +529,28 @@ being read into context every session. Every *rule* it taught has been promoted
 into the numbered sections; the archive holds the reasoning and the dead ends.
 **Append new entries there**, and mirror only the newest handful here.
 
+- *2026-09-08, later* — **"why is this game so damn boring": systems without
+  structure.** ([full entry](docs/session-log.md))
+  - **Four complaints, one cause.** "£500 and I don't know what to buy", "the
+    blend section seems random", "I run out of things to do", "no retention" —
+    the café has plenty of *systems* and nothing on top of them. A shop with
+    fourteen unlocked rows and no opinion about which matters is a wall, not a
+    choice.
+  - **§0 answered D7 with *content* for two months** and that was the wrong
+    axis. A catalogue is only legible once something says why you wanted the
+    next thing in it.
+  - **The menu was literally random.** Sales rolled a menu item *at the moment
+    of payment*, so no guest ever had a drink and a blend moved a hidden
+    multiplier. Visitors carry an order now — over their head at the counter,
+    in what they pay, in the chart. A new blend is weighted ×3 until it sells
+    three cups, because at a fair roll nobody would order your drink while you
+    were still watching; and the first sale is announced.
+  - **The ladder** (`data/goals.ts`): twelve asks, three at a time, in order.
+    They pay out, they never expire, they tick over while you are away, and it
+    **ends** — a ladder with no top is a treadmill.
+  - **The order chip never showed** because I compared visitor timestamps to
+    `Date.now()` while the sim runs on the rAF clock. Nothing threw; the
+    feature was simply absent.
 - *2026-09-08* — **Three more tracks, and only one of them is a loop.**
   ([full entry](docs/session-log.md))
   - **Measuring before writing anything was the session.** Head-against-tail:
@@ -587,28 +616,6 @@ into the numbered sections; the archive holds the reasoning and the dead ends.
     missing one — real WKWebView, real bundle, Capacitor-shaped scheme.
   - *A guard copied from HTTP semantics is wrong wherever the transport is not
     HTTP.*
-- *2026-09-02* — **"get rid of the old crap i can still hear": the fallbacks
-  were the bug.** ([full entry](docs/session-log.md))
-  - **What I checked yesterday was that the new files load; what I never
-    checked was whether the old ones had stopped.** Dev played the recordings,
-    prod played the recordings, every file fetched and decoded — all true, all
-    beside the point. *"Does the new thing work" and "does only the new thing
-    play" are different claims, and I had tested one of them.*
-  - **Counting oscillators found it in one shot.** Any that had not stopped
-    after four seconds: **8** — `startAmbient`'s four pad voices and four LFOs,
-    running continuously under the real soundtrack and the only thing audible
-    during its 45-second rests.
-  - **`response.ok` is false for every file the app loads, and it is not an
-  error.** Capacitor serves the built app over a **custom URL scheme**, and a
-  `WKURLSchemeHandler` answers with a plain `URLResponse` rather than an
-  `HTTPURLResponse`. No HTTP status means WebKit synthesises `status = 0`, and
-  `Response.ok` is defined as 200–299 — so `if (!response.ok) return` throws
-  away files that downloaded perfectly. **This silenced every recording in the
-  app for a week** while all of them played in every browser. Three.js is
-  immune only because its loaders use `XMLHttpRequest`; it warns
-  "THREE.FileLoader: HTTP Status 0 received" on every asset and carries on.
-  Anything in this codebase that uses `fetch` must go through
-  `audio/fetch-audio.ts`'s rule, or repeat the bug.
 - **A browser cannot test the app, and now something can.**
   `swift tools/webkit-probe.swift dist` runs the built bundle in a real
   `WKWebView` behind a scheme handler shaped like Capacitor's. Every existing
@@ -977,6 +984,62 @@ gets priced rather than being facts about what shipped:
 - Levels are stored sparsely (`{ brews: 2 }`); an absent id means level 0, so adding upgrades never invalidates an old save. `systems/upgrades.ts` clamps unknown, negative, and out-of-range levels rather than trusting the save — which is also why removing one can never corrupt a save, only quietly stop counting. **Refund it anyway**: v12 hands back what was spent on `decor`, because the appeal it bought is now on sale in the shop.
 - `scene/cafe-room.test.ts` asserts the fully-stocked café has no clipping furniture, keeps cat spots clear, and leaves a walkable door→seat line (visitors lerp straight to their seat — there is no pathfinding to route them around a plant).
 
+### ⭐⭐ The goal ladder — the actual answer to D7 (2026-09-08)
+
+Ellis, having played it: *"finish the tutorial and i got 500 bux and idk what
+to buy as a new user and dont know i should buy … i quickly run out of things
+to do — clearly wiping the stuff every now and then isnt enough and could be
+just more of a chore than anything else … this has no retention properties."*
+
+**Read those as one complaint, because they are.** The café had *systems* —
+furniture, cats, a menu, floor, colourways, chores — and no *structure over
+them*. A shop with fourteen unlocked rows and no opinion about which one
+matters is not a choice, it is a wall of buttons. And a game whose only prompt
+is a chore that comes due on a timer is telling the player their job is
+maintenance, which is the opposite of the fantasy.
+
+**§0 reached for content every time it hit this** — more furniture, more
+colourways, more cats — for two months. That was the wrong axis. The genre's
+retention spine is a **goal ladder**, and a catalogue is only legible once
+something tells you why you wanted the next thing in it. `data/goals.ts` +
+`systems/goals.ts`:
+
+- **Three at a time, in order, finished ones first.** Never a wall.
+- **Every goal names a verb the player already has.** Nothing needed a new
+  system; they observe state the game already keeps. A new goal is a row.
+- **They pay out**, generously early. The £500 problem is that the
+  walkthrough's gift was the *last* money a café was ever given.
+- **Nothing expires, nothing is lost** (pillar 1). There are no timed goals in
+  here and there should not be — "do this before Friday" is the exact anxiety
+  §1 forbids.
+- **They tick over while you are away**, so returning has something waiting.
+  That is the honest version of a reason to come back, rather than a
+  punishment for having left.
+- **It ends**, and says so. A ladder with no top is a treadmill.
+- `goal_claimed` is now the sharpest retention signal the game has (§4): where
+  people stop claiming is where they stop playing.
+
+### The menu had to become visible first (2026-09-08)
+
+Ellis: *"the coffee blend section seems a bit random and unnecessary."* It
+was — **literally**. Sales were tallied by rolling a random menu item at the
+moment of payment, so no guest ever *had* a drink: the chart was a random
+tally, and inventing a blend moved a hidden multiplier. Three changes make the
+menu a thing that exists in the room:
+
+- **A visitor carries an order**, chosen when they walk in (`Visitor.drinkId`).
+  It shows over their head at the counter (`ui/order-chips.ts`), it decides
+  what they pay, and it is the cup the chart counts. Expected value across
+  guests is unchanged — same picker — so the balance holds, but a guest holding
+  your £2 blend now visibly pays more than one holding filter coffee.
+- **A new blend gets tried.** `pickOrderWithNovelty` weights a player's own
+  blend ×3 until it has sold three cups. At a fair roll most players would
+  close the app before anyone ordered the drink they just named, and that first
+  order *is* the payoff for the whole feature.
+- **The first sale is announced** — `blendFirstSale`, once per blend, ever. A
+  stranger ordering the thing you named is the same trick as naming a cat (§8):
+  the name comes back at you.
+
 ### ⭐ The café editor — the answer to D7 (specified 2026-08-06, NOT YET BUILT)
 
 Ellis, after the first device build: *"we need more things to do. its like so
@@ -1200,7 +1263,7 @@ Single source of truth = the Zustand store, serialised to storage. Autosave on e
 > what it keeps out** — and note that this failure looks like nothing at all:
 > the café that comes back is a perfectly valid café.
 
-**Currently at v24.** Migrations are a chain in `state/save.ts`: each entry bumps exactly one version, and `loadSave` walks a save forward from whatever version it's on. Adding a version means appending one migration and one test case to `state/save.test.ts` — which every version must have, because this is the one place a bug costs a player their cats. (v1→v2 added `savedAt`; v2→v3 added `upgrades`; v3→v4 added `venueIndex` plus an optional `contentUntil` per cat; v4→v5 **removed** `venueIndex` with the venue ladder and clamped old billion-pound balances into the new readable range; v5→v6 is the deliberate one-time break described in §0; v6→v7 rehomes an *untouched* sofa/rug choice onto the new free default without touching a bought one; v7→v8 split the floor out of the wall style; v8→v9 added `placements`; v9→v10 granted an existing café the whole shop catalogue; v10→v11 marked existing players as having finished character creation; v11→v12 dropped the retired `decor` upgrade and **refunded** it; v12→v17 added the coffee menu, expansion tiles, purchasable backdrops and cat beds (v16→v17 grants every existing cat a free bed, since capacity became bed count); v17→v18 seeds `windows` with the café's own back window, which had been hard-coded in the layout — miss it and the café wakes up bricked in; v18→v19 grants the floor cushions, which moved into the shop; v19→v20 marks an existing café as having already seen the guide, so a finished café is never shown a tutorial; v23→v24 adds the tip jar, empty — nobody tipped into a jar they did not own; v22→v23 adds chores and stamps `openedAt` at *migration time* rather than
+**Currently at v26.** Migrations are a chain in `state/save.ts`: each entry bumps exactly one version, and `loadSave` walks a save forward from whatever version it's on. Adding a version means appending one migration and one test case to `state/save.test.ts` — which every version must have, because this is the one place a bug costs a player their cats. (v1→v2 added `savedAt`; v2→v3 added `upgrades`; v3→v4 added `venueIndex` plus an optional `contentUntil` per cat; v4→v5 **removed** `venueIndex` with the venue ladder and clamped old billion-pound balances into the new readable range; v5→v6 is the deliberate one-time break described in §0; v6→v7 rehomes an *untouched* sofa/rug choice onto the new free default without touching a bought one; v7→v8 split the floor out of the wall style; v8→v9 added `placements`; v9→v10 granted an existing café the whole shop catalogue; v10→v11 marked existing players as having finished character creation; v11→v12 dropped the retired `decor` upgrade and **refunded** it; v12→v17 added the coffee menu, expansion tiles, purchasable backdrops and cat beds (v16→v17 grants every existing cat a free bed, since capacity became bed count); v17→v18 seeds `windows` with the café's own back window, which had been hard-coded in the layout — miss it and the café wakes up bricked in; v18→v19 grants the floor cushions, which moved into the shop; v19→v20 marks an existing café as having already seen the guide, so a finished café is never shown a tutorial; v23→v24 adds the tip jar, empty — nobody tipped into a jar they did not own; v25→v26 adds the goal ladder, **empty** — an existing café has already done the early rungs and comes back to a list it can claim, which is the right way round: the rewards are for having built the café, and they built it; v22→v23 adds chores and stamps `openedAt` at *migration time* rather than
 zero — a zero would make every chore overdue by decades and greet a returning
 player with three jobs at once; v20→v21 withdraws the floor cushions the v19 grant handed out — the only migration that *removes* anything, and safe only because it can never take back something that was bought. Cats and names always survive.)
 
@@ -2518,7 +2581,7 @@ npm run dev:lan    # same, exposed on the LAN — open on a phone, Add to Home
                    # Screen. This is the day-to-day device loop; a native
                    # rebuild is only needed to measure performance.
 npm run build      # production web build → dist/
-npm test           # 384 tests, no renderer needed
+npm test           # 396 tests, no renderer needed
 npm run balance    # simulate weeks of play under four player habits
 
 npm run ios        # build + sync + open Xcode. The one to use.

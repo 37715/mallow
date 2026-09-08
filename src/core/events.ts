@@ -5,8 +5,20 @@
  */
 
 export interface GameEvents {
-  /** A visitor finished their visit and paid. One event per visitor. */
-  visitorPaid: { seatIndex: number };
+  /**
+   * A visitor paid at the counter. One event per visitor, carrying the actual
+   * amount charged — the floater shows this figure rather than re-deriving an
+   * approximation, per §8's "the price shown and the price charged must be one
+   * call".
+   */
+  visitorPaid: { seatIndex: number; amount: number; drinkId?: string };
+  /**
+   * Somebody bought the player's own blend for the first time (2026-09-08).
+   *
+   * The payoff for the whole menu feature: the drink the player *named* being
+   * ordered by a real guest. Fired once per blend, ever.
+   */
+  blendFirstSale: { name: string };
   /** Lifetime XP crossed into a new level. Fired once per level gained. */
   levelUp: { level: number };
   /**
