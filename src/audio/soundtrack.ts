@@ -1,5 +1,5 @@
 import { loadAudioBuffer } from "@/audio/fetch-audio";
-import { TRACKS, passesFor, type Track } from "@/data/tracks";
+import { PLAYBACK_RATE, TRACKS, passesFor, type Track } from "@/data/tracks";
 
 /**
  * A running soundtrack, as far as the rest of the game is concerned.
@@ -257,20 +257,32 @@ export async function startSoundtrack(
    */
   function schedule(at: number): number {
     const { track, buffer, head } = pick();
-    const passes = passesFor(track, buffer.duration);
-    const overlap = Math.min(track.crossfade, buffer.duration / 2);
+    /**
+     * **Wall-clock, not buffer seconds.** `PLAYBACK_RATE` slows the music down
+     * (Ellis: *"feels like its all going too fast"*), so a buffer that is
+     * `duration` long occupies `duration / rate` seconds of café. Every number
+     * below that schedules something — steps, spans, fades — is in café
+     * seconds; only `offset`, which indexes into the buffer, is not.
+     */
+    const dur = buffer.duration / PLAYBACK_RATE;
+    const headTime = head / PLAYBACK_RATE;
+    const passes = passesFor(track, dur);
+    const overlap = Math.min(track.crossfade, dur / 2);
     // Each repeat after the first starts `overlap` early and skips the decoder
     // padding at its head, so the span is not simply passes × duration.
-    const step = buffer.duration - overlap - head;
-    const span = buffer.duration + step * (passes - 1);
+    const step = dur - overlap - headTime;
+    const span = dur + step * (passes - 1);
 
     for (let pass = 0; pass < passes; pass++) {
       const node = ctx.createBufferSource();
       node.buffer = buffer;
+      node.playbackRate.value = PLAYBACK_RATE;
       const startAt = at + step * pass;
       // The first pass plays from the top; every repeat skips the padding.
+      // In *buffer* seconds — `start`'s offset indexes the buffer, not the
+      // timeline, so this one is deliberately not divided by the rate.
       const offset = pass === 0 ? 0 : head;
-      const length = buffer.duration - offset;
+      const length = pass === 0 ? dur : dur - headTime;
 
       if (overlap > 0 && passes > 1) {
         // Its own gain, so the crossfade is independent of the session fade.

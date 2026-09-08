@@ -17,6 +17,52 @@ The five most recent entries also remain inline in `CLAUDE.md` §0. New entries 
 ---
 
 **Session log:**
+- *2026-09-08, night (later)* — **A "frozen" game that was a button being
+  rebuilt thirty times a second.** ([full entry](docs/session-log.md))
+  - Ellis: *"i tried to collect my first reward from the to do list and the
+    game completely froze and im stuck."* Nothing was frozen and nothing threw.
+    **`panelUpdate` runs on every store change and `tick()` calls `set()` every
+    frame**, so the goals panel's `list.innerHTML = ""` destroyed and rebuilt
+    the whole list — buttons included — about thirty times a second.
+  - **It measured fine and it was still unusable.** No console error, no
+    frame-time change on desktop, and `.click()` claimed five rewards in a row
+    happily. But a touch that begins on a node removed two frames later never
+    dispatches a click, so **every real tap on "collect" did nothing**, which
+    from the sofa is indistinguishable from the game having locked up. §17's
+    rule about `.click()` again, in a shape it had not taken before: this time
+    the button was *present, enabled and hit-testable*, and still dead.
+  - The fix is the pattern every other panel already used — a `refreshers`
+    array, built once, mutating text and bar widths in place, rebuilding only
+    when the *shape* of the list changes. Measured after: 0 replacements in 188
+    checks over three seconds, counters still ticking live.
+  - **The now-playing chip was behind the panel layer.** Third report of not
+    seeing it, and neither previous cause was this one: z-index 3 against
+    `.overlay-layer`'s 5, so any open panel painted its dim and blur over it.
+    **`elementFromPoint` cannot detect this** — the chip is `pointer-events:
+    none`, so it names the overlay and looks like proof. The screenshot is what
+    settled it.
+  - **The music plays at 0.88** (*"feels like its all going too fast"*), which
+    is a resampler, so it is two semitones flatter as well as 12% slower.
+    Everything in `schedule()` had to start dividing by it.
+  - **Why the desktop probe could not have found it.** Three separate runs
+    claimed rewards successfully: a single claim, five claims in a row on a
+    migrated café, and a frame-time comparison with the panel open versus shut
+    (median 17.2ms vs 17.0ms). Every one of them used `.click()`, which
+    dispatches straight at the node with no hit-test and no waiting. The probe
+    that found it asked a different question — *is this the same node it was a
+    frame ago?* — and the answer was 90 replacements in 188 samples.
+  - **The signature is what keeps the rows stable.** `visibleGoals` returns a
+    fresh array every frame with fresh view objects, so identity comparison is
+    useless; the rebuild trigger is a joined string of goal ids plus their
+    ready-flags. Claiming changes it (the goal leaves, a new one arrives) and a
+    counter ticking does not.
+  - **`PLAYBACK_RATE` had to reach further than one line.** `buffer.duration`
+    is buffer seconds, and every schedule number — step, span, the fades, the
+    pass count — is café seconds. The one that must *not* be converted is
+    `start`'s `offset`, which indexes into the buffer. Nothing about getting
+    that wrong would throw; the crossfades would just land in the wrong place.
+    Verified by render: the first piece now runs 4.5s to 92.5s where it ran
+    4.2s to 74.2s, with the gaps unchanged at ~6.8s.
 - *2026-09-08, night* — **A soundtrack that stopped rather than a soundtrack
   that broke.** ([full entry](docs/session-log.md))
   - Ellis: *"i finished listening to the first song (which was an interlude i

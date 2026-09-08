@@ -23,7 +23,11 @@ This file is the shared brain for the project. **Read it before starting work in
 > starts growing past a screen or two of status, that is the signal to promote
 > and prune again.
 
-**Last updated:** 2026-09-08, night (**the soundtrack is a playlist now** — the
+**Last updated:** 2026-09-08, night (**"collect" was dead to a finger** — the
+goals panel rebuilt its whole DOM on every store change, which is every frame,
+so the button under your thumb was gone two frames later and no tap ever
+became a click; and the now-playing chip was sitting *underneath* the panel
+dim. Earlier: **the soundtrack is a playlist now** — the
 rest between pieces was forty-five seconds and a 28-second interlude was played
 six times, so the first track ran two and a half minutes and the gap after it
 read as the music having finished; five seconds and shorter sessions, and the
@@ -537,6 +541,33 @@ being read into context every session. Every *rule* it taught has been promoted
 into the numbered sections; the archive holds the reasoning and the dead ends.
 **Append new entries there**, and mirror only the newest handful here.
 
+- *2026-09-08, night (later)* — **A "frozen" game that was a button being
+  rebuilt thirty times a second.** ([full entry](docs/session-log.md))
+  - Ellis: *"i tried to collect my first reward from the to do list and the
+    game completely froze and im stuck."* Nothing was frozen and nothing threw.
+    **`panelUpdate` runs on every store change and `tick()` calls `set()` every
+    frame**, so the goals panel's `list.innerHTML = ""` destroyed and rebuilt
+    the whole list — buttons included — about thirty times a second.
+  - **It measured fine and it was still unusable.** No console error, no
+    frame-time change on desktop, and `.click()` claimed five rewards in a row
+    happily. But a touch that begins on a node removed two frames later never
+    dispatches a click, so **every real tap on "collect" did nothing**, which
+    from the sofa is indistinguishable from the game having locked up. §17's
+    rule about `.click()` again, in a shape it had not taken before: this time
+    the button was *present, enabled and hit-testable*, and still dead.
+  - The fix is the pattern every other panel already used — a `refreshers`
+    array, built once, mutating text and bar widths in place, rebuilding only
+    when the *shape* of the list changes. Measured after: 0 replacements in 188
+    checks over three seconds, counters still ticking live.
+  - **The now-playing chip was behind the panel layer.** Third report of not
+    seeing it, and neither previous cause was this one: z-index 3 against
+    `.overlay-layer`'s 5, so any open panel painted its dim and blur over it.
+    **`elementFromPoint` cannot detect this** — the chip is `pointer-events:
+    none`, so it names the overlay and looks like proof. The screenshot is what
+    settled it.
+  - **The music plays at 0.88** (*"feels like its all going too fast"*), which
+    is a resampler, so it is two semitones flatter as well as 12% slower.
+    Everything in `schedule()` had to start dividing by it.
 - *2026-09-08, night* — **A soundtrack that stopped rather than a soundtrack
   that broke.** ([full entry](docs/session-log.md))
   - Ellis: *"i finished listening to the first song (which was an interlude i
@@ -1649,6 +1680,28 @@ Chrome.
   in.** `.speech-layer` has a z-index of its own, so it *is* a context, and a
   child at 40 still resolved below a sibling layer at 5. "I set it high" is not
   a check — find the nearest positioned ancestor with a z-index.
+- **`panelUpdate` runs every frame, so a panel that rebuilds its DOM in it
+  rebuilds ~30 times a second.** `render()` is a store subscriber and `tick()`
+  calls `set()` on every animation frame (§8) — the same property that killed
+  the autosave. The goals panel opened with `list.innerHTML = ""` at the top of
+  its update and **measured fine**: no console error, no frame-time change on
+  desktop, and `.click()` passing. It was still completely dead to a finger,
+  because a touch that starts on a node removed two frames later never
+  dispatches a click, so **every tap on "collect" did nothing** and the game
+  read as frozen (Ellis, 2026-09-08). The house pattern is a `refreshers` array
+  — build once, mutate text and widths in place, and rebuild only when the
+  *shape* of the list changes (`ui.ts` uses a joined signature of ids and
+  ready-flags for exactly this). Every other panel already did it this way.
+- **`elementFromPoint` cannot see a `pointer-events: none` element**, so it is
+  the wrong tool for asking "is my chip covered?" — it will name whatever is
+  underneath and look like a positive result. Screenshot it, or compare
+  z-indexes within the one stacking context.
+- **The bottom-left corner is not free when a panel is open.** `.overlay-layer`
+  is z-index 5 with a backdrop blur and covers the whole screen, so the
+  now-playing chip at 3 was painted over by any open panel — which is most of
+  why Ellis reported never seeing it. Anything that *announces* something
+  (rather than being part of a screen) has to outrank the panel layer;
+  `pointer-events: none` is what makes sitting up there safe.
 - **WebKit does not reliably clip `backdrop-filter`.** A panel's blur will sit
   on top of something a `clip-path` was supposed to cut away from it, and no
   z-index can fix it. **Anything that must sit above the interface has to *be*
@@ -2375,6 +2428,15 @@ fade out again to silence for a little before fading back in again."*
   `lockLaneRms / thisTrackRms`, and it took the rendered peak from 0.565 to
   0.443 — the limiter had been squashing the loudest track.
 - **Nothing repeats back to back.** `pick()` excludes the piece just played.
+- **It plays at 0.88 speed** (`PLAYBACK_RATE`, 2026-09-08). Ellis: *"i also want
+  to slow down all the music - feels like its all going too fast."* WebAudio's
+  `playbackRate` is a resampler rather than a time-stretcher, so this drops the
+  pitch about two semitones as well — a real musical change, which is why the
+  number is gentle. Past roughly 0.8 the honest fix is slower renders from the
+  artists, not a bigger number here. **Everything in `schedule()` is wall-clock
+  and divides by it**; the one exception is `start`'s `offset`, which indexes
+  the buffer. Getting that wrong would not throw, it would quietly put the
+  crossfades in the wrong place.
 - **The chip names it** — see below.
 
 #### Naming the piece (`ui/now-playing.ts`)
@@ -2403,6 +2465,14 @@ quoting that number is how the drift stays invisible. It reads `CYCLE` now.
 The other half of *"never showed"* was frequency: at a 150-second session with
 a 45-second rest it had something to say **once every three minutes**, for five
 seconds. It is now about every ninety.
+
+**And it was behind the panel layer the whole time.** Reported again after all
+of that (*"im still not noticing the little music player feature"*), and the
+cause was neither timing nor frequency: the chip was z-index 3 against
+`.overlay-layer`'s 5, so **any open panel painted its dim and blur straight
+over it**. A track starting while somebody is in the shop is the normal case,
+not the edge case. It is 8 now, above the panel and the modal layers, which is
+only safe because it takes no taps.
 
 - **It waits for the walkthrough to finish** (`allowMusic`, 2026-09-05). Mal
   talks over a speech bubble with the text typing out for the first couple of

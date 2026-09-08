@@ -66,6 +66,29 @@ export interface Track {
  */
 export const TARGET_SESSION_S = 85;
 
+/**
+ * How fast the pieces are played back. Below 1 is slower.
+ *
+ * Ellis, 2026-09-08: *"i also want to slow down all the music - feels like its
+ * all going too fast."*
+ *
+ * **This moves the pitch as well as the tempo, and there is no way around it.**
+ * WebAudio's `playbackRate` is a resampler, not a time-stretcher — it is a tape
+ * machine, so 0.88 is 12% slower *and* about two semitones flat. That happens
+ * to suit this soundtrack (it is the "slowed" edit people make of exactly this
+ * kind of music, and a lower, softer piece is more cosy, not less), but it is a
+ * real musical change rather than a neutral one, and it is why the number is
+ * gentle. If it ever needs to be slower than about 0.8 the honest answer is to
+ * ask Lily M and Ellis for slower renders, not to push this further.
+ *
+ * **Everything scheduled in `soundtrack.ts` is wall-clock and has to be divided
+ * by this.** A buffer's `duration` is how long it is at rate 1; at 0.88 it
+ * occupies `duration / 0.88` seconds of café. Getting that wrong would not
+ * throw — it would quietly make the crossfades land in the wrong place and the
+ * fade-out miss the end of the piece.
+ */
+export const PLAYBACK_RATE = 0.88;
+
 /** How many times through a track fills a session. Always at least once. */
 export function passesFor(track: Track, duration: number): number {
   const step = Math.max(1, duration - track.crossfade);

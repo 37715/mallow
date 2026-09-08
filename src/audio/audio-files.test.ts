@@ -3,7 +3,7 @@ import { existsSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { SAMPLE_PATHS } from "@/audio/audio";
 import { CYCLE, TRACK_PATHS } from "@/audio/soundtrack";
-import { TARGET_SESSION_S, TRACKS, passesFor } from "@/data/tracks";
+import { PLAYBACK_RATE, TARGET_SESSION_S, TRACKS, passesFor } from "@/data/tracks";
 
 /**
  * The audio the game ships, and the shape of the cycle it plays it in.
@@ -16,8 +16,12 @@ import { TARGET_SESSION_S, TRACKS, passesFor } from "@/data/tracks";
  * is *silence*, so the test has to assert the files are really there.
  */
 
-/** The shortest piece in the catalogue, measured. Passes round worst here. */
-const SHORTEST_S = 26.1;
+/**
+ * The shortest piece in the catalogue, measured — and then as the café hears
+ * it, which is slower. `passesFor` works in wall-clock seconds, so feeding it a
+ * raw buffer length would test a schedule the game does not run.
+ */
+const SHORTEST_S = 26.1 / PLAYBACK_RATE;
 
 const PUBLIC = join(process.cwd(), "public");
 const declared = [...Object.values(SAMPLE_PATHS).flat(), ...TRACK_PATHS];
@@ -90,8 +94,7 @@ describe("the audio files the game asks for", () => {
     // short track is exactly where this goes wrong — bound the count, not the
     // span, because the span is what already looks reasonable.
     for (const track of TRACKS) {
-      const duration = SHORTEST_S;
-      expect(passesFor(track, duration), track.title).toBeLessThanOrEqual(4);
+      expect(passesFor(track, SHORTEST_S), track.title).toBeLessThanOrEqual(4);
     }
   });
 });

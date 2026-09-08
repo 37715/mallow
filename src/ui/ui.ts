@@ -2726,12 +2726,31 @@ export function mountUI(root: HTMLElement): MountedUI {
     const list = el("div", "goal-list");
     panel.appendChild(list);
 
-    // Live, because the counters move while the panel is open — "serve
-    // twenty-five cups" filling up as you watch is most of the appeal.
-    const paint = () => {
-      const state = gameStore.getState();
-      const views = visibleGoals(state, state.goalsClaimed);
-      const ladder = ladderProgress(state.goalsClaimed);
+    /**
+     * The rows are **built once and refreshed in place**, which is the pattern
+     * every other panel here uses and this one originally did not.
+     *
+     * `panelUpdate` runs on every store change, and `tick()` calls `set()` on
+     * every animation frame (§8) — so the first version's `list.innerHTML = ""`
+     * destroyed and rebuilt the whole list, buttons included, about thirty
+     * times a second. It looked fine and it measured fine, because a rebuilt
+     * button is indistinguishable from a stable one until somebody touches it:
+     * a finger's `touchend` lands on a node that was removed two frames
+     * earlier, so **no click is ever dispatched and the panel is dead to the
+     * touch** — Ellis, 2026-09-08: *"i tried to collect my first reward and the
+     * game completely froze and im stuck."* `.click()` cannot see this (§17);
+     * it dispatches straight at the node and never waits a frame.
+     *
+     * So the structure is only rebuilt when the *set* of visible goals or their
+     * ready-flags actually changes, and everything that moves per frame — the
+     * counters, the bar — is written onto elements that stay put.
+     */
+    const refreshers: (() => void)[] = [];
+    /** What the list is currently built for. A change here means rebuild. */
+    let shape = "";
+
+    const build = (views: ReturnType<typeof visibleGoals>) => {
+      refreshers.length = 0;
       list.innerHTML = "";
 
       if (views.length === 0) {
@@ -2742,20 +2761,19 @@ export function mountUI(root: HTMLElement): MountedUI {
             "that is everything on the list. the café is yours now — put it where you like.",
           ),
         );
-        return;
       }
 
       for (const view of views) {
+        const goal = view.goal;
         const row = el("div", `goal-row${view.ready ? " ready" : ""}`);
         const head = el("div", "goal-head");
-        head.appendChild(el("div", "goal-label", view.goal.label));
-        head.appendChild(el("div", "goal-reward", formatMoney(view.goal.reward)));
+        head.appendChild(el("div", "goal-label", goal.label));
+        head.appendChild(el("div", "goal-reward", formatMoney(goal.reward)));
         row.appendChild(head);
-        row.appendChild(el("div", "goal-hint", view.goal.hint));
+        row.appendChild(el("div", "goal-hint", goal.hint));
 
         const track = el("div", "goal-track");
         const fill = el("div", "goal-fill");
-        fill.style.width = `${Math.round(view.fraction * 100)}%`;
         track.appendChild(fill);
         row.appendChild(track);
 
@@ -2763,28 +2781,56 @@ export function mountUI(root: HTMLElement): MountedUI {
           const claim = el("button", "goal-claim") as HTMLButtonElement;
           claim.textContent = "collect";
           claim.addEventListener("click", () => {
-            const paid = gameStore.getState().claimGoal(view.goal.id);
+            const paid = gameStore.getState().claimGoal(goal.id);
             if (paid <= 0) {
               playTap();
               return;
             }
             playPurchase();
-            paint();
+            // The claimed goal leaves the list and a new one arrives, so this
+            // is a genuine structural change — refresh() will rebuild.
+            refresh();
           });
           row.appendChild(claim);
         } else {
-          row.appendChild(el("div", "goal-count", `${view.done} / ${view.needed}`));
+          const count = el("div", "goal-count");
+          row.appendChild(count);
+          refreshers.push(() => {
+            const at = goal.progress(gameStore.getState());
+            count.textContent = `${at.done} / ${at.needed}`;
+            const fraction = at.needed <= 0 ? 1 : Math.min(1, at.done / at.needed);
+            fill.style.width = `${Math.round(fraction * 100)}%`;
+          });
         }
         list.appendChild(row);
       }
 
-      list.appendChild(
-        el("div", "goal-ladder", `${ladder.done} of ${ladder.total} done`),
-      );
+      const ladderLine = el("div", "goal-ladder");
+      list.appendChild(ladderLine);
+      refreshers.push(() => {
+        const ladder = ladderProgress(gameStore.getState().goalsClaimed);
+        ladderLine.textContent = `${ladder.done} of ${ladder.total} done`;
+      });
+
+      for (const run of refreshers) run();
     };
 
-    paint();
-    panelUpdate = paint;
+    const refresh = () => {
+      const state = gameStore.getState();
+      const views = visibleGoals(state, state.goalsClaimed);
+      // Cheap signature of everything that decides the *shape* of the list.
+      // The numbers inside a row are not in it — those are what refreshers do.
+      const next = views.map((v) => `${v.goal.id}${v.ready ? "!" : ""}`).join(",");
+      if (next !== shape) {
+        shape = next;
+        build(views);
+        return;
+      }
+      for (const run of refreshers) run();
+    };
+
+    refresh();
+    panelUpdate = refresh;
     panelLayer.appendChild(panel);
     panelLayer.classList.add("open");
   }

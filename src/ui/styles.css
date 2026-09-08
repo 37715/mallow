@@ -4230,12 +4230,22 @@ body {
 
    `pointer-events: none` on purpose — see the note in `now-playing.ts`. It can
    appear while a finger is already moving, and a chip that eats that tap would
-   be worse than no chip. */
+   be worse than no chip.
+
+   **Above the panel layer, which is why it is 8 and not 3.** At 3 it sat under
+   `.overlay-layer` (5) — so a chip that fired while the shop or the to-do list
+   was open was painted over by the dim *and* its backdrop blur, and the player
+   saw nothing. That is most of Ellis's "the icon currently playing pop up never
+   showed" (2026-09-08): the chip was rendering correctly the whole time, in a
+   corner that anything open covers. A track announcement is exactly the kind of
+   thing that arrives while you are busy in a menu, so it has to outrank one.
+   `pointer-events: none` is what makes that safe — it can sit over a panel
+   without stealing a tap from it. */
 .now-playing {
   position: absolute;
   left: 16px;
   bottom: calc(150px + env(safe-area-inset-bottom));
-  z-index: 3;
+  z-index: 8;
   display: flex;
   align-items: center;
   gap: 9px;
