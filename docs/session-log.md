@@ -17,6 +17,52 @@ The five most recent entries also remain inline in `CLAUDE.md` §0. New entries 
 ---
 
 **Session log:**
+- *2026-09-08, night* — **A soundtrack that stopped rather than a soundtrack
+  that broke.** ([full entry](docs/session-log.md))
+  - Ellis: *"i finished listening to the first song (which was an interlude i
+    think but not sure as the icon currently playing pop up never showed) and
+    then it eventually ended but another song never came on."* Two faults, and
+    **neither was a bug** — every number involved was doing exactly what it was
+    written to do.
+  - **A 150-second session divided into a 27.9-second interlude six times.** So
+    "the first song" was the same twenty-eight seconds, two and a half minutes
+    running, followed by forty-five seconds of nothing. **A rest is only a rest
+    while the listener is still expecting something**; past that it is heard as
+    the music having finished, and the next piece arrives as a surprise rather
+    than a return. Rest is 5s, sessions 85s.
+  - **`passesFor` rounds, so the error is invisible in the span.** Six passes of
+    27.9s is 152 seconds — dead on target, and the existing test checked
+    exactly that. The listening experience was one short piece six times. Bound
+    the pass count against the *shortest* track, not the span.
+  - **The chip was showing all along** — verified in the running game at 15.5s,
+    held 5.2s. Its lead-in was a flat 3500 ms written against a twelve-second
+    fade-in; the fade later came down to five, so the chip started arriving
+    *before* the music reached level, which is the one thing the lead-in exists
+    to prevent. Its own comment still said "fades in over twelve seconds".
+    **A constant restating another module's number is already wrong, and a
+    comment quoting that number is how the drift stays invisible** (§14).
+  - **The first probe replaced the thing it was measuring.** `setTrackListener`
+    holds one listener, so subscribing to watch it silently unsubscribed the
+    chip — and the run "proved" the chip never rendered. Observe the DOM, not
+    the callback.
+  - **The measurements that settled it**, since the numbers are the whole
+    argument. Durations: *lock lane* 71.11s, *interlude 1* 27.89s, *interlude
+    2* 28.03s, *sometimes i forget you're gone* 26.12s. At
+    `TARGET_SESSION_S = 150` those come out at 2, 6, 6 and 6 passes — spans of
+    142s, 152s, 154s and 139s, all within 3% of target and all fine on paper.
+    At 85 they are 1, 3, 3 and 4: spans 71s, 78s, 78s and 94s.
+  - **The silence a listener experiences is not `rest`.** A raised-cosine fade
+    is inaudible for roughly its last third at either end, so the quiet is
+    about `fadeOut/3 + rest + fadeIn/3` — which at 12 and 45 was 58 seconds,
+    not 45. `fadeOut` came down to 8 alongside the rest, putting it near 9. The
+    three numbers only mean anything added together, and there is now a test
+    that adds them.
+  - **Nothing here would have failed a test as written.** `audio-files.test.ts`
+    asserted `rest < span / 2` (45 < 75 ✓) and `tracks.test.ts` asserted the
+    span landed within a third of target (✓). Both were checking the schedule
+    was internally consistent, which it was. The two new tests check what a
+    person hears: total silence under fifteen seconds, and no more than four
+    passes of the shortest track.
 - *2026-09-08, evening* — **"why is the builder so hard to find": panels named
   after the save rather than the player.**
   - Ellis: *"we need to fix the menu. the builder thing is important. why is it

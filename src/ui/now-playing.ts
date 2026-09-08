@@ -1,4 +1,5 @@
 import { icon } from "@/ui/icons";
+import { CYCLE } from "@/audio/soundtrack";
 import type { Track } from "@/data/tracks";
 
 /**
@@ -14,16 +15,34 @@ import type { Track } from "@/data/tracks";
  * something else — so it is `pointer-events: none` and sits out of the way of
  * the HUD rather than over it.
  *
- * The music fades in over twelve seconds (`audio/soundtrack.ts`), so this
- * deliberately arrives a few seconds *late*: naming a track before it is
- * audible reads as a bug. By the time the chip is up there is something to
- * hear.
+ * It deliberately arrives *late*, because naming a track before it is audible
+ * reads as a bug. By the time the chip is up there is something to hear.
  */
 
-/** How long the chip stays up once it has arrived. */
-const HOLD_MS = 5200;
-/** How late it arrives after the track starts — see the note above. */
-const LEAD_IN_MS = 3500;
+/**
+ * How long the chip stays up once it has arrived.
+ *
+ * Seven seconds is longer than it needs to be read, on purpose. It has to be
+ * *noticed* first, and it appears in the corner of a screen whose middle is a
+ * café — Ellis, 2026-09-08, on the previous 5.2s: *"the icon currently playing
+ * pop up never showed."* Almost a second of that was the fade-in transition.
+ */
+const HOLD_MS = 7000;
+
+/**
+ * How late it arrives after the track starts.
+ *
+ * **Derived from the fade, not written down.** This was a flat 3.5 seconds
+ * against a fade-in that was twelve at the time, and the file's own comment
+ * still said so long after the fade came down to five — at which point the chip
+ * was arriving *before* the music reached level, which is the exact failure the
+ * lead-in exists to prevent. A constant that restates a number owned by another
+ * module is a constant that will be wrong (§14): read it.
+ *
+ * The extra second lands it just past the top of the fade, so the name turns up
+ * a beat after the music does rather than with it.
+ */
+const LEAD_IN_MS = (CYCLE.fadeIn + 1) * 1000;
 
 export interface NowPlaying {
   show(track: Track): void;

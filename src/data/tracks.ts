@@ -50,8 +50,21 @@ export interface Track {
  * so a 27-second interlude and a 71-second piece both play for about the same
  * time and the rhythm of music-then-quiet does not change with the track.
  * Ellis, 2026-09-08: *"loop the lily M ones a few times to increase length."*
+ *
+ * **85, down from 150** (2026-09-08). At 150 this divided into `interlude-1`
+ * six times, so "a few" came out as two and a half minutes of the same
+ * twenty-eight seconds — which is what Ellis heard as one very long song. It is
+ * a repeat count, so it rounds coarsely on a short track and the difference
+ * between 3 and 6 passes is a whole minute of listening; the number is
+ * therefore set by what the shortest track does with it, not by what feels like
+ * a nice length in the abstract.
+ *
+ * With the rest down to five seconds, variety comes from the *next* piece
+ * rather than from the current one going round again, so this can afford to be
+ * short. It still loops each interlude three or four times, which is what was
+ * asked for.
  */
-export const TARGET_SESSION_S = 150;
+export const TARGET_SESSION_S = 85;
 
 /** How many times through a track fills a session. Always at least once. */
 export function passesFor(track: Track, duration: number): number {

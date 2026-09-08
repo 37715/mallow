@@ -3,7 +3,7 @@ import { existsSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { SAMPLE_PATHS } from "@/audio/audio";
 import { CYCLE, TRACK_PATHS } from "@/audio/soundtrack";
-import { TARGET_SESSION_S } from "@/data/tracks";
+import { TARGET_SESSION_S, TRACKS, passesFor } from "@/data/tracks";
 
 /**
  * The audio the game ships, and the shape of the cycle it plays it in.
@@ -15,6 +15,9 @@ import { TARGET_SESSION_S } from "@/data/tracks";
  * gone quiet. Same family as the never-firing autosave (§8): the failure mode
  * is *silence*, so the test has to assert the files are really there.
  */
+
+/** The shortest piece in the catalogue, measured. Passes round worst here. */
+const SHORTEST_S = 26.1;
 
 const PUBLIC = join(process.cwd(), "public");
 const declared = [...Object.values(SAMPLE_PATHS).flat(), ...TRACK_PATHS];
@@ -65,5 +68,30 @@ describe("the audio files the game asks for", () => {
     expect(CYCLE.fadeIn + CYCLE.fadeOut).toBeLessThan(span);
     // And it has to actually start silent, which is the other half of the ask.
     expect(CYCLE.introDelay).toBeGreaterThan(0);
+  });
+
+  it("comes back before a listener decides the music has finished", () => {
+    // The bug this pins had no symptom a test could see, because nothing was
+    // broken: `rest` was 45 and the session was 150, and Ellis reported "it
+    // eventually ended but another song never came on". A long enough gap is
+    // not heard as a gap.
+    //
+    // What matters is the *silence*, which is longer than `rest` — a fade is
+    // inaudible for roughly its last third at either end, so those thirds are
+    // part of the quiet even though the schedule counts them as music.
+    const silence = CYCLE.fadeOut / 3 + CYCLE.rest + CYCLE.fadeIn / 3;
+    expect(silence).toBeLessThan(15);
+  });
+
+  it("never plays one short piece for minutes on end", () => {
+    // The other half of the same complaint: at a 150s session `interlude-1`
+    // (27.9s) ran six times, so "the first song" lasted two and a half minutes
+    // and the repeats were what made it feel finished. `passesFor` rounds, so a
+    // short track is exactly where this goes wrong — bound the count, not the
+    // span, because the span is what already looks reasonable.
+    for (const track of TRACKS) {
+      const duration = SHORTEST_S;
+      expect(passesFor(track, duration), track.title).toBeLessThanOrEqual(4);
+    }
   });
 });

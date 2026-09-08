@@ -26,13 +26,25 @@ export interface MusicHandle {
  * after logging in and maybe fade out again to silence for a little before
  * fading back in again."*
  *
- * **The rests are the design, not a nicety.** Continuous background music in a
- * game people leave running becomes wallpaper within ten minutes and an
- * irritant within thirty — it is the same argument §10 makes about the coin
- * chime and about why the generated music has no drums. Music that goes away
- * and comes back keeps arriving, and the moment it returns is the moment
- * somebody notices the café again. It also means one 71-second piece can carry
- * a whole session without ever being *the thing you are listening to*.
+ * **It is a playlist, not a breathing cycle** — changed 2026-09-08. This used
+ * to rest 45 seconds between pieces, on the argument that music which goes away
+ * and comes back keeps arriving where continuous music becomes wallpaper. The
+ * argument was fine and the numbers were wrong, in a way only a listener could
+ * find. Ellis: *"i finished listening to the first song … and then it
+ * eventually ended but another song never came on."*
+ *
+ * What he actually sat through: `interlude-1` is 27.9 seconds, and a
+ * 150-second session meant it played **six times**, so the "first song" ran two
+ * and a half minutes — then went quiet for another forty-five. Nothing was
+ * broken. A gap that long simply is not read as a gap; it is read as the music
+ * having finished. **A rest is only a rest if the listener is still expecting
+ * something.** Five seconds is, forty-five is not.
+ *
+ * So the rest is five seconds and the sessions are shorter, which moves where
+ * variety comes from: from one piece repeating for a long time, to the pieces
+ * following each other. That is the better trade with four tracks in the
+ * catalogue — six passes of a 28-second interlude was always going to wear out
+ * faster than four different pieces do.
  *
  * **There is no synthesised fallback any more.** There was one — `music.ts`
  * generated a chord progression, a bass and a melody, and it was genuinely
@@ -62,12 +74,22 @@ export const CYCLE = {
    *
    * Longer than the ear expects, deliberately. Ellis, 2026-09-08: *"ensure all
    * of them fade in and out super peacefully and gradually."* A fade you can
-   * point at the end of is a fade that ended; twelve seconds out means the
-   * café is quiet before anyone decides the music stopped.
+   * point at the end of is a fade that ended.
+   *
+   * **Eight, not twelve, now the rest is five.** A fade-out is inaudible for
+   * its last third or so, so the silence a listener actually experiences is
+   * roughly `fadeOut/3 + rest + fadeIn/3` — twelve and forty-five made that
+   * about a minute. These three numbers only mean anything together; move one
+   * and re-add them.
    */
-  fadeOut: 12,
-  /** Silence between plays. */
-  rest: 45,
+  fadeOut: 8,
+  /**
+   * Silence between pieces.
+   *
+   * Ellis, 2026-09-08: *"i want the next one to come on after like 5 seconds."*
+   * See the header for what forty-five actually sounded like.
+   */
+  rest: 5,
 } as const;
 
 const INTRO_DELAY = CYCLE.introDelay;

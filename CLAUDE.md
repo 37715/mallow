@@ -23,7 +23,12 @@ This file is the shared brain for the project. **Read it before starting work in
 > starts growing past a screen or two of status, that is the signal to promote
 > and prune again.
 
-**Last updated:** 2026-09-08, evening (**the navigation says what is inside
+**Last updated:** 2026-09-08, night (**the soundtrack is a playlist now** — the
+rest between pieces was forty-five seconds and a 28-second interlude was played
+six times, so the first track ran two and a half minutes and the gap after it
+read as the music having finished; five seconds and shorter sessions, and the
+now-playing chip reads its lead-in off the fade instead of a stale copy of it.
+Earlier: **the navigation says what is inside
 it** — `to do · cats · menu · room`, and the builder now *opens* the room panel
 instead of being the eighth thing on it. Earlier: **the game says what to do
 next** —
@@ -234,7 +239,7 @@ pack ships those pieces in one finish.)
   tracked Xcode project, portrait-locked, and it **compiles** (verified with
   `xcodebuild` against a simulator destination). `npm run ios` does
   build → sync → open Xcode. Signing is Ellis's to do; see §16.
-- `npm test` — 396 tests over the pure systems, save migrations, café geometry,
+- `npm test` — 398 tests over the pure systems, save migrations, café geometry,
   the visitor loop, contentment maths, the camera controls (pan/zoom clamps,
   tap-vs-drag, press-and-hold), the placement rules the authored café itself
   has to pass, which objects the validator is allowed to ignore, the expansion
@@ -532,6 +537,34 @@ being read into context every session. Every *rule* it taught has been promoted
 into the numbered sections; the archive holds the reasoning and the dead ends.
 **Append new entries there**, and mirror only the newest handful here.
 
+- *2026-09-08, night* — **A soundtrack that stopped rather than a soundtrack
+  that broke.** ([full entry](docs/session-log.md))
+  - Ellis: *"i finished listening to the first song (which was an interlude i
+    think but not sure as the icon currently playing pop up never showed) and
+    then it eventually ended but another song never came on."* Two faults, and
+    **neither was a bug** — every number involved was doing exactly what it was
+    written to do.
+  - **A 150-second session divided into a 27.9-second interlude six times.** So
+    "the first song" was the same twenty-eight seconds, two and a half minutes
+    running, followed by forty-five seconds of nothing. **A rest is only a rest
+    while the listener is still expecting something**; past that it is heard as
+    the music having finished, and the next piece arrives as a surprise rather
+    than a return. Rest is 5s, sessions 85s.
+  - **`passesFor` rounds, so the error is invisible in the span.** Six passes of
+    27.9s is 152 seconds — dead on target, and the existing test checked
+    exactly that. The listening experience was one short piece six times. Bound
+    the pass count against the *shortest* track, not the span.
+  - **The chip was showing all along** — verified in the running game at 15.5s,
+    held 5.2s. Its lead-in was a flat 3500 ms written against a twelve-second
+    fade-in; the fade later came down to five, so the chip started arriving
+    *before* the music reached level, which is the one thing the lead-in exists
+    to prevent. Its own comment still said "fades in over twelve seconds".
+    **A constant restating another module's number is already wrong, and a
+    comment quoting that number is how the drift stays invisible** (§14).
+  - **The first probe replaced the thing it was measuring.** `setTrackListener`
+    holds one listener, so subscribing to watch it silently unsubscribed the
+    chip — and the run "proved" the chip never rendered. Observe the DOM, not
+    the callback.
 - *2026-09-08, evening* — **"why is the builder so hard to find": panels named
   after the save rather than the player.**
   ([full entry](docs/session-log.md))
@@ -2302,8 +2335,32 @@ fade out again to silence for a little before fading back in again."*
 - **A session is a fixed length, not a fixed number of passes.** The interludes
   are 27 seconds against *lock lane*'s 71, so a shared pass count would make
   the music-then-quiet rhythm change with the track. `passesFor` derives the
-  repeats from `TARGET_SESSION_S` (150s), which is what Ellis meant by *"loop
-  the lily M ones a few times to increase length."*
+  repeats from `TARGET_SESSION_S`, which is what Ellis meant by *"loop the lily
+  M ones a few times to increase length."*
+- **It is a playlist, not a breathing cycle** (2026-09-08). This section used to
+  argue that the rests *were* the design — music that goes away and comes back
+  keeps arriving, where continuous music becomes wallpaper. The argument stands
+  and the numbers were still wrong, in a way only a listener could find. Ellis:
+  *"i finished listening to the first song … and then it eventually ended but
+  another song never came on."* Nothing was broken. A 150-second session
+  divided into a 27.9-second interlude **six times**, so the "first song" ran
+  two and a half minutes, and then the café went quiet for forty-five seconds.
+  - **A rest is only a rest while the listener is still expecting something.**
+    Five seconds is; forty-five is heard as the music having finished, and then
+    the next piece arrives as a surprise rather than a return. `rest` is 5,
+    `TARGET_SESSION_S` is 85.
+  - **The silence is longer than `rest`.** A raised-cosine fade is inaudible for
+    roughly its last third, at both ends, so what a listener experiences is
+    about `fadeOut/3 + rest + fadeIn/3` — which at 12 and 45 was nearly a
+    minute. Those three numbers only mean anything together; move one and re-add
+    them. `audio-files.test.ts` holds the sum under fifteen seconds.
+  - **Bound the pass count, not the span.** `passesFor` *rounds*, so the error
+    is worst on the shortest track and invisible on the longest: the span
+    always looks reasonable (six passes of 27.9s is 152s, right on target)
+    while the listening experience is one short piece six times. The test caps
+    passes at four against the shortest track in the catalogue.
+  - Variety now comes from the *next* piece rather than the current one going
+    round again, which is the better trade with four tracks in hand.
 - **Only one of them is actually a loop, and that decides how it repeats.**
   Measured head-against-tail: *lock lane* opens at 0.8× the level it ends on,
   so its repeats butt end to end and are inaudible. The other three are pieces
@@ -2324,14 +2381,28 @@ fade out again to silence for a little before fading back in again."*
 
 Ellis: *"have a little player icon show briefly when a new track comes on
 showing the name."* A slate chip, bottom left, above the nav row: quaver,
-title, artist. It **arrives 3.5 seconds late on purpose** — the music fades in
-over twelve seconds, and naming a track before it is audible reads as a bug —
-holds five seconds and leaves. `pointer-events: none`, because it can appear
-while a finger is already moving and a chip that eats that tap is worse than no
-chip.
+title, artist. It **arrives late on purpose** — naming a track before it is
+audible reads as a bug — holds seven seconds and leaves. `pointer-events: none`,
+because it can appear while a finger is already moving and a chip that eats that
+tap is worse than no chip.
 
 The artist line is the reason it exists: a title with nobody's name on it
 credits nothing.
+
+**Its lead-in is derived from `CYCLE.fadeIn`, and that is the fix for the one
+bug it has had.** Ellis, 2026-09-08: *"the icon currently playing pop up never
+showed."* It was showing — verified in the running game — but the lead-in was a
+flat 3.5 seconds written against a fade-in that was *twelve* at the time, and
+when the fade came down to five the chip started arriving **before the music
+reached level**, which is the exact failure the lead-in exists to prevent. The
+file's own comment still said "fades in over twelve seconds". §14's rule
+applies and is worth restating in this shape: **a constant that restates a
+number owned by another module is already wrong, or will be** — and a comment
+quoting that number is how the drift stays invisible. It reads `CYCLE` now.
+
+The other half of *"never showed"* was frequency: at a 150-second session with
+a 45-second rest it had something to say **once every three minutes**, for five
+seconds. It is now about every ninety.
 
 - **It waits for the walkthrough to finish** (`allowMusic`, 2026-09-05). Mal
   talks over a speech bubble with the text typing out for the first couple of
