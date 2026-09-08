@@ -40,6 +40,7 @@ import { createChoreSurface } from "@/scene/chore-surface";
 import { createWorldMarker } from "@/ui/world-marker";
 import { mountUI } from "@/ui/ui";
 import { CatLabelLayer, NameTag } from "@/ui/cat-labels";
+import { createNowPlaying } from "@/ui/now-playing";
 import { beds } from "@/data/beds";
 import { loadCharacterAssets } from "@/entities/character-library";
 import { SpeechBubble } from "@/ui/speech-bubble";
@@ -51,7 +52,7 @@ import { levelProgress } from "@/data/progression";
 import { FloaterLayer } from "@/ui/floaters";
 import { initAnalytics } from "@/analytics/analytics";
 import { emitGameEvent, onGameEvent } from "@/core/events";
-import { allowMusic, initAudio, playChirp, playCoin, playMeow, playPurchase, playPurr, playTap, setMusicMuted } from "@/audio/audio";
+import { allowMusic, initAudio, setTrackListener, playChirp, playCoin, playMeow, playPurchase, playPurr, playTap, setMusicMuted } from "@/audio/audio";
 
 async function bootstrap(): Promise<void> {
   const canvas = document.getElementById("scene") as HTMLCanvasElement;
@@ -171,6 +172,13 @@ async function bootstrap(): Promise<void> {
   const floaters = new FloaterLayer(uiRoot);
   const ui = mountUI(uiRoot);
   const catLabels = new CatLabelLayer(uiRoot);
+  /**
+   * Names the piece a few seconds after it starts (`ui/now-playing.ts`). The
+   * delay is in the chip, not here: the music fades in over twelve seconds and
+   * naming a track before it is audible reads as a bug.
+   */
+  const nowPlaying = createNowPlaying(uiRoot);
+  setTrackListener((track) => nowPlaying.show(track));
   const nameTag = new NameTag(uiRoot);
   // Same milliseconds-per-character as the lip sync, or the mouth and the text
   // say different things — see `entities/tutorial-guide.ts`.
@@ -882,6 +890,18 @@ async function bootstrap(): Promise<void> {
       store: gameStore,
       catManager,
       barista,
+      /**
+       * The audio module *as the app sees it*.
+       *
+       * §17 wants a handle on anything stateful, and audio has cost more
+       * rounds than anything else in this project. It is also the only way to
+       * be sure a probe is talking to the running game: importing
+       * `/src/audio/audio.ts` from an injected script can hand you a *second*
+       * module instance whose listeners nobody registered, which looks exactly
+       * like the feature being broken.
+       */
+      audio: { allowMusic, initAudio, setTrackListener, playPurr, playMeow, playChirp },
+      nowPlaying,
       /**
        * The guests, and their walks. §17 asks for a handle on anything
        * spatial, and this is the one system with a per-frame state machine in

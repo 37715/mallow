@@ -3,17 +3,17 @@ import { existsSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { SAMPLE_PATHS } from "@/audio/audio";
 import { CYCLE, TRACK_PATHS } from "@/audio/soundtrack";
+import { TARGET_SESSION_S } from "@/data/tracks";
 
 /**
  * The audio the game ships, and the shape of the cycle it plays it in.
  *
- * **A missing file here fails silently and nicely**, which is exactly what
- * makes it worth a test: the loaders fall back to synthesis, so a renamed or
- * un-copied recording does not throw, does not log, and does not break
- * anything — the café simply goes back to sounding like a synthesiser and
- * nobody finds out until somebody happens to notice the cats sound wrong
- * again. Same family as the never-firing autosave (§8): the failure mode is
- * *silence*, so the test has to assert the files are really there.
+ * **A missing file here fails silently**, which is exactly what makes it worth
+ * a test: the loaders skip what they cannot load, so a renamed or un-copied
+ * recording does not throw and does not break anything — that sound simply
+ * stops existing, and nobody finds out until somebody notices the café has
+ * gone quiet. Same family as the never-firing autosave (§8): the failure mode
+ * is *silence*, so the test has to assert the files are really there.
  */
 
 const PUBLIC = join(process.cwd(), "public");
@@ -55,8 +55,10 @@ describe("the audio files the game asks for", () => {
     // The rests are the point (Ellis: "fade out again to silence for a little
     // before fading back in again") — but "a little" is the brief, and music
     // that is off more than it is on is a game that sounds broken.
-    const track = 71.1; // locklane.m4a; the cycle plays it through twice
-    const span = track * 2;
+    //
+    // Every track fills roughly `TARGET_SESSION_S` now, whatever its own
+    // length, so the session is the same regardless of which piece comes up.
+    const span = TARGET_SESSION_S;
     expect(CYCLE.rest).toBeLessThan(span / 2);
     // Both fades have to fit inside one play, or the track never reaches full
     // level before it starts leaving again.

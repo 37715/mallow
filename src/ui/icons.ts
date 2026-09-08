@@ -39,6 +39,20 @@ const ICONS: Record<string, string> = {
     <ellipse cx="12" cy="14.4" rx="6.9" ry="6.3"/>
   `,
 
+  /* A quaver, for the "now playing" chip and the credits row.
+
+     Drawn as a filled notehead with a *stroked* stem and flag rather than one
+     closed path: at 22px a note's stem is barely a pixel wide, and as a fill it
+     either disappears or has to be fattened until it stops looking like a stem.
+     A stroke keeps its weight whatever the size. */
+  note: `
+    <ellipse cx="8.4" cy="17.2" rx="4.4" ry="3.6"
+             transform="rotate(-18 8.4 17.2)"/>
+    <path d="M12.5 16.4V4.2" fill="none" stroke-width="2" stroke-linecap="round"/>
+    <path d="M12.5 4.4c3.1 1 5.4 2.6 5.4 5.4 0 1.6-.7 2.8-1.8 3.7"
+          fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  `,
+
   /* A cup and saucer. The saucer is what stops it reading as a bucket. */
   cup: `
     <path d="M4.2 7.4h11.2v4.9a5.6 5.6 0 0 1-11.2 0z"/>

@@ -33,6 +33,7 @@
  */
 import { loadAudioBuffer } from "@/audio/fetch-audio";
 import { startSoundtrack, type MusicHandle } from "@/audio/soundtrack";
+import type { Track } from "@/data/tracks";
 
 /**
  * How loud the game is, before the limiter.
@@ -249,6 +250,19 @@ function syncMusic(): void {
   music?.setPlaying(musicAllowed && !musicMuted);
 }
 
+/**
+ * Told when a piece starts, so the interface can name it.
+ *
+ * A callback rather than an import, because `audio/` knowing about `ui/` would
+ * be the wrong way round — the soundtrack is the only thing that knows what it
+ * started, and everything else is a listener.
+ */
+let onTrack: ((track: Track) => void) | null = null;
+
+export function setTrackListener(listener: (track: Track) => void): void {
+  onTrack = listener;
+}
+
 /** The walkthrough is over (or was already over). Let the soundtrack in. */
 export function allowMusic(): void {
   if (musicAllowed) return;
@@ -316,7 +330,7 @@ export function initAudio(): void {
    * cats their voice for as long as it took to arrive.
    */
   void loadSamples()
-    .then(() => startSoundtrack(context, bus))
+    .then(() => startSoundtrack(context, bus, { onTrack: (track) => onTrack?.(track) }))
     .then((track) => {
       music = track;
       // Whatever was decided while the files were loading — a mute, or the

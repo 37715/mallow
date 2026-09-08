@@ -23,7 +23,11 @@ This file is the shared brain for the project. **Read it before starting work in
 > starts growing past a screen or two of status, that is the signal to promote
 > and prune again.
 
-**Last updated:** 2026-09-05 (**the game is loud now** — the meow was the only
+**Last updated:** 2026-09-08 (**four tracks now** — three by Lily M alongside
+Ellis's *lock lane*, each looped enough to fill the same ~140-second session,
+crossfaded because only one of them was written to loop, and level-matched
+because they were mastered a third apart. A chip names the piece when it
+starts, and settings has a credits screen. Earlier: **the game is loud** — the meow was the only
 sound at the right level, so everything else came up to it, with a limiter to
 keep it clean; the purr is half as long; and the soundtrack waits for the
 walkthrough to end, then fades in over twelve seconds on a proper curve.
@@ -223,7 +227,7 @@ pack ships those pieces in one finish.)
   tracked Xcode project, portrait-locked, and it **compiles** (verified with
   `xcodebuild` against a simulator destination). `npm run ios` does
   build → sync → open Xcode. Signing is Ellis's to do; see §16.
-- `npm test` — 377 tests over the pure systems, save migrations, café geometry,
+- `npm test` — 384 tests over the pure systems, save migrations, café geometry,
   the visitor loop, contentment maths, the camera controls (pan/zoom clamps,
   tap-vs-drag, press-and-hold), the placement rules the authored café itself
   has to pass, which objects the validator is allowed to ignore, the expansion
@@ -518,6 +522,30 @@ being read into context every session. Every *rule* it taught has been promoted
 into the numbered sections; the archive holds the reasoning and the dead ends.
 **Append new entries there**, and mirror only the newest handful here.
 
+- *2026-09-08* — **Three more tracks, and only one of them is a loop.**
+  ([full entry](docs/session-log.md))
+  - **Measuring before writing anything was the session.** Head-against-tail:
+    *lock lane* opens at 0.8× the level it ends on and genuinely loops; the
+    three new ones are pieces with *endings*, and *sometimes i forget you're
+    gone* opens **8.6×** louder than it finished. "Loop it a few times" would
+    have been a slam every 26 seconds. Repeats crossfade now; a crossfade of 0
+    is a butt joint, so the seamless track keeps its behaviour on one path.
+  - **They are mastered a third apart** (rms 0.0586–0.0847), which at one gain
+    reads as the music jumping when it changes piece. Per-track trims measured
+    against *lock lane*; rendered peak 0.565 → 0.443, the limiter no longer
+    squashing the loudest one.
+  - **A session is a fixed length, not a fixed pass count** — 27-second
+    interludes and a 71-second piece both fill ~140 s, so the rhythm of
+    music-then-quiet does not change with the track.
+  - **The now-playing chip arrives 3.5 s late on purpose**: the fade is twelve
+    seconds and naming a track before it is audible reads as a bug.
+  - **Settings has a credits screen**, and its music section is derived from
+    the track list so an added piece cannot end up uncredited.
+  - **Three false alarms, all my harness** — and the useful one:
+    `import('/src/audio/audio.ts')` from an injected script is a **different
+    module instance** from the app's `@/audio/audio`, so my probe registered
+    its listener on a second copy and drove a second soundtrack. That looks
+    exactly like broken wiring. `window.__mallow.audio` exposes the real one.
 - *2026-09-05* — **Loud enough, a shorter purr, and a fade that is actually
   gradual.** ([full entry](docs/session-log.md))
   - **The meow is the reference.** It was the one sound at about the right
@@ -634,26 +662,6 @@ into the numbered sections; the archive holds the reasoning and the dead ends.
   - ⚠️ **The licences were unverified** at the time — resolved 2026-09-05: all
     three meows are CC0 and the music is Ellis's own. Only the purrs are still
     unaccounted for. See §10.
-- *2026-08-30* — **A chair refused from a corner guests were already sitting
-  in.** ([full entry](docs/session-log.md))
-  - Ellis: *"i wanted to put the chair in the corner … but its red and says the
-    guests cant reach that spot! … and then the guests go and sit in the corner
-    anyway."* Two faults, and the second is the one worth keeping.
-  - **The validator was testing a leg nobody walks.** `approachFrom` was
-    `DOOR_LOBBY` — where guests set off from until they started ordering at the
-    counter first on 2026-08-26. The route moved; the rule about the route did
-    not. **`visitor-manager.ts` is the authority for the route.**
-  - **The veto was out of all proportion.** Any solid thing on the line to a
-    seat refused it, so the 0.25-high cat bed the walkthrough had just told you
-    to put down was as final as the 0.78-high counter. Measured in the tutorial
-    café: one bed made 9 squares unreachable including the whole window corner.
-  - **The fix is a height, and the pack picked the number.** Cat bed 0.25,
-    cushion 0.24, low table 0.38 — then counter 0.78, bench 0.72, climber 1.45.
-    `STEP_OVER` sits in the gap at 0.5. After it: 4 unreachable squares, all of
-    them genuinely behind the counter, which is what the rule is *for*.
-  - **The lesson is the disagreement.** Reachability was decided independently
-    by the visitor manager (walks through anything) and the validator (refused
-    a lot). Either can be right; both cannot be, and the player finds out.
 - *2026-08-26, later* — **A chair that vanished overnight, a walkway drawn as a
   circle, and the woodwork gets a colour.** ([full entry](docs/session-log.md))
   - **The disappearing chair was the save deleting it.** `sanitizeInstances`
@@ -1466,6 +1474,15 @@ exception is deliberate and load-bearing: **cat names keep the player's own
 capitals**, because they're the one piece of text in the game the player wrote,
 and leaving them untransformed is part of what makes them feel like names (§8).
 
+**There is a credits screen, and almost nothing in it is owed** (settings →
+credits, `data/credits.ts`). The art packs and the cat recordings are CC0 and
+the font asks only that its licence travel with the file. It exists because a
+café built almost entirely out of one artist's work should say so — §5's
+argument that this audience rewards not being taken for granted, pointed at the
+people the game is made of rather than the people playing it. **The music
+section is derived from `data/tracks.ts`**, so a track added to the soundtrack
+cannot end up uncredited.
+
 **Icons are drawn, in `ui/icons.ts`. Never emoji.** Emoji are somebody else's
 art in somebody else's style, they render differently per platform, and beside
 real typography they're the clearest amateur tell a UI has — the same argument
@@ -2188,11 +2205,46 @@ attribution and no metadata (bare `fmt`/`data`, nothing to trace); Ellis
 confirmed they are free to use. **The whole folder is clear for commercial
 release** — nothing owed, nothing restricted.
 
-### The soundtrack breathes (2026-09-01)
+### The soundtrack breathes (2026-09-01, four tracks 2026-09-08)
 
-`locklane.m4a`, 71 seconds, loops seamlessly. Ellis's brief: *"a nice little
-fade in from silence a few seconds after logging in and maybe fade out again to
-silence for a little before fading back in again."*
+Four pieces — *lock lane* by Ellis and three by **Lily M** — catalogued in
+`data/tracks.ts` and played by `audio/soundtrack.ts`. Ellis's original brief:
+*"a nice little fade in from silence a few seconds after logging in and maybe
+fade out again to silence for a little before fading back in again."*
+
+- **A session is a fixed length, not a fixed number of passes.** The interludes
+  are 27 seconds against *lock lane*'s 71, so a shared pass count would make
+  the music-then-quiet rhythm change with the track. `passesFor` derives the
+  repeats from `TARGET_SESSION_S` (150s), which is what Ellis meant by *"loop
+  the lily M ones a few times to increase length."*
+- **Only one of them is actually a loop, and that decides how it repeats.**
+  Measured head-against-tail: *lock lane* opens at 0.8× the level it ends on,
+  so its repeats butt end to end and are inaudible. The other three are pieces
+  with *endings* — *sometimes i forget you're gone* opens **8.6×** louder than
+  it finished, so a hard loop is a slam. Those repeat as **overlapping sources
+  with a crossfade** (`Track.crossfade`), which turns the seam into the piece
+  dissolving into its own beginning. A crossfade of 0 is exactly a butt joint,
+  so it is one code path.
+- **Per-track level trims, measured.** The four were mastered separately and
+  sit a third apart (rms 0.0586 to 0.0847); at a shared gain that is 1.45× and
+  reads as the soundtrack jumping when it changes piece. `Track.trim` is
+  `lockLaneRms / thisTrackRms`, and it took the rendered peak from 0.565 to
+  0.443 — the limiter had been squashing the loudest track.
+- **Nothing repeats back to back.** `pick()` excludes the piece just played.
+- **The chip names it** — see below.
+
+#### Naming the piece (`ui/now-playing.ts`)
+
+Ellis: *"have a little player icon show briefly when a new track comes on
+showing the name."* A slate chip, bottom left, above the nav row: quaver,
+title, artist. It **arrives 3.5 seconds late on purpose** — the music fades in
+over twelve seconds, and naming a track before it is audible reads as a bug —
+holds five seconds and leaves. `pointer-events: none`, because it can appear
+while a finger is already moving and a chip that eats that tap is worse than no
+chip.
+
+The artist line is the reason it exists: a title with nobody's name on it
+credits nothing.
 
 - **It waits for the walkthrough to finish** (`allowMusic`, 2026-09-05). Mal
   talks over a speech bubble with the text typing out for the first couple of
@@ -2224,9 +2276,10 @@ silence for a little before fading back in again."*
 - **A dip at the loop point turned out to be the composition**, not a bad edit:
   the track opens sparse where it ends full. Checked by rendering tail and head
   back to back rather than by arguing about it.
-- **It is 2.4 MB, most of the audio budget**, taking `dist/` to ~17 MB. It is
-  270 kbps stereo; re-encoding to ~128 would halve it at the cost of a second
-  lossy generation. Ellis's call, not taken.
+- **The four tracks are 3.7 MB**, taking `dist/` to ~18 MB — *lock lane* alone
+  is 2.4 MB of that at 270 kbps, where the three Lily M pieces are 128 kbps and
+  about 0.45 MB each. Re-encoding *lock lane* to match would halve it at the
+  cost of a second lossy generation. Ellis's call, not taken.
 
 
 ## 11. Data & analytics (validate continuously)
@@ -2465,7 +2518,7 @@ npm run dev:lan    # same, exposed on the LAN — open on a phone, Add to Home
                    # Screen. This is the day-to-day device loop; a native
                    # rebuild is only needed to measure performance.
 npm run build      # production web build → dist/
-npm test           # 377 tests, no renderer needed
+npm test           # 384 tests, no renderer needed
 npm run balance    # simulate weeks of play under four player habits
 
 npm run ios        # build + sync + open Xcode. The one to use.

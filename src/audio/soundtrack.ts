@@ -1,4 +1,5 @@
 import { loadAudioBuffer } from "@/audio/fetch-audio";
+import { TRACKS, passesFor, type Track } from "@/data/tracks";
 
 /**
  * A running soundtrack, as far as the rest of the game is concerned.
@@ -42,14 +43,8 @@ export interface MusicHandle {
  * café is quiet without a file, which is the better of the two sounds.
  */
 
-/**
- * Tracks to choose from, one picked per play.
- *
- * An array for one file today because a second is then a one-line change, and
- * because "which track" wants to be a decision made per rest rather than once
- * at boot.
- */
-export const TRACK_PATHS = ["/audio/locklane.m4a"];
+/** Where the files live. The catalogue itself is `data/tracks.ts`. */
+export const TRACK_PATHS = TRACKS.map((track) => `/audio/${track.file}`);
 
 /**
  * The breathing cycle, in seconds. Exported so a test can hold the shape of it
@@ -62,8 +57,15 @@ export const CYCLE = {
   introDelay: 4,
   /** How long the music takes to arrive… */
   fadeIn: 5,
-  /** …and to leave. */
-  fadeOut: 7,
+  /**
+   * …and to leave.
+   *
+   * Longer than the ear expects, deliberately. Ellis, 2026-09-08: *"ensure all
+   * of them fade in and out super peacefully and gradually."* A fade you can
+   * point at the end of is a fade that ended; twelve seconds out means the
+   * café is quiet before anyone decides the music stopped.
+   */
+  fadeOut: 12,
   /** Silence between plays. */
   rest: 45,
 } as const;
@@ -71,15 +73,6 @@ export const CYCLE = {
 const INTRO_DELAY = CYCLE.introDelay;
 const FADE_IN = CYCLE.fadeIn;
 const FADE_OUT = CYCLE.fadeOut;
-/**
- * How many times through the piece before it rests.
- *
- * Two, so a rest is something that happens every few minutes rather than every
- * verse. At 71 seconds that is a hair under two and a half minutes of music
- * against three quarters of a minute of café — present most of the time,
- * absent often enough to be missed.
- */
-const PASSES = 2;
 const REST = CYCLE.rest;
 
 /**
@@ -96,6 +89,14 @@ const REST = CYCLE.rest;
  * tool now renders through the same master gain and limiter the game uses.
  */
 const TRACK_GAIN = 1.45;
+
+/** A decoded track, with the catalogue entry that describes how to play it. */
+interface LoadedTrack {
+  track: Track;
+  buffer: AudioBuffer;
+  /** Where real audio starts, past any decoder padding. See `contentStart`. */
+  head: number;
+}
 
 /**
  * Where real audio starts in the decoded buffer, in seconds.
@@ -140,6 +141,15 @@ function contentStart(buffer: AudioBuffer): number {
 
 export interface SoundtrackOptions {
   /**
+   * Told when a piece begins, so the interface can name it.
+   *
+   * Ellis, 2026-09-08: *"have a little player icon show briefly when a new
+   * track comes on showing the name."* The soundtrack knows what it started
+   * and nothing else does — deriving it anywhere else would mean a second copy
+   * of the schedule.
+   */
+  onTrack?: (track: Track) => void;
+  /**
    * Schedule this many seconds of the cycle up front and run no timers.
    *
    * An escape hatch for the render tool, and it is needed because an
@@ -164,8 +174,13 @@ export async function startSoundtrack(
   destination: AudioNode,
   options: SoundtrackOptions = {},
 ): Promise<MusicHandle | null> {
-  const loaded = await Promise.all(TRACK_PATHS.map((path) => loadAudioBuffer(ctx, path)));
-  const tracks = loaded.filter((buffer): buffer is AudioBuffer => buffer !== null);
+  const loaded = await Promise.all(
+    TRACKS.map(async (track) => {
+      const buffer = await loadAudioBuffer(ctx, `/audio/${track.file}`);
+      return buffer ? { track, buffer, head: contentStart(buffer) } : null;
+    }),
+  );
+  const tracks = loaded.filter((entry): entry is LoadedTrack => entry !== null);
   if (tracks.length === 0) return null;
 
   const gain = ctx.createGain();
@@ -180,43 +195,81 @@ export async function startSoundtrack(
    * thing too many in the first two minutes of the game.
    */
   let playing = false;
-  let source: AudioBufferSourceNode | null = null;
+  let live: AudioBufferSourceNode[] = [];
   let timer: number | null = null;
+  /** The last piece played, so a shuffle never repeats one back to back. */
+  let previous: LoadedTrack | null = null;
 
-  function stopSource(): void {
-    if (!source) return;
-    try {
-      source.stop();
-    } catch {
-      // Already stopped; `stop` throws rather than no-opping.
+  function stopSources(): void {
+    for (const node of live) {
+      try {
+        node.stop();
+      } catch {
+        // Already stopped; `stop` throws rather than no-opping.
+      }
+      node.disconnect();
     }
-    source.disconnect();
-    source = null;
+    live = [];
   }
 
-  /** One play-through-and-fade, starting at `at` on the context clock. */
+  /** The next piece: anything but the one just played, while there is a choice. */
+  function pick(): LoadedTrack {
+    const options = tracks.length > 1 ? tracks.filter((t) => t !== previous) : tracks;
+    const chosen = options[Math.floor(Math.random() * options.length)];
+    previous = chosen;
+    return chosen;
+  }
+
+  /**
+   * One session: a piece, repeated enough times to fill `TARGET_SESSION_S`,
+   * fading in at the start and out at the end.
+   *
+   * **Repeats are separate overlapping sources, not `node.loop`.** Only *lock
+   * lane* was written to loop; the other three are pieces with endings, and
+   * measured head-against-tail the worst of them opens **8.6×** louder than it
+   * finished — a hard loop there is a slam. Scheduling each repeat to start
+   * `crossfade` seconds before the previous one ends, with the outgoing copy
+   * fading down as the incoming one fades up, turns that into the piece
+   * dissolving into its own beginning. A `crossfade` of 0 butts them end to
+   * end, which is exactly `loop` for a track that genuinely loops.
+   */
   function schedule(at: number): number {
-    const buffer = tracks[Math.floor(Math.random() * tracks.length)];
-    const head = contentStart(buffer);
+    const { track, buffer, head } = pick();
+    const passes = passesFor(track, buffer.duration);
+    const overlap = Math.min(track.crossfade, buffer.duration / 2);
+    // Each repeat after the first starts `overlap` early and skips the decoder
+    // padding at its head, so the span is not simply passes × duration.
+    const step = buffer.duration - overlap - head;
+    const span = buffer.duration + step * (passes - 1);
 
-    /**
-     * A fresh node per play, because an `AudioBufferSourceNode` can only be
-     * started once — and because coming back **at the top of the piece** is
-     * the musical choice. Ducking a permanently-looping node would resume
-     * wherever the rest happened to land, so the same middle eight would
-     * fade in every time.
-     */
-    const node = ctx.createBufferSource();
-    node.buffer = buffer;
-    node.loop = true;
-    // The repeat skips the head; the first pass does not. See `contentStart`.
-    node.loopStart = head;
-    node.loopEnd = buffer.duration;
-    node.connect(gain);
-    source = node;
+    for (let pass = 0; pass < passes; pass++) {
+      const node = ctx.createBufferSource();
+      node.buffer = buffer;
+      const startAt = at + step * pass;
+      // The first pass plays from the top; every repeat skips the padding.
+      const offset = pass === 0 ? 0 : head;
+      const length = buffer.duration - offset;
 
-    // The first pass is the whole file; every repeat is the file minus its head.
-    const span = buffer.duration + (buffer.duration - head) * (PASSES - 1);
+      if (overlap > 0 && passes > 1) {
+        // Its own gain, so the crossfade is independent of the session fade.
+        const voice = ctx.createGain();
+        voice.gain.value = 1;
+        if (pass > 0) {
+          voice.gain.setValueCurveAtTime(fadeCurve(0, 1), startAt, overlap);
+        }
+        if (pass < passes - 1) {
+          voice.gain.setValueAtTime(1, startAt + length - overlap);
+          voice.gain.setValueCurveAtTime(fadeCurve(1, 0), startAt + length - overlap, overlap);
+        }
+        node.connect(voice).connect(gain);
+      } else {
+        node.connect(gain);
+      }
+
+      node.start(startAt, offset);
+      node.stop(startAt + length + 0.05);
+      live.push(node);
+    }
 
     /**
      * **An S-curve, not an exponential ramp**, and over twelve seconds the
@@ -226,25 +279,32 @@ export async function startSoundtrack(
      * it spends most of its length inaudible and then rushes in over the last
      * few seconds — the opposite of gradual, and precisely what "more gradual
      * fadein" was asking to fix. A raised cosine spreads the movement evenly
-     * across the whole twelve seconds and is smooth at both ends, so there is
-     * no moment where the music can be said to have started.
-     *
-     * It also gets to touch zero, which an exponential ramp cannot.
+     * and is smooth at both ends, so there is no moment where the music can be
+     * said to have started. It also gets to touch zero, which an exponential
+     * ramp cannot.
      */
-    gain.gain.setValueCurveAtTime(fadeCurve(0, TRACK_GAIN), at, FADE_IN);
+    // Per-track trim, so a change of piece is not a change of volume — see
+    // `Track.trim`.
+    const level = TRACK_GAIN * track.trim;
+    gain.gain.setValueCurveAtTime(fadeCurve(0, level), at, FADE_IN);
     // **Timed so the fade lands on the end of the last pass**, not somewhere in
     // the middle of a bar: the piece gets to finish before the café goes quiet.
-    gain.gain.setValueAtTime(TRACK_GAIN, at + FADE_IN);
-    gain.gain.setValueCurveAtTime(fadeCurve(TRACK_GAIN, 0), at + span - FADE_OUT, FADE_OUT);
+    gain.gain.setValueAtTime(level, at + FADE_IN);
+    gain.gain.setValueCurveAtTime(fadeCurve(level, 0), at + span - FADE_OUT, FADE_OUT);
 
-    node.start(at);
-    node.stop(at + span + 0.1);
+    // Announced as it starts rather than when it was scheduled, so the chip
+    // and the first note arrive together.
+    if (options.onTrack) {
+      const delay = Math.max(0, (at - ctx.currentTime) * 1000);
+      window.setTimeout(() => options.onTrack?.(track), delay);
+    }
     return span;
   }
 
   function play(): void {
     if (!playing) return;
     gain.gain.cancelScheduledValues(ctx.currentTime);
+    stopSources();
     const span = schedule(ctx.currentTime);
     timer = window.setTimeout(play, (span + REST) * 1000);
   }
@@ -269,14 +329,14 @@ export async function startSoundtrack(
       } else {
         if (timer !== null) window.clearTimeout(timer);
         timer = null;
-        stopSource();
+        stopSources();
       }
     },
     stop() {
       playing = false;
       if (timer !== null) window.clearTimeout(timer);
       timer = null;
-      stopSource();
+      stopSources();
     },
   };
 }

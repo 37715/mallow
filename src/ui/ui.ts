@@ -25,6 +25,7 @@ import {
 import { UPGRADE_DEFINITIONS } from "@/data/upgrades";
 import { tillCapacity, tillFullness, tillIsFull } from "@/systems/till";
 import { emitGameEvent } from "@/core/events";
+import { CREDITS, CREDITS_INTRO } from "@/data/credits";
 import { levelProgress } from "@/data/progression";
 import { CAT_BED_ITEM, bedAsset, bedCost, beds, freeBeds } from "@/data/beds";
 import {
@@ -2452,9 +2453,79 @@ export function mountUI(root: HTMLElement): MountedUI {
       panel.appendChild(testRow);
     }
 
+    /**
+     * **Credits.** A row rather than a line of small print, because it opens a
+     * panel of its own — see `renderCreditsPanel`.
+     */
+    const creditsRow = el("div", "setting-row");
+    const creditsLabel = el("div", "setting-label");
+    creditsLabel.appendChild(el("div", "setting-name", "credits"));
+    creditsLabel.appendChild(
+      el("div", "setting-hint", "the people whose work this café is made of."),
+    );
+    creditsRow.appendChild(creditsLabel);
+    const creditsButton = el("button", "setting-toggle") as HTMLButtonElement;
+    // An icon-only button says nothing to a screen reader, and this one has no
+    // pressed state to infer it from either.
+    creditsButton.setAttribute("aria-label", "credits");
+    creditsButton.appendChild(icon("note"));
+    creditsButton.addEventListener("click", () => {
+      playTap();
+      renderCreditsPanel();
+    });
+    creditsRow.appendChild(creditsButton);
+    panel.appendChild(creditsRow);
+
     panel.appendChild(
       el("div", "panel-note", `you are ${gameStore.getState().player.name}, and this is ${gameStore.getState().player.cafeName}.`),
     );
+
+    panelLayer.appendChild(panel);
+    panelLayer.classList.add("open");
+  }
+
+  /**
+   * Who made what (`data/credits.ts`).
+   *
+   * Ellis, 2026-09-08: *"a little credits button on the settings page that
+   * gives credit to minty properly for the assets, lily m for the 3 songs."*
+   *
+   * **Nearly none of this is owed.** The art packs and the cat recordings are
+   * CC0 and the fonts ask only that the licence travel with the file. It is
+   * here because a game built almost entirely out of one artist's work should
+   * say so — the same instinct §5 applies to players, pointed at the people the
+   * game is made of.
+   */
+  function renderCreditsPanel(): void {
+    panelLayer.innerHTML = "";
+    panelUpdate = null;
+
+    const panel = el("div", "panel");
+    panel.appendChild(panelHeader("credits"));
+    panel.appendChild(el("div", "credits-intro", CREDITS_INTRO));
+
+    for (const section of CREDITS) {
+      const block = el("div", "credits-section");
+      block.appendChild(el("div", "credits-section-title", section.title));
+      for (const entry of section.entries) {
+        const row = el("div", "credits-entry");
+        row.appendChild(el("div", "credits-name", entry.name));
+        row.appendChild(el("div", "credits-what", entry.what));
+        if (entry.terms) row.appendChild(el("div", "credits-terms", entry.terms));
+        block.appendChild(row);
+      }
+      panel.appendChild(block);
+    }
+
+    // Back to settings rather than straight out, so the button behaves like the
+    // sub-panel it is — the shop's category pages set the same expectation.
+    const back = el("button", "roster-button") as HTMLButtonElement;
+    back.textContent = "back to settings";
+    back.addEventListener("click", () => {
+      playTap();
+      renderSettingsPanel();
+    });
+    panel.appendChild(back);
 
     panelLayer.appendChild(panel);
     panelLayer.classList.add("open");

@@ -7,7 +7,10 @@ soundtrack, a formant meow and a filtered-noise purr all used to live in
 that can be heard is not a safety net. If a file here goes missing, that sound
 is silent.
 
-    locklane.m4a   the soundtrack. 71.111s, loops seamlessly.
+    lock-lane.m4a                      ┐ the soundtrack, four pieces. The
+    interlude-1.m4a                    │ catalogue — titles, artists, level
+    interlude-2.m4a                    │ trims and loop behaviour — is
+    sometimes-i-forget-youre-gone.m4a  ┘ `src/data/tracks.ts`.
     purr-1.m4a     busier purr  ┐ one picked per tap, so petting the same cat
     purr-2.m4a     sleepier purr┘ twice does not replay the same two seconds
     meow-1.m4a     ┐
@@ -41,12 +44,19 @@ root, which is the untouched originals).
 
 | shipped | source file | origin |
 |---|---|---|
-| `locklane.m4a` | `sound/ost/locklane.m4a` | Ellis — unchanged, not re-encoded |
+| `lock-lane.m4a` | `sound/ost/lock lane.m4a` | Ellis — unchanged, not re-encoded |
+| `interlude-1.m4a` | `sound/ost/interlude 1.m4a` | Lily M |
+| `interlude-2.m4a` | `sound/ost/interlude 2.m4a` | Lily M |
+| `sometimes-i-forget-youre-gone.m4a` | `sound/ost/sometimes i forget you're gone.m4a` | Lily M |
 | `purr-1.m4a` | `sound/fx/cat_purractive_loop.wav` | Ellis — no attribution in the filename |
 | `purr-2.m4a` | `sound/fx/cat_purrsleepy_loop.wav` | Ellis — no attribution in the filename |
 | `meow-1.m4a` | `sound/fx/412017__skymary__cat-meow-short.wav` | Freesound #412017, *skymary* |
 | `meow-2.m4a` | `sound/fx/436541__mafon2__cat-meow.wav` | Freesound #436541, *mafon2* |
 | `meow-3.m4a` | `sound/fx/689324__sadiquecat__cat-meow.flac` | Freesound #689324, *sadiquecat* |
+
+All of it is credited in-game — settings → credits, drawn from
+`src/data/credits.ts`, which reads the music straight out of the track list so
+an added piece cannot end up uncredited.
 
 **Checked 2026-09-05, before TestFlight.** Every meow is **CC0** — public
 domain dedication, no attribution owed, commercial use fine — confirmed on each

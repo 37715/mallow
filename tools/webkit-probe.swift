@@ -72,12 +72,16 @@ web.load(URLRequest(url: URL(string: "capacitor://localhost/index.html")!))
 // What the audio loader has to survive: fetch each shipped file over the
 // custom scheme and apply the same rule `usableAudioResponse` does. Driving the
 // game's UI headlessly is flaky; this checks the thing that was broken.
+// Derived from what is actually in dist/audio rather than written down, so it
+// cannot go stale the next time a track is renamed.
+let audioDir = root.appendingPathComponent("audio")
+let shipped = ((try? FileManager.default.contentsOfDirectory(atPath: audioDir.path)) ?? [])
+    .filter { $0.hasSuffix(".m4a") }
+    .sorted()
+let fileList = shipped.map { "'audio/\($0)'" }.joined(separator: ", ")
+
 let probe = """
-const files = [
-  'audio/purr-1.m4a', 'audio/purr-2.m4a',
-  'audio/meow-1.m4a', 'audio/meow-2.m4a', 'audio/meow-3.m4a',
-  'audio/locklane.m4a',
-];
+const files = [\(fileList)];
 const ctx = new (window.AudioContext || window.webkitAudioContext)();
 const out = [];
 for (const f of files) {

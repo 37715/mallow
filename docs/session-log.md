@@ -17,6 +17,49 @@ The five most recent entries also remain inline in `CLAUDE.md` §0. New entries 
 ---
 
 **Session log:**
+- *2026-09-08* — **Three more tracks, and the discovery that only one of them
+  is a loop.**
+  - Ellis: *"i added more tracks to the ost.. lock lane is by ellis, the other
+    three are by Lily M. loop the lily M ones a few times to increase length.
+    ensure all of them fade in and out super peacefully and gradually. have a
+    little player icon show briefly when a new track comes on showing the
+    name.. and finally make a little credits button on the settings page."*
+  - **Measuring the tracks before writing any code was the whole session.**
+    Head-against-tail on each: *lock lane* opens at 0.8× the level it ends on —
+    it was written to loop, and does. The three new ones are pieces with
+    *endings*. *sometimes i forget you're gone* decays to near silence and its
+    opening is **8.6×** louder, so "loop it a few times" would have produced a
+    slam every 26 seconds. Repeats are overlapping sources with a crossfade
+    now; a crossfade of 0 is a butt joint, so *lock lane* keeps its seamless
+    behaviour through the same code path.
+  - **And they are mastered a third apart** — rms 0.0586 to 0.0847. At one
+    shared gain that is 1.45×, which reads as the soundtrack getting louder
+    when it changes piece. `Track.trim` is measured per file against *lock
+    lane* (the one `TRACK_GAIN` was tuned against and approved); the rendered
+    peak went 0.565 → 0.443, which is the limiter stopping having to squash the
+    loudest one.
+  - **A session is a fixed length, not a fixed number of passes.** 27-second
+    interludes against a 71-second piece would otherwise change the rhythm of
+    music-then-quiet depending on which came up. `passesFor` derives repeats
+    from `TARGET_SESSION_S`; rendered, every session lands at ~140 s with 46 s
+    of rest, whichever track it is.
+  - **The chip arrives late on purpose.** The music fades in over twelve
+    seconds, so naming the track at second zero would put a title on silence.
+    3.5 s late, five seconds up, then gone.
+  - **The credits read the track list rather than a second copy of it**, so an
+    added piece cannot end up uncredited — the `SEAT_STAND_POSITIONS` lesson
+    (§14) applied to people's names.
+  - **Three false alarms, all my harness.** The chip "never opened" three times
+    running: first because I checked 3 s after its five-second window had
+    closed; then because `shot.mjs` uses a fresh Chrome profile per run so a
+    seeded save never survived to the next one; and then — the interesting one
+    — because **`import('/src/audio/audio.ts')` from an injected script is a
+    different module instance from the app's `@/audio/audio`**. My probe was
+    registering a listener on a second copy of the module and driving a second
+    copy of the soundtrack, which behaves *exactly* like the wiring being
+    broken. `window.__mallow.audio` now exposes the app's own instance.
+    *When a probe has to reach into a module, reach for the app's handle, not
+    an import — an import may hand you a convincing duplicate.*
 - *2026-09-05, later* — **The audio licences, settled before TestFlight.**
   - Ellis, asked what would have to be pulled: *"so we gotta get rid of the cc
     by nc sounds? dw about the music i made that."* The honest answer turned
