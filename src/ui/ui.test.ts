@@ -147,7 +147,7 @@ describe("HUD", () => {
     // is the goal ladder's — and a bare `.nudge-dot` picks whichever happens
     // to be first in the row, which is a test that passes for the wrong
     // reason the moment somebody reorders the nav.
-    const dot = q(navButton(root, "café"), ".nudge-dot");
+    const dot = q(navButton(root, "menu"), ".nudge-dot");
     expect(dot.classList.contains("visible")).toBe(false);
 
     gameStore.setState({ money: 100_000 });
@@ -156,7 +156,7 @@ describe("HUD", () => {
 
   it("opens the café panel with a card per upgrade, and no HUD duplicates", () => {
     const { root } = mount();
-    const cafeButton = navButton(root, "café");
+    const cafeButton = navButton(root, "menu");
     cafeButton.click();
 
     expect(root.querySelectorAll(".upgrade-card")).toHaveLength(UPGRADE_DEFINITIONS.length);
@@ -171,7 +171,7 @@ describe("HUD", () => {
   it("buys an upgrade from the café panel and reflects the new level", () => {
     const { root } = mount();
     gameStore.setState({ money: 100_000 });
-    navButton(root, "café").click();
+    navButton(root, "menu").click();
 
     const firstBuy = q<HTMLButtonElement>(root, ".upgrade-buy");
     firstBuy.click();
@@ -289,17 +289,11 @@ describe("colourways, inside the shop", () => {
    * moment the shop was added as a fourth button — and it failed by silently
    * opening a different panel, so three unrelated style tests started failing.
    */
-  const openNav = (root: HTMLElement, label: string) => {
-    const button = [...root.querySelectorAll<HTMLButtonElement>(".roster-button")].find(
-      (b) => b.textContent?.includes(label),
-    );
-    if (!button) throw new Error(`no nav button labelled "${label}"`);
-    button.click();
-  };
+  const openNav = (root: HTMLElement, label: string) => navButton(root, label).click();
 
   /** Colours is a department on the shop's front page, not a nav button. */
   const openColours = (root: HTMLElement) => {
-    openNav(root, "shop");
+    openNav(root, "room");
     const card = [...root.querySelectorAll<HTMLButtonElement>(".hub-card")].find((c) =>
       c.textContent?.includes("Colours"),
     );

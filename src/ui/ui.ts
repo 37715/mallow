@@ -422,8 +422,23 @@ export function mountUI(root: HTMLElement): MountedUI {
     return button;
   }
   const rosterButton = navButton("cat", "cats");
-  const cafeButton = navButton("cup", "café");
-  const shopButton = navButton("shop", "shop");
+  /**
+   * **"menu" and "room", not "café" and "shop".**
+   *
+   * Ellis, 2026-09-08: *"the builder thing is important. why is it so hard to
+   * find? the entire organisation seems .. sub par."* The panels were grouped
+   * by *what part of the save they touch* — the menu and the upgrades in one,
+   * everything that reads `purchased`/`placements`/`tiles` in the other — and
+   * then labelled with two words that mean the same thing to a player. "café"
+   * and "shop" are both just *the game*; neither tells you the walls are
+   * behind one of them.
+   *
+   * So they are named for what they hold. Somebody looking for their floor
+   * taps "room"; somebody looking for a drink taps "menu". That is the whole
+   * change, and it is most of the fix.
+   */
+  const cafeButton = navButton("cup", "menu");
+  const shopButton = navButton("sofa", "room");
   /**
    * **The ladder gets a permanent slot, not a corner of another panel.**
    *
@@ -438,8 +453,8 @@ export function mountUI(root: HTMLElement): MountedUI {
   // the step began — which is the whole point: the shop's departments only
   // appear once the shop is open.
   rosterButton.dataset.guide = "cats";
-  cafeButton.dataset.guide = "cafe";
-  shopButton.dataset.guide = "shop";
+  cafeButton.dataset.guide = "menu";
+  shopButton.dataset.guide = "room";
   // Gentle "something's affordable" dot — an invitation, never a nag (§2).
   const cafeDot = el("span", "nudge-dot");
   cafeButton.appendChild(cafeDot);
@@ -747,7 +762,7 @@ export function mountUI(root: HTMLElement): MountedUI {
     panelUpdate = null;
 
     const panel = el("div", "panel");
-    panel.appendChild(backTo("café", renderCafePanel));
+    panel.appendChild(backTo("the menu", renderCafePanel));
     panel.appendChild(panelHeader("the coffees"));
     panel.appendChild(
       el(
@@ -814,7 +829,7 @@ export function mountUI(root: HTMLElement): MountedUI {
     panelUpdate = null;
 
     const panel = el("div", "panel");
-    panel.appendChild(backTo("café", renderCafePanel));
+    panel.appendChild(backTo("the menu", renderCafePanel));
     panel.appendChild(panelHeader("your own blends"));
 
     const refreshers: (() => void)[] = [];
@@ -1051,7 +1066,7 @@ export function mountUI(root: HTMLElement): MountedUI {
     panelUpdate = null;
 
     const panel = el("div", "panel");
-    panel.appendChild(backTo("café", renderCafePanel));
+    panel.appendChild(backTo("the menu", renderCafePanel));
     panel.appendChild(panelHeader("the menu"));
 
     const summary = el("div", "panel-note");
@@ -1121,19 +1136,19 @@ export function mountUI(root: HTMLElement): MountedUI {
     panelUpdate = null;
 
     const panel = el("div", "panel");
-    panel.appendChild(panelHeader("your café"));
+    panel.appendChild(panelHeader("the menu"));
     panel.appendChild(
       el(
         "div",
         "panel-note",
-        "appeal comes from your cats and the furniture in the room — the shop has more of both.",
+        "what you serve, and what you serve it with. appeal comes from your cats and your furniture — those live under room.",
       ),
     );
 
     const refreshers: (() => void)[] = [];
 
-    // The menu hub — three cards, the same shape as the shop's front page.
-    panel.appendChild(el("div", "hub-section", "the menu"));
+    // The menu hub — three cards, the same shape as the room's front page.
+    panel.appendChild(el("div", "hub-section", "drinks"));
     const menuGrid = el("div", "hub-grid");
     const menuState = () => {
       const state = gameStore.getState();
@@ -1162,7 +1177,7 @@ export function mountUI(root: HTMLElement): MountedUI {
     menuGrid.appendChild(
       hubCard({
         icon: "chart",
-        name: "the menu",
+        name: "what sells",
         hint: "everything you sell, and how it's doing.",
         note: (() => {
           const { state } = menuState();
@@ -1511,11 +1526,11 @@ export function mountUI(root: HTMLElement): MountedUI {
   /** How far into the current task's path the arrow has reached — see below. */
   let furthestGuideDepth = -1;
   const GUIDE_PATHS: Record<string, string[]> = {
-    "buy-bed": ["shop", "dept-cats", "buy-bed"],
+    "buy-bed": ["room", "dept-cats", "buy-bed"],
     adopt: ["adopt"],
-    "pick-ingredient": ["cafe", "blends", "ingredient"],
-    "invent-drink": ["cafe", "blends", "blend-name", "make-blend"],
-    "buy-chair": ["shop", "dept-comfort", "buy-armchair"],
+    "pick-ingredient": ["menu", "blends", "ingredient"],
+    "invent-drink": ["menu", "blends", "blend-name", "make-blend"],
+    "buy-chair": ["room", "dept-comfort", "buy-armchair"],
     // Placing happens in the world, under the player's finger. Nothing to
     // point at, and an arrow stuck to a button would be actively misleading.
     "place-bed": [],
@@ -1555,7 +1570,7 @@ export function mountUI(root: HTMLElement): MountedUI {
     // --- Front page: the departments, as cards --------------------------
     if (shopCategory === null) {
       panel.classList.add("shop-front");
-      head.appendChild(panelHeader("the shop"));
+      head.appendChild(panelHeader("your room"));
       panel.appendChild(head);
 
       /**
@@ -1595,7 +1610,40 @@ export function mountUI(root: HTMLElement): MountedUI {
       };
 
       const find = (id: string) => DEPARTMENTS.find((d) => d.id === id)!;
-      panel.appendChild(deptCard(find(STYLE_TAB), "hub-card-banner"));
+
+      /**
+       * **The builder goes first.** It was the last card on this page, under a
+       * banner, five departments and the arrange tile — eight things down —
+       * which is why Ellis could not find it. It is also the most powerful
+       * tool in the game: it is the only thing that changes the *shape* of the
+       * café rather than what is standing in it, so it belongs at the top with
+       * the other thing that changes the room itself.
+       */
+      panel.appendChild(el("div", "hub-section", "the room itself"));
+      {
+        const state = gameStore.getState();
+        const spots = expansionCandidates(state.tiles).length;
+        const patches = ownedPatches(state.tiles).length;
+        // Not a pager — it happens *in the room*, so this closes the panel and
+        // hands the café over to the tools.
+        panel.appendChild(
+          hubCard({
+            icon: "tool",
+            name: "floor & walls",
+            hint: "lay new floor, change the walls, put a window in.",
+            note:
+              patches >= MAX_PATCHES
+                ? "floor is maxed · styles to change"
+                : `${spots} spots · ${formatMoney(expansionCost(patches))}`,
+            variant: "hub-card-wide hub-card-extend",
+            onOpen: () => {
+              closePanel();
+              setExpanding?.(true);
+            },
+          }),
+        );
+      }
+      panel.appendChild(deptCard(find(STYLE_TAB), "hub-card-wide"));
 
       panel.appendChild(el("div", "hub-section", "furniture"));
       const grid = el("div", "hub-grid");
@@ -1610,28 +1658,8 @@ export function mountUI(root: HTMLElement): MountedUI {
       panel.appendChild(el("div", "hub-section", "your café"));
       panel.appendChild(deptCard(find(ARRANGE_TAB), "hub-card-wide"));
 
-      // Expansion isn't a pager — it happens *in the room*, so this card
-      // closes the shop and lights up the floor instead of opening a panel.
-      const state = gameStore.getState();
-      const spots = expansionCandidates(state.tiles).length;
-      // Builder mode is not a pager — it happens *in the room*, so this card
-      // closes the shop and hands the café over to the tools.
-      const patches = ownedPatches(state.tiles).length;
-      const extend = hubCard({
-        icon: "tool",
-        name: "builder",
-        hint: "lay floor, change the walls, change the boards.",
-        note:
-          patches >= MAX_PATCHES
-            ? "floor is maxed · styles to change"
-            : `${spots} spots · ${formatMoney(expansionCost(patches))}`,
-        variant: "hub-card-wide hub-card-extend",
-        onOpen: () => {
-          closePanel();
-          setExpanding?.(true);
-        },
-      });
-      panel.appendChild(extend);
+      // The builder used to live here, at the bottom. See "the room itself"
+      // above for why it does not any more.
 
       // No stage on the front page: nothing is spinning, so the canvas must
       // not be asked to draw into a rect that isn't there (and the resolution

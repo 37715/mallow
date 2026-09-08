@@ -23,7 +23,10 @@ This file is the shared brain for the project. **Read it before starting work in
 > starts growing past a screen or two of status, that is the signal to promote
 > and prune again.
 
-**Last updated:** 2026-09-08, later (**the game now says what to do next** —
+**Last updated:** 2026-09-08, evening (**the navigation says what is inside
+it** — `to do · cats · menu · room`, and the builder now *opens* the room panel
+instead of being the eighth thing on it. Earlier: **the game says what to do
+next** —
 a twelve-rung goal ladder that pays out, never expires and ticks over while you
 are away, which is the first real answer §0 has had to D7; and the menu became
 visible, because guests now carry the drink they ordered rather than the sales
@@ -529,6 +532,22 @@ being read into context every session. Every *rule* it taught has been promoted
 into the numbered sections; the archive holds the reasoning and the dead ends.
 **Append new entries there**, and mirror only the newest handful here.
 
+- *2026-09-08, evening* — **"why is the builder so hard to find": panels named
+  after the save rather than the player.**
+  ([full entry](docs/session-log.md))
+  - **The builder was the eighth thing on the shop's front page** — under a
+    banner, five departments and the arrange tile. The tool that lays floor and
+    changes walls was filed at the bottom of a shopping list.
+  - **The hubs were grouped by *data*, not intent.** "café" held drinks and
+    upgrades because those are `drinks` and `upgrades`; "shop" held everything
+    touching `purchased`/`placements`/`tiles`. Sensible for the code, meaningless
+    for a player — and **"café" and "shop" both just mean "the game"**.
+  - Nav is `to do · cats · menu · room` now, and the builder opens the room
+    panel in a section of its own beside the colourways. A rename and a
+    reorder; no new systems.
+  - **A rename reaches further than the labels**: `GUIDE_PATHS` resolves the
+    walkthrough's arrow through `data-guide`, so leaving those keys behind
+    would have left the arrow pointing at nothing on a first run.
 - *2026-09-08, later* — **"why is this game so damn boring": systems without
   structure.** ([full entry](docs/session-log.md))
   - **Four complaints, one cause.** "£500 and I don't know what to buy", "the
@@ -593,29 +612,6 @@ into the numbered sections; the archive holds the reasoning and the dead ends.
     the destination, bypassing the master gain. Every level "verified" with it
     this week was the balance and never the loudness. *A tool that measures the
     wrong stage will confirm whatever you already believe.*
-- *2026-09-04* — **`response.ok` is false on a phone: why no recording had ever
-  played in the app.** ([full entry](docs/session-log.md))
-  - **The clue was what still worked.** Synthesised sfx played, every `.m4a`
-    was silent — so the context, the master gain and the audio session were all
-    fine and only the files were missing. And Ellis heard the *synthesised*
-    purr on 2026-09-01, which means the recordings had never once played on the
-    phone, including the Wikimedia set from 2026-08-27.
-  - Ruled out first, by measurement: the iOS bundle was fresh and complete, the
-    Xcode folder reference and build phase were right, and a real WKWebView
-    decoded all six files — which killed the "WKWebView cannot decode AAC"
-    theory I was about to act on.
-  - **Then a Capacitor-shaped scheme handler found it in one line:**
-    `ok=false status=0 bytes=24607`, then `decode OK 2.41s`. A custom URL
-    scheme answers with a plain `URLResponse`, so WebKit synthesises status 0,
-    so `response.ok` is false for a file that loaded perfectly — and both
-    loaders said `if (!response.ok) return`.
-  - **Three.js was immune by accident** (its loaders use `XMLHttpRequest`),
-    which is why only audio broke and nothing looked wrong.
-  - **Every tool here drives headless Chrome over http** and all of them
-    reported the audio working, three times. `tools/webkit-probe.swift` is the
-    missing one — real WKWebView, real bundle, Capacitor-shaped scheme.
-  - *A guard copied from HTTP semantics is wrong wherever the transport is not
-    HTTP.*
 - **A browser cannot test the app, and now something can.**
   `swift tools/webkit-probe.swift dist` runs the built bundle in a real
   `WKWebView` behind a scheme handler shaped like Capacitor's. Every existing
@@ -879,6 +875,34 @@ colourway is a row in `data/customisation.ts`, not a layout edit.
   but cannot crush a hue out of the wood grain or darken the chalkboard past
   reading. Ellis: *"only a few subtle colour changes nothing crazy or itll look
   weird with the textures and stuff."*
+
+### The navigation names what is inside it (2026-09-08)
+
+Ellis: *"we need to fix the menu. the builder thing is important. why is it so
+hard to find? the entire organisation seems .. sub par."*
+
+**The panels were grouped by which part of the save they touch**, not by what
+the player wants to do — the drinks and the upgrades in one, everything
+reading `purchased`/`placements`/`tiles`/`customisation` in the other — and
+then labelled **"café"** and **"shop"**, two words that mean the same thing to
+somebody holding a phone. Neither says the walls are behind one of them.
+
+- **The nav is `to do · cats · menu · room`.** Somebody looking for their floor
+  taps *room*; somebody looking for a drink taps *menu*. That rename is most of
+  the fix, and it cost nothing.
+- **The builder leads the room panel.** It was the *last* card on that page —
+  under a banner, five departments and the arrange tile, eight things down —
+  which is exactly why it could not be found. It is also the only tool that
+  changes the *shape* of the café rather than what is standing in it, so it now
+  opens a section of its own ("the room itself") with the colourways beside it.
+- **Nothing is called the same thing twice.** A card named "the menu" used to
+  sit inside a panel titled "your café" next to a section header also called
+  "the menu"; it is "what sells" in a "drinks" section now. Two things with one
+  name is the muddle, in miniature.
+- **The walkthrough's hints and its arrow paths move with the labels.**
+  `GUIDE_PATHS` keys off `data-guide`, so a rename that misses them leaves the
+  arrow pointing at nothing — and the hint text is written out longhand
+  ("room → for the cats → cat bed"), so it has to be kept in step by hand.
 
 **It is sold in the shop, not in a menu of its own** (moved 2026-08-10, at
 Ellis's request). A separate "style" button was a second storefront for the

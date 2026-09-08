@@ -17,6 +17,38 @@ The five most recent entries also remain inline in `CLAUDE.md` §0. New entries 
 ---
 
 **Session log:**
+- *2026-09-08, evening* — **"why is the builder so hard to find": panels named
+  after the save rather than the player.**
+  - Ellis: *"we need to fix the menu. the builder thing is important. why is it
+    so hard to find? the entire organisation seems .. sub par. i dont know."*
+  - **Mapped it before touching anything.** The shop's front page ran: a
+    colours banner, five furniture departments, the arrange tile, and *then*
+    the builder — eight things down, at the bottom of a shopping list. The tool
+    that lays floor and changes walls was filed under buying furniture.
+  - **The deeper fault is that the two hubs were grouped by *data*.** "café"
+    held the drinks and the upgrades because those are `drinks` and `upgrades`
+    in the store; "shop" held everything that reads
+    `purchased`/`placements`/`tiles`/`customisation`. That is a sensible split
+    for the code and a meaningless one for a player, and the labels made it
+    worse: **"café" and "shop" both just mean "the game"**. Neither tells you
+    which one has your walls in it.
+  - So the nav says what is inside: **`to do · cats · menu · room`**. It is a
+    rename and a reorder, no new systems, and it is most of the fix.
+  - **The builder now opens the room panel**, in a section of its own with the
+    colourways — the two things that change the room itself, above the things
+    you put *in* it.
+  - **Three names collided and one had to go.** A card called "the menu" sat
+    inside a panel titled "your café" under a section header also called "the
+    menu". It is "what sells", under "drinks", in a panel called "the menu".
+  - **The rename reaches further than the labels**, which is the part worth
+    remembering: `GUIDE_PATHS` resolves the walkthrough's arrow through
+    `data-guide` attributes, so leaving those as `cafe`/`shop` would have left
+    the arrow pointing at nothing on a first run — and the hint strings spell
+    the path out longhand, so they are kept in step by hand. Verified by
+    replaying the walkthrough: the hint reads *"room → for the cats → cat
+    bed"* and the arrow still resolves.
+  - The HUD tests found nav buttons by index and broke when the row grew; they
+    look them up by label now, which is what a player does.
 - *2026-09-08, later* — **"why is this game so damn boring": systems without
   structure.**
   - Ellis: *"finish the tutorial and i got 500 bux and idk what to buy as a new

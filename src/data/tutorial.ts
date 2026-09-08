@@ -90,11 +90,11 @@ export const MAL_SCRIPT: TutorialLine[] = [
     expression: "thinking",
   },
   {
-    text: "here — this is on me. open the shop and find the cat beds.",
+    text: "here — this is on me. open your room and find the cat beds.",
     gesture: "Social_Stand_Discussion_1",
     expression: "happy",
     task: "buy-bed",
-    waitHint: "shop → for the cats → cat bed",
+    waitHint: "room → for the cats → cat bed",
   },
   // **Buying and putting down are two steps**, because they are two things the
   // player has to learn and because the game genuinely treats them separately.
@@ -154,7 +154,7 @@ export const MAL_SCRIPT: TutorialLine[] = [
     gesture: "Social_Stand_Discussion_1",
     expression: "happy",
     task: "buy-chair",
-    waitHint: "shop → comfort → armchair",
+    waitHint: "room → comfort → armchair",
   },
   {
     text: "by the window is nice. green means it fits, red means move it a bit.",
@@ -188,14 +188,14 @@ export const MAL_SCRIPT: TutorialLine[] = [
     gesture: "Social_Stand_Discussion_1",
     expression: "happy",
     task: "pick-ingredient",
-    waitHint: "café → the menu → the cabinet",
+    waitHint: "menu → blends → the cabinet",
   },
   {
     text: "nice. now stir it into something and give it a name — inventing is always free.",
     gesture: "Social_Stand_Discussion_2",
     expression: "happy",
     task: "invent-drink",
-    waitHint: "café → the menu → invent a blend",
+    waitHint: "menu → blends → invent a blend",
   },
   // **"straight on the board" was a step too clever** (Ellis, 2026-08-27:
   // *"sounds weird it should just be on the menu"*). There *is* a chalkboard on
