@@ -17,6 +17,44 @@ The five most recent entries also remain inline in `CLAUDE.md` §0. New entries 
 ---
 
 **Session log:**
+- *2026-09-08, night (fourth)* — **"after the first song ends another song
+  never comes on either": the harness could not hear.**
+  ([full entry](docs/session-log.md))
+  - Second report of the same thing, after I had "verified" the fix in Chrome.
+    **`tools/shot.mjs` could not see audio at all.** Chrome's autoplay policy
+    left every `AudioContext` `suspended`, and a suspended context's
+    `currentTime` is frozen at 0 — so `setTimeout` callbacks still fired and my
+    probes reported the playlist advancing while **not one sample had been
+    produced**. Three runs in one session, all confirming nothing. The tool
+    passes `--autoplay-policy=no-user-gesture-required` now.
+  - **A tool that measures the wrong stage will confirm whatever you already
+    believe** — the same sentence §10 already carried about `render-audio.mjs`
+    rendering past the master gain. It cost a week then and two rounds now.
+  - **The scheduler was a single point of failure.** Each session armed one
+    `setTimeout` for its own length plus the rest, and the only thing that would
+    ever schedule the next piece was that one callback. Lose it and the music
+    stops for ever — which is precisely the reported symptom. It is a repeating
+    half-second tick now.
+  - **`ctx.resume()` was only ever called from a tap.** A context iOS suspends
+    while somebody is doing nothing but *listening* was never revived. The rest
+    between pieces, with no source playing, is exactly when a platform decides
+    nothing is going on. The tick resumes it.
+  - **The first version of the tick waited on the audio clock, which is the one
+    clock that stops.** Caught because the rewrite played nothing at all in
+    Chrome — the same suspension, this time failing loudly instead of quietly.
+    A bug I introduced, found only because the harness had just been fixed.
+  - **WebKit was innocent**: checked directly in a real `WKWebView` that
+    `setValueAtTime` at a curve's endpoint and the crossfade voice gains are
+    all accepted. Not the cause.
+  - **The order of discovery is the lesson.** I went looking for a WebKit
+    automation quirk, wrote a `WKWebView` probe for it, and cleanly eliminated
+    it. That was worth doing and it was not where the bug was. What actually
+    moved things was asking a much dumber question — *is the clock in my test
+    harness even running?* — which took one probe and invalidated every audio
+    result from this entire session.
+  - **Verified after the fix, in a harness that can now hear**: lock lane at
+    6s, interlude 1 at 93s. Before the harness fix the same probe reported
+    tracks starting while the context was suspended at `currentTime` 0.000.
 - *2026-09-08, night (third)* — **A walkthrough with a failure mode and no
   exit.** ([full entry](docs/session-log.md))
   - Ellis: *"im stuck on the tutorial tapping and its not progressin … if i

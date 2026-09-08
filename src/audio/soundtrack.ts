@@ -98,6 +98,16 @@ const FADE_OUT = CYCLE.fadeOut;
 const REST = CYCLE.rest;
 
 /**
+ * How often the playlist checks whether anything is due.
+ *
+ * Half a second: fine enough that the rest between pieces is accurate to well
+ * inside what anybody could hear, and cheap enough to be beneath notice — it is
+ * two comparisons and a clock read. The point is not precision, it is that
+ * losing one tick costs half a second rather than the rest of the session.
+ */
+const TICK_MS = 500;
+
+/**
  * Level, relative to the file.
  *
  * **Above 1, because the file is quiet.** `locklane.m4a` peaks at 0.327 —
@@ -218,7 +228,36 @@ export async function startSoundtrack(
    */
   let playing = false;
   let live: AudioBufferSourceNode[] = [];
-  let timer: number | null = null;
+  /**
+   * The repeating check that keeps the playlist moving. **Not one long timer.**
+   *
+   * Each session used to arm a single `setTimeout` for its own length plus the
+   * rest — eighty-odd seconds — and if that one callback did not arrive, the
+   * music stopped for good, because the only thing that would ever schedule the
+   * next piece was the callback itself. That is a single point of failure with
+   * no way back, and it matches the one symptom reported twice: the first song
+   * plays, and nothing ever follows it.
+   *
+   * A short repeating check cannot be lost the same way, and because it asks the
+   * **audio clock** rather than counting wall-clock milliseconds, it is also
+   * immune to the two drifting apart — which on iOS they do, every time the
+   * context is interrupted.
+   */
+  let ticker: number | null = null;
+  /**
+   * When the next session is due, on the **wall clock**, in `performance.now()`
+   * milliseconds.
+   *
+   * **Not the audio clock**, and that distinction is the whole of a bug found
+   * while writing this. A suspended `AudioContext` freezes `currentTime` — it
+   * is a clock made of samples, and a stopped context produces none — so a
+   * scheduler that waits for the audio clock to reach a number waits for ever
+   * on any platform that suspends the context, which is exactly the platform
+   * this is being fixed for. The wall clock keeps running regardless, the work
+   * gets scheduled, and it comes out of the speakers as soon as the context is
+   * awake again.
+   */
+  let nextPlayAt = 0;
   /** The last piece played, so a shuffle never repeats one back to back. */
   let previous: LoadedTrack | null = null;
 
@@ -340,7 +379,28 @@ export async function startSoundtrack(
     gain.gain.cancelScheduledValues(ctx.currentTime);
     stopSources();
     const span = schedule(ctx.currentTime);
-    timer = window.setTimeout(play, (span + REST) * 1000);
+    nextPlayAt = performance.now() + (span + REST) * 1000;
+  }
+
+  /**
+   * Is anything due, and is the context even awake?
+   *
+   * **The resume is the important half.** `ctx.resume()` is only otherwise
+   * called from `initAudio`, i.e. from a tap — so a context that iOS suspends
+   * while the player is doing nothing but listening is never revived, and the
+   * café goes quiet until they happen to touch the screen. Between pieces there
+   * is a rest with no source playing, which is exactly the moment a platform
+   * decides nothing is going on.
+   */
+  function tick(): void {
+    if (!playing) return;
+    // `BaseAudioContext` has no `resume` in the types; an `OfflineAudioContext`
+    // has neither, and must not be poked at either way.
+    const context = ctx as { state?: string; resume?: () => Promise<void> };
+    if (context.state === "suspended" || context.state === "interrupted") {
+      void context.resume?.().catch(() => {});
+    }
+    if (performance.now() >= nextPlayAt) play();
   }
 
   if (options.offlineSeconds !== undefined) {
@@ -356,20 +416,21 @@ export async function startSoundtrack(
       if (on) {
         // **A beat of quiet first, every time.** Straight in on the same tap
         // that finished the tutorial would make the music feel like a reward
-        // screen; a few seconds of café, then twelve seconds of fade, and it
-        // arrives without ever announcing itself. Back at the top of the piece
-        // rather than half way through one.
-        timer = window.setTimeout(play, INTRO_DELAY * 1000);
+        // screen; a few seconds of café, then the fade, and it arrives without
+        // ever announcing itself. Back at the top of the piece rather than half
+        // way through one.
+        nextPlayAt = performance.now() + INTRO_DELAY * 1000;
+        if (ticker === null) ticker = window.setInterval(tick, TICK_MS);
       } else {
-        if (timer !== null) window.clearTimeout(timer);
-        timer = null;
+        if (ticker !== null) window.clearInterval(ticker);
+        ticker = null;
         stopSources();
       }
     },
     stop() {
       playing = false;
-      if (timer !== null) window.clearTimeout(timer);
-      timer = null;
+      if (ticker !== null) window.clearInterval(ticker);
+      ticker = null;
       stopSources();
     },
   };

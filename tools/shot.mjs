@@ -71,6 +71,22 @@ const chrome = spawn(CHROME, [
   `--window-size=${width},${height}`,
   "--hide-scrollbars",
   "--mute-audio",
+  /**
+   * **Without this the AudioContext never starts, and audio "verification"
+   * here is worthless.** Chrome's autoplay policy leaves a context `suspended`
+   * until a real user gesture, and a suspended context's `currentTime` is
+   * frozen at 0 — it is a clock made of samples and a stopped context makes
+   * none. Anything driven by `setTimeout` still fires, so a probe watching for
+   * callbacks or DOM sees a soundtrack "playing" while not one sample has been
+   * produced. That is how three separate runs in one session reported the
+   * playlist advancing correctly (2026-09-08).
+   *
+   * Same family as `render-audio.mjs` measuring a mix nobody hears (§10): a
+   * tool that measures the wrong stage will confirm whatever you already
+   * believe. `--mute-audio` stays — it silences the *output*, which is what we
+   * want; it is the policy, not the mute, that froze the clock.
+   */
+  "--autoplay-policy=no-user-gesture-required",
   // Headless Chrome falls back to SwiftShader without this; the scene still
   // renders, just slowly. Keep it so timings mean something.
   "--enable-unsafe-swiftshader",

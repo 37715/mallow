@@ -53,7 +53,7 @@ import { levelProgress } from "@/data/progression";
 import { FloaterLayer } from "@/ui/floaters";
 import { initAnalytics } from "@/analytics/analytics";
 import { emitGameEvent, onGameEvent } from "@/core/events";
-import { allowMusic, initAudio, setTrackListener, playChirp, playCoin, playMeow, playPurchase, playPurr, playTap, setMusicMuted } from "@/audio/audio";
+import { allowMusic, currentTrack, initAudio, setTrackListener, playChirp, playCoin, playMeow, playPurchase, playPurr, playTap, setMusicMuted } from "@/audio/audio";
 
 async function bootstrap(): Promise<void> {
   const canvas = document.getElementById("scene") as HTMLCanvasElement;
@@ -963,7 +963,7 @@ async function bootstrap(): Promise<void> {
        * module instance whose listeners nobody registered, which looks exactly
        * like the feature being broken.
        */
-      audio: { allowMusic, initAudio, setTrackListener, playPurr, playMeow, playChirp },
+      audio: { allowMusic, initAudio, setTrackListener, currentTrack, playPurr, playMeow, playChirp },
       nowPlaying,
       /**
        * The guests, and their walks. §17 asks for a handle on anything

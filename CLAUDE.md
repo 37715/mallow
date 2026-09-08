@@ -23,7 +23,12 @@ This file is the shared brain for the project. **Read it before starting work in
 > starts growing past a screen or two of status, that is the signal to promote
 > and prune again.
 
-**Last updated:** 2026-09-08, night (**there is a way out of the walkthrough
+**Last updated:** 2026-09-08, night (**the screenshot tool could not hear
+audio, and had been confirming a soundtrack that was producing no sound at
+all** — Chrome's autoplay policy left every context suspended with a frozen
+clock; the playlist now runs off a repeating tick that also resumes a suspended
+context, instead of one long timer nobody would notice going missing. Earlier:
+**there is a way out of the walkthrough
 at last** — `skip()` had been written and called from nowhere for weeks, and a
 placement that lost a race with the room rebuild turned that gap into a game
 you could not play; xp now lands with the furniture rather than with the button
@@ -547,6 +552,35 @@ being read into context every session. Every *rule* it taught has been promoted
 into the numbered sections; the archive holds the reasoning and the dead ends.
 **Append new entries there**, and mirror only the newest handful here.
 
+- *2026-09-08, night (fourth)* — **"after the first song ends another song
+  never comes on either": the harness could not hear.**
+  ([full entry](docs/session-log.md))
+  - Second report of the same thing, after I had "verified" the fix in Chrome.
+    **`tools/shot.mjs` could not see audio at all.** Chrome's autoplay policy
+    left every `AudioContext` `suspended`, and a suspended context's
+    `currentTime` is frozen at 0 — so `setTimeout` callbacks still fired and my
+    probes reported the playlist advancing while **not one sample had been
+    produced**. Three runs in one session, all confirming nothing. The tool
+    passes `--autoplay-policy=no-user-gesture-required` now.
+  - **A tool that measures the wrong stage will confirm whatever you already
+    believe** — the same sentence §10 already carried about `render-audio.mjs`
+    rendering past the master gain. It cost a week then and two rounds now.
+  - **The scheduler was a single point of failure.** Each session armed one
+    `setTimeout` for its own length plus the rest, and the only thing that would
+    ever schedule the next piece was that one callback. Lose it and the music
+    stops for ever — which is precisely the reported symptom. It is a repeating
+    half-second tick now.
+  - **`ctx.resume()` was only ever called from a tap.** A context iOS suspends
+    while somebody is doing nothing but *listening* was never revived. The rest
+    between pieces, with no source playing, is exactly when a platform decides
+    nothing is going on. The tick resumes it.
+  - **The first version of the tick waited on the audio clock, which is the one
+    clock that stops.** Caught because the rewrite played nothing at all in
+    Chrome — the same suspension, this time failing loudly instead of quietly.
+    A bug I introduced, found only because the harness had just been fixed.
+  - **WebKit was innocent**: checked directly in a real `WKWebView` that
+    `setValueAtTime` at a curve's endpoint and the crossfade voice gains are
+    all accepted. Not the cause.
 - *2026-09-08, night (third)* — **A walkthrough with a failure mode and no
   exit.** ([full entry](docs/session-log.md))
   - Ellis: *"im stuck on the tutorial tapping and its not progressin … if i
@@ -1769,6 +1803,18 @@ Chrome.
   the interface's text went invisible and the adopt button went dead in one
   edit. `ui/styles.test.ts` guards the shared rules; add to it rather than
   trusting the build.
+- **`tools/shot.mjs` could not see audio at all until 2026-09-08, and said it
+  could.** Chrome's autoplay policy left every `AudioContext` `suspended`, and a
+  suspended context's `currentTime` is frozen at 0 — so anything driven by
+  `setTimeout` still fired and a probe watching callbacks or the DOM reported a
+  soundtrack "playing" while not one sample had been produced. **Three separate
+  runs in one session confirmed a playlist that was doing nothing.** The tool
+  now passes `--autoplay-policy=no-user-gesture-required`; `--mute-audio` stays,
+  because silencing the output is not the same as stopping the clock. Same
+  family as `render-audio.mjs` measuring a mix nobody hears (§10), and the same
+  rule: **a tool that measures the wrong stage will confirm whatever you already
+  believe.** If a check involves audio *timing*, prove the clock is advancing
+  before trusting the result.
 - **Never open straight into a keyboard.** An autofocused field throws the
   keyboard over the moment the game most wants to be looked at.
 - **A WKWebView is a browser, and it will act like one unless told not to.**
@@ -2492,6 +2538,32 @@ fade out again to silence for a little before fading back in again."*
   reads as the soundtrack jumping when it changes piece. `Track.trim` is
   `lockLaneRms / thisTrackRms`, and it took the rendered peak from 0.565 to
   0.443 — the limiter had been squashing the loudest track.
+- **The playlist runs off a half-second tick reading the *audio* clock, not one
+  long `setTimeout`** (2026-09-08, after the same report twice). Each session
+  used to arm a single timer for its own length plus the rest — eighty-odd
+  seconds — and the only thing that would ever schedule the next piece was that
+  one callback. **A single point of failure with no way back**, and its failure
+  mode is exactly the symptom reported: the first song plays and nothing follows
+  it, for ever. A short repeating check cannot be lost the same way, and asking
+  the audio clock rather than counting wall-clock milliseconds makes it immune
+  to the two drifting apart, which on iOS they do every time the context is
+  interrupted.
+  - **The same tick resumes a suspended context**, which was a real gap:
+    `ctx.resume()` was only ever called from `initAudio`, i.e. from a tap. A
+    context that iOS suspends while somebody is doing nothing but *listening*
+    was never revived, and the café stayed silent until they happened to touch
+    the screen. Between pieces there is a rest with no source playing — exactly
+    the moment a platform decides nothing is going on.
+  - **The wait is on the wall clock, and that is not an oversight.** The first
+    version of this tick compared the *audio* clock, which is wrong for the
+    exact platform it is meant to fix: a suspended context freezes
+    `currentTime` — it is a clock made of samples, and a stopped context makes
+    none — so waiting for it to reach a number waits for ever. `performance.now()`
+    keeps running, the work gets scheduled, and it comes out of the speakers as
+    soon as the context is awake.
+  - **WebKit accepts every automation call in `schedule()`** — checked directly
+    in a real `WKWebView`: `setValueAtTime` at a curve's endpoint, and the
+    crossfade voice gains. Neither is the cause; don't re-check them.
 - **Nothing repeats back to back.** `pick()` excludes the piece just played.
 - **It plays at 0.88 speed** (`PLAYBACK_RATE`, 2026-09-08). Ellis: *"i also want
   to slow down all the music - feels like its all going too fast."* WebAudio's
