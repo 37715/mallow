@@ -48,4 +48,36 @@ describe("styles.css", () => {
       .filter(Boolean);
     expect(properties).toEqual(["text-transform"]);
   });
+
+  /**
+   * Nothing outside a text field may be selectable.
+   *
+   * A WKWebView is a browser, so a long-press on any label selects it, paints
+   * it blue and raises the Copy / Look Up callout — the loudest "this is a web
+   * page in a costume" tell an app can have (Ellis, 2026-09-08). The rule is
+   * universal and the exceptions are the three text fields the player types
+   * into, so this pins both halves: without the exception, renaming a cat
+   * would lose its caret and its paste.
+   */
+  it("turns off text selection everywhere but the text fields", () => {
+    const ruleFor = (selector: string) =>
+      [...withoutComments.matchAll(/([^{}]*)\{([^{}]*)\}/g)].find((m) =>
+        m[1]
+          .split(",")
+          .map((s) => s.trim())
+          .includes(selector),
+      );
+
+    const body = ruleFor("body");
+    expect(body, "no shared html/body rule").toBeDefined();
+    expect(body![2]).toMatch(/user-select:\s*none/);
+    expect(body![2], "iOS raises a callout even when selection is off").toMatch(
+      /-webkit-touch-callout:\s*none/,
+    );
+
+    const input = ruleFor("input");
+    expect(input, "text fields need selection back for the caret").toBeDefined();
+    expect(input![2]).toMatch(/user-select:\s*text/);
+    expect(input![1]).toContain("textarea");
+  });
 });

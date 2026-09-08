@@ -23,7 +23,9 @@ This file is the shared brain for the project. **Read it before starting work in
 > starts growing past a screen or two of status, that is the signal to promote
 > and prune again.
 
-**Last updated:** 2026-09-08, night (**"collect" was dead to a finger** — the
+**Last updated:** 2026-09-08, night (**the app stopped acting like a web
+page** — labels no longer highlight blue on a slipped tap, and panels no longer
+rubber-band. Earlier: **"collect" was dead to a finger** — the
 goals panel rebuilt its whole DOM on every store change, which is every frame,
 so the button under your thumb was gone two frames later and no tap ever
 became a click; and the now-playing chip was sitting *underneath* the panel
@@ -568,6 +570,13 @@ into the numbered sections; the archive holds the reasoning and the dead ends.
   - **The music plays at 0.88** (*"feels like its all going too fast"*), which
     is a resampler, so it is two semitones flatter as well as 12% slower.
     Everything in `schedule()` had to start dividing by it.
+  - **And the app was behaving like a web page.** *"why is it sometimes like..
+    i accidently highlight stuff in blue as if im on a website?"* — `user-select:
+    none` was set on the canvas only, so every label in the DOM was selectable
+    and a tap with any drag in it painted one blue. Global rule now, with the
+    three text fields as the only exceptions, plus `-webkit-touch-callout`
+    (a separate property — iOS raises the magnifier even where selection is
+    off) and `overscroll-behavior: contain` on the two scrollers.
 - *2026-09-08, night* — **A soundtrack that stopped rather than a soundtrack
   that broke.** ([full entry](docs/session-log.md))
   - Ellis: *"i finished listening to the first song (which was an interlude i
@@ -1722,6 +1731,22 @@ Chrome.
   trusting the build.
 - **Never open straight into a keyboard.** An autofocused field throws the
   keyboard over the moment the game most wants to be looked at.
+- **A WKWebView is a browser, and it will act like one unless told not to.**
+  Three defaults leak through and each one reads as "this is a web page in a
+  costume" (Ellis, 2026-09-08: *"why is it sometimes like.. i accidently
+  highlight stuff in blue as if im on a website? surely that should never
+  happen on an app"*). All three are set on `html, body` in `styles.css`:
+  `user-select: none` (a long-press — or any tap with drag in it — selects a
+  label and paints it blue), `-webkit-touch-callout: none` (a *separate*
+  property; iOS raises the magnifier and the Copy / Look Up bar even where
+  selection is already off), and `overscroll-behavior: contain` on every
+  scroller (rubber-banding past the end of a panel). **The exceptions are the
+  text fields and only those** — selection is how a caret is placed and how
+  paste works, so `input, textarea, [contenteditable]` take it back. Written as
+  a global rule with three exceptions rather than a per-widget opt-in, because
+  the opt-in version is wrong the first time somebody adds a panel.
+  Keep input `font-size` at **16px or more**: below that, iOS zooms the whole
+  page when the field takes focus.
 - **Never fail silently on a tap.** A rule with no explanation is
   indistinguishable from a bug — an unaffordable button says what is missing
   and shakes; it does not sit inert.

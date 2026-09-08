@@ -115,6 +115,35 @@ body {
   color: var(--chalk);
   -webkit-font-smoothing: antialiased;
   -webkit-tap-highlight-color: transparent;
+  /* **Nothing in a game is selectable text.** A WKWebView is a browser, so
+     without this a long-press — or a tap with a bit of drag in it, which is
+     most taps on a phone — selects a label, paints it blue and throws up the
+     Copy / Look Up callout. Ellis, 2026-09-08: *"why is it sometimes like.. i
+     accidently highlight stuff in blue as if im on a website? surely that
+     should never happen on an app."* Quite right: it is the single loudest
+     "this is a web page in a costume" tell there is.
+
+     Set here rather than per-widget because the rule is universal and the
+     exceptions are three text fields — a blocklist would be wrong the first
+     time somebody adds a panel, which is exactly how `sanitizeInstances` ate
+     the furniture (§8). `-webkit-touch-callout` is a separate property and
+     needs saying too: it suppresses the magnifier and the callout bar that
+     iOS raises on a long press even where selection is already off. */
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+/* The exceptions, and the only ones: the player types a cat's name, their
+   café's name and their own, and a blend's name. Selection is not a nicety in
+   a text field — it is how the caret is placed and how paste works, so turning
+   it off here would break renaming rather than merely tidy it. */
+input,
+textarea,
+[contenteditable] {
+  -webkit-user-select: text;
+  user-select: text;
+  -webkit-touch-callout: default;
 }
 
 #app {
@@ -1173,6 +1202,12 @@ body {
   background: var(--slate);
   box-shadow: var(--lift);
   overflow-y: auto;
+  /* **No rubber-band.** Without this, scrolling a panel past its end bounces
+     and drags the whole view with it — the other half of Ellis's "as if im on
+     a website" (2026-09-08), and the same one-line fix a native scroll view
+     gets for free. `contain` keeps the bounce inside the panel rather than
+     chaining it out to the page. */
+  overscroll-behavior: contain;
   animation: card-pop 240ms cubic-bezier(0.34, 1.3, 0.64, 1);
   will-change: transform, opacity;
 }
@@ -2732,6 +2767,12 @@ body {
   box-shadow: var(--lift);
   padding: 18px 16px 20px;
   overflow-y: auto;
+  /* **No rubber-band.** Without this, scrolling a panel past its end bounces
+     and drags the whole view with it — the other half of Ellis's "as if im on
+     a website" (2026-09-08), and the same one-line fix a native scroll view
+     gets for free. `contain` keeps the bounce inside the panel rather than
+     chaining it out to the page. */
+  overscroll-behavior: contain;
 }
 
 .shop-front .shop-head {

@@ -44,6 +44,21 @@ The five most recent entries also remain inline in `CLAUDE.md` §0. New entries 
   - **The music plays at 0.88** (*"feels like its all going too fast"*), which
     is a resampler, so it is two semitones flatter as well as 12% slower.
     Everything in `schedule()` had to start dividing by it.
+  - **And the app was behaving like a web page.** *"why is it sometimes like..
+    i accidently highlight stuff in blue as if im on a website?"* — `user-select:
+    none` was set on the canvas only, so every label in the DOM was selectable
+    and a tap with any drag in it painted one blue. Global rule now, with the
+    three text fields as the only exceptions, plus `-webkit-touch-callout`
+    (a separate property — iOS raises the magnifier even where selection is
+    off) and `overscroll-behavior: contain` on the two scrollers.
+  - **The opt-in version of that rule would have been wrong immediately.** The
+    tempting shape is `user-select: none` on each panel class; the correct one
+    is a global with an exception list, because the failure mode of a missed
+    widget is invisible until somebody's finger slips on it. Same argument as
+    `sanitizeInstances` naming one id (§8).
+  - **Input font sizes were already 16–17px**, which is the other half of this:
+    below 16, iOS zooms the whole page when a field takes focus. Checked rather
+    than assumed.
   - **Why the desktop probe could not have found it.** Three separate runs
     claimed rewards successfully: a single claim, five claims in a row on a
     migrated café, and a frame-time comparison with the panel open versus shut
