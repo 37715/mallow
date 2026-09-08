@@ -9,6 +9,7 @@ import {
   snapToGrid,
   type Obstacle,
   type Point,
+  type WallFace,
 } from "@/systems/placement";
 
 /**
@@ -375,5 +376,49 @@ describe("placement rules", () => {
       // §9: the interface speaks lowercase.
       expect(message).toBe(message.toLowerCase());
     }
+  });
+
+  /**
+   * One menu board per wall run.
+   *
+   * **Not a collision rule**, which is the whole reason it needs its own test:
+   * two boards sit side by side on the same wall without touching, so every
+   * overlap check in this file passes them happily. Ellis asked for it as a
+   * composition rule (2026-09-08) and it is enforced by wall *identity*, so the
+   * second board is refused on the same run and allowed on the other one.
+   */
+  it("allows one menu board per wall run, and another on a different wall", () => {
+    const walls: WallFace[] = [
+      { axis: "x", at: -2, from: -2, to: 2 },
+      { axis: "z", at: -2, from: -2, to: 2 },
+    ];
+    const existing: Obstacle = {
+      minX: -2.1,
+      maxX: -1.9,
+      minZ: -1.5,
+      maxZ: -0.9,
+      flat: false,
+      wall: true,
+      kind: "blackboard",
+      id: "board-1",
+    };
+    const moving = { wall: true, kind: "blackboard", onePerWall: true, id: "board-2" };
+    // The wall branch returns before any of these are read; they are here
+    // because the type is honest about what a caller normally supplies.
+    const rules = { walls, surfaces: [], routeClearance: 0.34 };
+
+    // Same wall, well clear of the first board: refused all the same.
+    const sameWall = { minX: -2.1, maxX: -1.9, minZ: 0.9, maxZ: 1.5 };
+    const a = checkPlacement(sameWall, [existing], [], rules, moving);
+    expect(a.ok).toBe(false);
+    expect(a.reason).toBe("one-per-wall");
+
+    // The other run is a different wall, so it is fine.
+    const otherWall = { minX: 0.9, maxX: 1.5, minZ: -2.1, maxZ: -1.9 };
+    expect(checkPlacement(otherWall, [existing], [], rules, moving).ok).toBe(true);
+
+    // And the rule is per kind — the shelves are not a menu board.
+    const shelves = { ...moving, kind: "shelves" };
+    expect(checkPlacement(sameWall, [existing], [], rules, shelves).ok).toBe(true);
   });
 });

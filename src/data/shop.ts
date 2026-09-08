@@ -101,6 +101,20 @@ export interface ShopItem {
   wall?: boolean;
   /** Height a wall piece hangs at, in world units. */
   wallY?: number;
+  /**
+   * At most one of these per wall run.
+   *
+   * Ellis, 2026-09-08: *"i also shouldnt be able to buy more than one menu
+   * board per wall, not including walls with windows obviously."* Two boards on
+   * one wall is not a collision — they fit side by side quite happily — so the
+   * overlap test will never catch it; it is a *composition* rule, and it needs
+   * saying out loud.
+   *
+   * The window half needs no code: a glazed run is already refused outright
+   * (`"glazed"`), so a wall with a window in it is not a wall you can hang one
+   * on in the first place.
+   */
+  onePerWall?: boolean;
 }
 
 const catsAtLeast = (n: number): UnlockCondition => ({
@@ -164,7 +178,7 @@ export const SHOP_ITEMS: ShopItem[] = [
   { id: "counter-treats", name: "Milkshakes & cakes", blurb: "Something to look at while you queue.", category: "counter", price: 90, appeal: 0.3, unlock: null, preview: "Food_Milkshake_Strawberry" },
 
   // --- Decoration ----------------------------------------------------------
-  { id: "blackboard", name: "Menu board", blurb: "Chalked up behind the counter.", category: "decor", price: 80, appeal: 0.3, unlock: null, preview: "Blackboard_Large", slot: "wallWood", wall: true, wallY: 2.373 },
+  { id: "blackboard", name: "Menu board", blurb: "Chalked up behind the counter.", category: "decor", price: 80, appeal: 0.3, unlock: null, preview: "Blackboard_Large", slot: "wallWood", wall: true, wallY: 2.373, onePerWall: true },
   { id: "shelves", name: "Wall shelves", blurb: "Beans, cups and a trailing plant.", category: "decor", price: 150, appeal: 0.4, unlock: null, preview: "Shelf_A_Plank", slot: "wallWood", wall: true, wallY: 1.857 },
   { id: "plants", name: "Plants", blurb: "Green, and quietly thriving.", category: "decor", price: 110, appeal: 0.4, unlock: catsAtLeast(2), preview: "Plant_Cactus_A_1" },
 

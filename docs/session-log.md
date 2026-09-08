@@ -17,6 +17,62 @@ The five most recent entries also remain inline in `CLAUDE.md` §0. New entries 
 ---
 
 **Session log:**
+- *2026-09-08, night (third)* — **A walkthrough with a failure mode and no
+  exit.** ([full entry](docs/session-log.md))
+  - Ellis: *"im stuck on the tutorial tapping and its not progressin … if i
+    restart the app the tutorial restarts too."* Two faults, and the second
+    turned the first into a trap.
+  - **`startPlacing` raced the room rebuild and gave up silently.** The room
+    rebuilds *asynchronously* from the store, so a bought piece is only
+    findable once it resolves; the retry was thirty frames — about a second at
+    the frame cap — and then it returned without a word. Player holding a
+    receipt, no ghost, and the step that asked for it can never complete. It
+    awaits the rebuild promise now instead of guessing how long it takes.
+  - **`TutorialGuide.skip()` had been written, correct and called from nowhere**
+    since it was added; §0 carried it as a known gap for weeks. The reason was
+    sound — an easy skip means a first-timer misses the introduction with a
+    stray tap — so it is not on the tap-anywhere path: its own small underlined
+    control, shown only after **thirty seconds stuck on one step**, timer
+    resetting each step. Skipping leaves through the normal exit, so the gift is
+    paid and `tutorialDone` is set. **That last part is the one that matters**:
+    without it a relaunch restarts the walkthrough and a dead end becomes a loop.
+  - **XP now moves when the piece lands**, like money (§8). It was granted on
+    the button press and clawed back on cancel, so cancelling visibly
+    *un*-levelled you. Granting it in `settlePurchase` means the buy-then-cancel
+    xp tap the clawback existed to plug cannot be expressed.
+  - **Guests arrived carrying the coffee they were about to queue for.** The
+    held prop was visible from spawn, which made the counter a queue for
+    something they already had — and is why being served never looked like
+    anything. `setCarrying` is false until `servedAt`.
+  - **The now-playing chip was reported missing a third time.** Two earlier
+    causes were real bugs; this one is that a seven-second notice in a corner
+    can just be missed. Settings carries a live **now playing** row now — a
+    moment that has to be caught is a bad way to tell somebody anything they
+    might want twice.
+  - **One menu board per wall** (`ShopItem.onePerWall`). Not a collision rule —
+    two boards sit side by side quite happily, so no overlap test would ever
+    object — so it is compared by wall *identity*. The window half needed no
+    code: a glazed run is already refused.
+  - **The probe that "reproduced" the freeze was reproducing my own mistake.**
+    Driving the walkthrough with `buyBed()` then `beginPlacing()` left the mover
+    inactive and the guide stuck, which looked exactly like Ellis's report —
+    but the UI does not call `beginPlacing` directly, it calls `startPlacing`,
+    which retries. The bug was real and adjacent; the repro was not. Driven
+    properly, the whole walkthrough completes.
+  - **Three sightings that were not the bug**, worth writing down so the next
+    session does not re-check them: the armchair's tutorial spot is valid (it
+    commits at 1.5,-1 with the cat bed already down); `nearestValidSpot` covers
+    a spot that has become occupied; and the tick is `disabled` while the ghost
+    is red, which is correct but means a stuck player's taps land on nothing.
+  - **`/held/i` matched a bone.** The lip-sync pack adds `held_item_tray` and
+    `held_item_notepad` joints, so a traverse looking for the held *mesh* finds
+    a skeleton node first and reports a cup that is not there. Match on
+    `isMesh` as well as the name.
+  - **Guests were carrying the cup the whole time and the mesh was fine** — I
+    spent three probes proving a mesh was present and visible before reading
+    the sentence next to it properly. Ellis's two sentences were about the
+    *counter*: an icon on the order, and the cup appearing when it is handed
+    over. The fix was never a missing mesh.
 - *2026-09-08, night (later)* — **A "frozen" game that was a button being
   rebuilt thirty times a second.** ([full entry](docs/session-log.md))
   - Ellis: *"i tried to collect my first reward from the to do list and the

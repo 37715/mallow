@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { icon } from "@/ui/icons";
 
 /**
  * The little order over a guest's head while they stand at the counter.
@@ -52,7 +53,21 @@ export class OrderChipLayer {
       if (!el) {
         el = document.createElement("div");
         el.className = "order-chip";
-        el.textContent = entry.text;
+        /**
+         * **A cup beside the name.** Ellis, 2026-09-08: *"when customers say
+         * what they want i wanna see an icon of a coffee next to it too."* It
+         * also does real work at this size: the chip is small, floats over a
+         * busy room and is read in passing, so a shape says "this is a drink
+         * order" a beat before the words are legible — and a player's own blend
+         * can be called anything at all, so the words alone need not say
+         * "coffee" anywhere.
+         */
+        const mark = document.createElement("span");
+        mark.className = "order-chip-icon";
+        mark.appendChild(icon("cup"));
+        const label = document.createElement("span");
+        label.textContent = entry.text;
+        el.append(mark, label);
         this.layer.appendChild(el);
         this.chips.set(entry.id, el);
         // Next frame, so the transition actually runs — a class added in the

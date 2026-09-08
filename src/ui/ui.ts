@@ -26,6 +26,7 @@ import { UPGRADE_DEFINITIONS } from "@/data/upgrades";
 import { tillCapacity, tillFullness, tillIsFull } from "@/systems/till";
 import { emitGameEvent } from "@/core/events";
 import { CREDITS, CREDITS_INTRO } from "@/data/credits";
+import { currentTrack } from "@/audio/audio";
 import { hasClaimable, ladderProgress, visibleGoals } from "@/systems/goals";
 import { levelProgress } from "@/data/progression";
 import { CAT_BED_ITEM, bedAsset, bedCost, beds, freeBeds } from "@/data/beds";
@@ -2516,6 +2517,33 @@ export function mountUI(root: HTMLElement): MountedUI {
       });
       testRow.appendChild(testToggle);
       panel.appendChild(testRow);
+    }
+
+    /**
+     * **What is playing, permanently.**
+     *
+     * The chip that names a track is a *moment*, and moments get missed — Ellis
+     * asked three separate times where the track name was, and two of the three
+     * causes were real bugs while the third was simply that a seven-second
+     * notice in a corner is easy to be looking away from. A popup cannot be the
+     * only answer to "what is this song?"; there has to be somewhere you can go
+     * and look. This is that somewhere, and unlike the chip it is never wrong
+     * about timing because it reads the truth on open.
+     */
+    {
+      const track = currentTrack();
+      const nowRow = el("div", "setting-row");
+      const nowLabel = el("div", "setting-label");
+      nowLabel.appendChild(el("div", "setting-name", "now playing"));
+      nowLabel.appendChild(
+        el(
+          "div",
+          "setting-hint",
+          track ? `${track.title} — ${track.artist}` : "nothing at the moment.",
+        ),
+      );
+      nowRow.appendChild(nowLabel);
+      panel.appendChild(nowRow);
     }
 
     /**

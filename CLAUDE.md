@@ -23,8 +23,11 @@ This file is the shared brain for the project. **Read it before starting work in
 > starts growing past a screen or two of status, that is the signal to promote
 > and prune again.
 
-**Last updated:** 2026-09-08, night (**the app stopped acting like a web
-page** — labels no longer highlight blue on a slipped tap, and panels no longer
+**Last updated:** 2026-09-08, night (**there is a way out of the walkthrough
+at last** — `skip()` had been written and called from nowhere for weeks, and a
+placement that lost a race with the room rebuild turned that gap into a game
+you could not play; xp now lands with the furniture rather than with the button
+press. Earlier: **the app stopped acting like a web page** — labels no longer highlight blue on a slipped tap, and panels no longer
 rubber-band. Earlier: **"collect" was dead to a finger** — the
 goals panel rebuilt its whole DOM on every store change, which is every frame,
 so the button under your thumb was gone two frames later and no tap ever
@@ -245,7 +248,7 @@ pack ships those pieces in one finish.)
   tracked Xcode project, portrait-locked, and it **compiles** (verified with
   `xcodebuild` against a simulator destination). `npm run ios` does
   build → sync → open Xcode. Signing is Ellis's to do; see §16.
-- `npm test` — 398 tests over the pure systems, save migrations, café geometry,
+- `npm test` — 400 tests over the pure systems, save migrations, café geometry,
   the visitor loop, contentment maths, the camera controls (pan/zoom clamps,
   tap-vs-drag, press-and-hold), the placement rules the authored café itself
   has to pass, which objects the validator is allowed to ignore, the expansion
@@ -442,14 +445,15 @@ holds, and the editor is now how that week gets built.</summary>
   Sync pack ships `Social_WaveHello`, and it is the barista's first greeting
   now. The base pack's 43 clips genuinely had no greeting in them; the answer
   turned out to be a €5 add-on rather than authoring one.
-- **There is still no way out of the walkthrough.** `TutorialGuide.skip()` is
-  written, correct, and **called from nowhere** — so the only escape from a
-  step that will not complete is the settings row that starts the whole tour
-  again, which is how a dead end presented itself as an infinite loop
-  (2026-08-23). Every step can now be finished, so nothing is stuck today; the
-  safety net is still decorative. Where a "skip" sits and what it says is a
-  design call — a wrongly placed one lets a first-time player miss the
-  introduction with a stray tap.
+- ~~**There is still no way out of the walkthrough.**~~ ✅ 2026-09-08 —
+  `TutorialGuide.skip()` is wired to a "skip this" control that appears after
+  **thirty seconds stuck on one step** and nowhere else. It stopped being
+  theoretical the day a placement lost a race with the room rebuild and left a
+  step that could not be finished: relaunching only restarted the walkthrough,
+  so a dead end became a loop. The design worry that kept it unbuilt was right
+  and is what shapes it — it is off the tap-anywhere path, quiet, and the timer
+  resets every step, so only somebody who is actually stuck ever sees it.
+  Skipping exits normally, so the gift is paid and `tutorialDone` is set.
 - **Guests have a face but still no attention.** They blink, and they wear a
   mood once they've settled (`SEATED_MOODS`) — but they still don't *look* at
   the cats, each other, or the barista. Head-tracking is the next real step
@@ -543,6 +547,42 @@ being read into context every session. Every *rule* it taught has been promoted
 into the numbered sections; the archive holds the reasoning and the dead ends.
 **Append new entries there**, and mirror only the newest handful here.
 
+- *2026-09-08, night (third)* — **A walkthrough with a failure mode and no
+  exit.** ([full entry](docs/session-log.md))
+  - Ellis: *"im stuck on the tutorial tapping and its not progressin … if i
+    restart the app the tutorial restarts too."* Two faults, and the second
+    turned the first into a trap.
+  - **`startPlacing` raced the room rebuild and gave up silently.** The room
+    rebuilds *asynchronously* from the store, so a bought piece is only
+    findable once it resolves; the retry was thirty frames — about a second at
+    the frame cap — and then it returned without a word. Player holding a
+    receipt, no ghost, and the step that asked for it can never complete. It
+    awaits the rebuild promise now instead of guessing how long it takes.
+  - **`TutorialGuide.skip()` had been written, correct and called from nowhere**
+    since it was added; §0 carried it as a known gap for weeks. The reason was
+    sound — an easy skip means a first-timer misses the introduction with a
+    stray tap — so it is not on the tap-anywhere path: its own small underlined
+    control, shown only after **thirty seconds stuck on one step**, timer
+    resetting each step. Skipping leaves through the normal exit, so the gift is
+    paid and `tutorialDone` is set. **That last part is the one that matters**:
+    without it a relaunch restarts the walkthrough and a dead end becomes a loop.
+  - **XP now moves when the piece lands**, like money (§8). It was granted on
+    the button press and clawed back on cancel, so cancelling visibly
+    *un*-levelled you. Granting it in `settlePurchase` means the buy-then-cancel
+    xp tap the clawback existed to plug cannot be expressed.
+  - **Guests arrived carrying the coffee they were about to queue for.** The
+    held prop was visible from spawn, which made the counter a queue for
+    something they already had — and is why being served never looked like
+    anything. `setCarrying` is false until `servedAt`.
+  - **The now-playing chip was reported missing a third time.** Two earlier
+    causes were real bugs; this one is that a seven-second notice in a corner
+    can just be missed. Settings carries a live **now playing** row now — a
+    moment that has to be caught is a bad way to tell somebody anything they
+    might want twice.
+  - **One menu board per wall** (`ShopItem.onePerWall`). Not a collision rule —
+    two boards sit side by side quite happily, so no overlap test would ever
+    object — so it is compared by wall *identity*. The window half needed no
+    code: a glazed run is already refused.
 - *2026-09-08, night (later)* — **A "frozen" game that was a button being
   rebuilt thirty times a second.** ([full entry](docs/session-log.md))
   - Ellis: *"i tried to collect my first reward from the to do list and the

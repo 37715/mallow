@@ -67,6 +67,8 @@ export function createCharacterPreview(environment: THREE.Texture | null): Chara
     if (token !== pending) return;
     if (character) pivot.remove(character.group);
     character = new Character(assets, look);
+    // Not a customer — they never queue, so they keep their prop (§ `setCarrying`).
+    character.setCarrying(true);
     // Waist-height framing: the clips are authored with feet on the floor.
     character.group.position.y = -0.85;
     pivot.add(character.group);

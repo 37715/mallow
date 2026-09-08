@@ -258,6 +258,21 @@ function syncMusic(): void {
  * started, and everything else is a listener.
  */
 let onTrack: ((track: Track) => void) | null = null;
+/**
+ * The piece currently playing, or null during a rest.
+ *
+ * **Kept, rather than only announced.** The chip is a moment and moments get
+ * missed — Ellis asked three times running where the track name was. A value
+ * anything can read at any time is the durable answer to "what is this?"; the
+ * chip is the courtesy on top of it. See `ui/now-playing.ts` and the settings
+ * panel's now-playing row.
+ */
+let playingTrack: Track | null = null;
+
+/** What is on right now, if anything. */
+export function currentTrack(): Track | null {
+  return playingTrack;
+}
 
 export function setTrackListener(listener: (track: Track) => void): void {
   onTrack = listener;
@@ -330,7 +345,14 @@ export function initAudio(): void {
    * cats their voice for as long as it took to arrive.
    */
   void loadSamples()
-    .then(() => startSoundtrack(context, bus, { onTrack: (track) => onTrack?.(track) }))
+    .then(() =>
+      startSoundtrack(context, bus, {
+        onTrack: (track) => {
+          playingTrack = track;
+          onTrack?.(track);
+        },
+      }),
+    )
     .then((track) => {
       music = track;
       // Whatever was decided while the files were loading — a mute, or the

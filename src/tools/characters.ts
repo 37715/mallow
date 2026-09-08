@@ -144,6 +144,7 @@ async function showAssembledGuests(): Promise<void> {
   const kinds: SeatKind[] = ["tall", "sofa", "floor"];
   const built = kinds.map((kind, i) => {
     const character = new Character(assets, i * 37 + 5);
+    character.setCarrying(true);
     character.group.position.x = (i - 1) * 1.5;
     character.sit(kind);
     scene.add(character.group);
@@ -151,6 +152,7 @@ async function showAssembledGuests(): Promise<void> {
   });
   // A stand-up one too, so the walk cycle and the full silhouette are visible.
   const walker = new Character(assets, 91);
+  walker.setCarrying(true);
   walker.group.position.set(2.6, 0, 0);
   walker.walk();
   scene.add(walker.group);
@@ -228,6 +230,7 @@ async function showEveryFace(): Promise<void> {
   const built: Character[] = [];
   for (const [index, cell] of cells.entries()) {
     const character = new Character(assets, appearanceFromSeed(7), index * 13);
+    character.setCarrying(true);
     const column = index % perRow;
     const row = Math.floor(index / perRow);
     character.group.position.set((column - (perRow - 1) / 2) * 0.62, -row * 0.72, 0);
@@ -301,6 +304,7 @@ async function showEveryHairstyle(): Promise<void> {
     // on backwards reads as plainly as one that is see-through.
     for (const facing of [0, Math.PI]) {
       const character = new Character(assets, { ...appearanceFromSeed(7), hair });
+    character.setCarrying(true);
       const column = hair % perRow;
       character.group.position.set((column - (perRow - 1) / 2) * 1.15, 0, facing === 0 ? 0 : -1.9);
       character.group.rotation.y = facing;

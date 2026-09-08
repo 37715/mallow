@@ -75,6 +75,16 @@ export interface FurnitureTag {
    * to look a category up from — see the note where it is assigned.
    */
   name?: string;
+  /**
+   * Which catalogue row this is, if any.
+   *
+   * **Not the asset**, which changes with the colourway, and not the layout
+   * index, which instances do not have. Placement rules that are *about a kind
+   * of thing* — "one menu board per wall" — need a stable name for the kind,
+   * and the shop id is the only one both an authored piece and a player copy
+   * share.
+   */
+  shopItem?: string;
 }
 
 /**
@@ -231,6 +241,7 @@ export async function buildCafeRoom(state: RoomState = {}): Promise<BuiltRoom> {
       slot: item.slot,
       asset: assetFor(item, choice, upgrades),
       id: item.id,
+      shopItem: item.shopItem,
       movable: item.movable === true,
       /** Footprint, for the placement validator. Measured, not guessed. */
       size: assets.get(assetFor(item, choice, upgrades))?.size,
@@ -273,6 +284,7 @@ export async function buildCafeRoom(state: RoomState = {}): Promise<BuiltRoom> {
       // cat bed came to be titled "bed a cream" (Ellis, 2026-08-26). The shop
       // already knows what the player thinks this thing is called.
       name: shopItem(instance.item)?.name,
+      shopItem: instance.item,
       id: instance.id,
       movable: true,
       size: assets.get(asset)?.size,

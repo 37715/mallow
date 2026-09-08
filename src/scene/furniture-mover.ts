@@ -25,6 +25,7 @@ import {
   type Point,
 } from "@/systems/placement";
 import { INSTANCE_INDEX_BASE, type FurnitureTag } from "@/scene/cafe-room";
+import { shopItem } from "@/data/shop";
 import type { PickedFurniture } from "@/scene/furniture-picker";
 
 /**
@@ -275,6 +276,7 @@ export function obstacleFor(
     // the whole of the disagreement in practice.
     seating: item?.seat === true,
     wall: tag.wall === true || (item?.y ?? 0) > 1.2,
+    kind: tag.shopItem,
   };
 }
 
@@ -517,6 +519,8 @@ export function createFurnitureMover(options: FurnitureMoverOptions): FurnitureM
       flat: isFlat(tag),
       seat: CAFE_LAYOUT[tag.index]?.seat === true,
       wall: tag.wall === true,
+      kind: tag.shopItem,
+      onePerWall: tag.shopItem ? shopItem(tag.shopItem)?.onePerWall === true : false,
       turned,
     });
     valid = check.ok;

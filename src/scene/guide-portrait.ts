@@ -131,6 +131,7 @@ export function createGuidePortrait(environment: THREE.Texture | null): GuidePor
       // rather than a beat apart. `entities/tutorial-guide.ts` explains why she
       // gets a seed at all.
       character = new Character(assets, GUIDE_APPEARANCE, 7);
+      character.setCarrying(true);
       character.group.position.y = 0;
       pivot.add(character.group);
       character.idle();

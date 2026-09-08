@@ -4321,8 +4321,8 @@ textarea,
   display: flex;
   align-items: center;
   gap: 9px;
-  max-width: min(70vw, 300px);
-  padding: 7px 15px 7px 8px;
+  max-width: min(80vw, 330px);
+  padding: 9px 18px 9px 9px;
   border-radius: 999px;
   background: var(--slate);
   color: var(--chalk);
@@ -4345,8 +4345,8 @@ textarea,
 .now-playing-icon {
   display: grid;
   place-items: center;
-  width: 26px;
-  height: 26px;
+  width: 30px;
+  height: 30px;
   flex: none;
   border-radius: 999px;
   background: rgba(246, 237, 221, 0.12);
@@ -4354,8 +4354,8 @@ textarea,
 }
 
 .now-playing-icon .icon {
-  width: 15px;
-  height: 15px;
+  width: 17px;
+  height: 17px;
 }
 
 .now-playing-text {
@@ -4448,6 +4448,20 @@ textarea,
    anything — which is exactly why the blend step of the walkthrough read as
    "a bit random and unnecessary". This is a stranger holding the thing you
    named. */
+/* The cup beside the order. Honey, because it is the one thing on the chip that
+   is not the player's own words — see `ui/order-chips.ts`. */
+.order-chip-icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  color: var(--honey);
+}
+
+.order-chip-icon .icon {
+  width: 13px;
+  height: 13px;
+}
+
 .order-chip-layer {
   position: absolute;
   inset: 0;
@@ -4459,7 +4473,10 @@ textarea,
   position: absolute;
   left: 0;
   top: 0;
-  padding: 3px 9px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px 3px 7px;
   border-radius: 999px;
   background: var(--slate);
   color: var(--chalk);

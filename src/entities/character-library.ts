@@ -461,6 +461,8 @@ export class Character {
   private queued: { name: string; at: number } | null = null;
   /** What they walked in holding, so they consume it the right way. */
   private readonly refreshment: Refreshment;
+  /** The cup/cake in their hand, so it can be handed over rather than worn. */
+  private heldMesh: THREE.Object3D | null = null;
   /** Blinking, moods, and the mouth the lip sync borrows. */
   readonly face: CharacterFace;
 
@@ -496,6 +498,7 @@ export class Character {
     // Group whose children are named `<name>_0`, `<name>_1`. Checking only the
     // mesh's own name therefore throws the head away and leaves a floating
     // hairstyle — the same trap `scene/asset-library.ts` hit with the windows.
+    const heldName = HELD[look.held];
     const wanted = (object: THREE.Object3D): boolean =>
       keep.has(object.name) || (object.parent !== null && keep.has(object.parent.name));
 
@@ -537,6 +540,11 @@ export class Character {
         drop.push(child);
         return;
       }
+      // Held props are named exactly, or `<name>_0` when GLTFLoader splits a
+      // multi-primitive mesh — the same trap as `Body_Head` above.
+      if (child.name === heldName || child.parent?.name === heldName) {
+        this.heldMesh = child.parent?.name === heldName ? child.parent : child;
+      }
       child.castShadow = true;
       child.receiveShadow = false;
       // **Skinned meshes must not be frustum-culled.** three.js culls against
@@ -553,6 +561,16 @@ export class Character {
 
     // After the cull, so it only binds to face meshes that survived it.
     this.face = new CharacterFace(this.group, seed);
+    /**
+     * **Empty-handed until served.** The manager turns this on at `servedAt`.
+     * Defaulting to *hidden* rather than visible is deliberate: the two
+     * characters who are not customers (the player's avatar and the guide)
+     * never go through a counter, so they call `setCarrying(true)` once and
+     * keep it — whereas defaulting to visible would silently put a coffee in
+     * every guest's hand again the first time somebody added a code path that
+     * forgot to hide it.
+     */
+    this.setCarrying(false);
   }
 
   /** Wear a mood. See `EXPRESSIONS` for the list. */
@@ -595,6 +613,24 @@ export class Character {
   /** True while a one-shot gesture is still running. */
   get busy(): boolean {
     return this.queued !== null;
+  }
+
+  /**
+   * Whether they are holding what they came in for.
+   *
+   * **They arrive empty-handed now.** The held prop was shown from the moment a
+   * guest spawned, so everybody walked in through the door already carrying the
+   * coffee they were about to queue up and pay for — which quietly undid the
+   * point of the counter phase, and is why being served never *looked* like
+   * anything. Ellis, 2026-09-08: *"why doesnt it show them holding a cofee
+   * after they bought it any more?"*
+   *
+   * Visibility rather than adding and removing the mesh: it is already bound to
+   * the hand bone and skinned to the same skeleton, so hiding it costs nothing
+   * and re-showing it needs no rebinding.
+   */
+  setCarrying(on: boolean): void {
+    if (this.heldMesh) this.heldMesh.visible = on;
   }
 
   private idleClip(): string {

@@ -110,6 +110,7 @@ export class TutorialGuide {
       // A fixed seed, so the guide's blink rhythm is the same every playthrough
       // — they are a character, not a crowd member.
       this.character = new Character(assets, GUIDE_APPEARANCE, 7);
+      this.character.setCarrying(true);
       this.character.walk();
       this.character.express("happy");
       this.group.add(this.character.group);

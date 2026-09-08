@@ -58,6 +58,11 @@ export interface Obstacle extends Footprint {
   /** Hangs on a wall. Only ever collides with other wall pieces. */
   wall?: boolean;
   /**
+   * Catalogue id, for rules that are about a *kind* of thing rather than a
+   * shape — see `onePerWall`. Absent for anything the shop does not sell.
+   */
+  kind?: string;
+  /**
    * Flat things (floors, rugs, cushions) are *meant* to be stood on, so they
    * never block. Same exemption the layout test makes.
    */
@@ -179,7 +184,8 @@ export type PlacementRejection =
   | "blocks-walkway"
   | "unreachable"
   | "off-wall"
-  | "glazed";
+  | "glazed"
+  | "one-per-wall";
 
 /**
  * The inner face of one wall run, as a line the room can hang things on.
@@ -553,6 +559,10 @@ export interface MovingPiece {
   turned?: Turned;
   /** Hangs on a wall instead of standing on the floor. */
   wall?: boolean;
+  /** Catalogue id, so kind-based rules can name what this is. */
+  kind?: string;
+  /** At most one of this `kind` per wall run — see `ShopItem.onePerWall`. */
+  onePerWall?: boolean;
 }
 
 /** May `candidate` go here? */
@@ -581,6 +591,26 @@ export function checkPlacement(
     for (const other of obstacles) {
       if (!other.wall) continue;
       if (moving.id !== undefined && other.id === moving.id) continue;
+      /**
+       * **One of these per wall run.** A composition rule, not a collision one:
+       * two menu boards sit side by side on the same wall perfectly happily, so
+       * nothing below would ever object. Compared by wall *identity* (axis and
+       * offset) rather than by proximity, because "the same wall" is what the
+       * rule is about — a second board is fine on the other run.
+       */
+      if (
+        moving.onePerWall &&
+        moving.kind !== undefined &&
+        other.kind === moving.kind
+      ) {
+        const theirs = nearestWall(
+          { x: (other.minX + other.maxX) / 2, z: (other.minZ + other.maxZ) / 2 },
+          rules.walls ?? [],
+        );
+        if (theirs && theirs.axis === wall.axis && theirs.at === wall.at) {
+          return { ok: false, reason: "one-per-wall" };
+        }
+      }
       if (overlaps(candidate, other, NESTLE, moving.turned, other.turned)) {
         return { ok: false, reason: "overlaps" };
       }
@@ -669,5 +699,7 @@ export function rejectionMessage(reason: PlacementRejection): string {
       return "hang it on a wall";
     case "glazed":
       return "that wall is a window";
+    case "one-per-wall":
+      return "one per wall — try another";
   }
 }

@@ -22,12 +22,19 @@ import type { Track } from "@/data/tracks";
 /**
  * How long the chip stays up once it has arrived.
  *
- * Seven seconds is longer than it needs to be read, on purpose. It has to be
+ * Nine seconds is far longer than it needs to be read, on purpose. It has to be
  * *noticed* first, and it appears in the corner of a screen whose middle is a
- * café — Ellis, 2026-09-08, on the previous 5.2s: *"the icon currently playing
- * pop up never showed."* Almost a second of that was the fade-in transition.
+ * café — Ellis has now reported not seeing it three times running (*"STILL CANT
+ * FUCKING SEE ANY INDICATION OF THE NAME OF THE SONG THAT COMES ON"*). Two of
+ * those were real bugs (a stale lead-in, then the panel layer painting over
+ * it); this is the third answer, which is simply to give somebody time to look
+ * up. Almost a second of it is the fade-in transition.
+ *
+ * **And a popup is no longer the only answer.** Settings carries a live "now
+ * playing" row, because a moment that has to be caught is a bad way to tell
+ * somebody anything they might want twice.
  */
-const HOLD_MS = 7000;
+const HOLD_MS = 9000;
 
 /**
  * How late it arrives after the track starts.

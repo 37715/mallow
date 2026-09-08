@@ -68,6 +68,8 @@ export class Barista {
     if (token !== this.pending) return;
     if (this.character) this.group.remove(this.character.group);
     this.character = new Character(assets, look);
+    // The barista is staff, not a guest — nothing hands them a drink.
+    this.character.setCarrying(true);
     this.group.add(this.character.group);
     // Standing about behind the counter, pleased to be there.
     this.character.idle();

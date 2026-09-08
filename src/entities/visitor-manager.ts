@@ -327,9 +327,25 @@ export class VisitorManager {
         this.seated.delete(visitor.id);
         character.idle();
         character.express("happy");
+        // Waiting to be served, so nothing in their hands yet.
+        character.setCarrying(false);
       }
       return;
     }
+
+    /**
+     * **Served — the cup goes into their hand here.**
+     *
+     * Every guest used to be carrying their coffee from the moment they walked
+     * through the door, which made the counter a queue for something they
+     * already had. `servedAt` is the one honest moment for it, and it is the
+     * same instant the order chip clears. Set every frame past the counter
+     * rather than once on the transition: a guest can be re-synced mid-visit
+     * (a chair sold underneath them re-routes them), and a one-shot here would
+     * leave them empty-handed for the rest of the visit with nothing to say why
+     * — the same fault the seat facing had before it stopped being conditional.
+     */
+    character.setCarrying(true);
 
     // Drink in hand, crossing to their chair.
     if (!this.arrived(visitor, "toSeat", [COUNTER_POSITION, seatPos])) {
