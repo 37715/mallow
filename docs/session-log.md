@@ -17,6 +17,35 @@ The five most recent entries also remain inline in `CLAUDE.md` §0. New entries 
 ---
 
 **Session log:**
+- *2026-09-19* — **The last purchase still charging on the button press, a
+  guest carried off in their chair, and two cards in one shape.**
+  ([full entry](docs/session-log.md))
+  - **`buyBed` was never converted.** §8's "money moves when the piece lands"
+    was implemented in `buyShopItem` and `buyCopy` a fortnight ago and the bed
+    kept debiting *and* granting xp on the button press — so the **first**
+    purchase a new player makes, the one the walkthrough asks for, was the one
+    still doing the wrong thing. A rule written for a system has to be checked
+    against every path in it, not the path that was reported.
+  - **The chime moved too.** Two buy paths played `playPurchase()` immediately
+    while a third stayed deliberately quiet; the sale completes at placement, so
+    they are all quiet now and main.ts makes the noise.
+  - **A moved chair carried its occupant.** Two mechanisms, and fixing one does
+    nothing: the seat position is copied onto the guest every frame, *and*
+    `arrived("toSeat")` compares travelled distance against the live route
+    length, so moving the chair silently makes them "not arrived" — striding,
+    but still flagged seated and still in the sit pose. They stand up and walk
+    now. **Where the check goes was the whole difficulty**: after the `arrived`
+    test it is unreachable while they glide, then fires on arrival and makes
+    them walk the route twice.
+  - **The upgrade cards had no gap** because they are appended straight to the
+    panel rather than into a `.hub-grid`. Two rounded rectangles touching read
+    as one shape with a seam.
+  - **Measured, before and after.** Buy a bed → money and xp unchanged; cancel →
+    unchanged; place → £140 taken and 24 xp granted, together. And the guest:
+    `seated=n` with `Walk_Loop` on the very next frame, 3.1 units at ~1.9 u/s,
+    then `TallChair_Sit` and back into the drink loop — where before the fix the
+    probe showed 1.44s of gliding in `TallChair_Cup_Drink_Loop` followed by a
+    teleport back to the start.
 - *2026-09-08, night (fourth)* — **"after the first song ends another song
   never comes on either": the harness could not hear.**
   ([full entry](docs/session-log.md))

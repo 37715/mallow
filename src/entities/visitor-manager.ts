@@ -43,6 +43,16 @@ import {
 const WALK_SPEED = 1.9;
 
 /**
+ * How far a chair must move before its occupant gets up and follows it.
+ *
+ * Only has to reject floating-point noise — seat positions are rebuilt from
+ * the placements every time anything in the room changes, and an untouched
+ * chair rebuilds to exactly the same numbers. Any move the player can make is
+ * at least one 0.25 grid step.
+ */
+const SEAT_MOVED = 0.05;
+
+/**
  * How late a guest may be before the walk is abandoned and they are simply
  * put in the chair.
  *
@@ -191,6 +201,23 @@ export class VisitorManager {
   /** How far each guest is along the route they are currently walking. */
   private readonly walks = new Map<string, Walk>();
   /**
+   * Where each seated guest's chair was when they sat down.
+   *
+   * Kept so the chair *moving* can be noticed — see the re-seat branch in
+   * `positionVisitor`. Comparing against the live seat every frame is the only
+   * way to spot it: nothing tells this class that the player dragged a chair,
+   * the seat list is simply different on the next frame.
+   */
+  private readonly seatedPos = new Map<string, THREE.Vector3>();
+  /**
+   * Guests walking to a chair that moved out from under them: where they set
+   * off from, and when. Both are needed — the walk has to start from where
+   * they were standing rather than from the counter, and the "you are late,
+   * just snap there" deadline has to be measured from *now* rather than from a
+   * `seatedAt` that is already in the past.
+   */
+  private readonly reseat = new Map<string, { from: THREE.Vector3; at: number }>();
+  /**
    * Where the chairs currently are. Live rather than a module constant,
    * because the player can drag a seat across the room and the guest walking
    * to it has to follow — see `seatStandPositions`.
@@ -258,6 +285,8 @@ export class VisitorManager {
       this.seated.delete(id);
       this.ordering.delete(id);
       this.walks.delete(id);
+      this.seatedPos.delete(id);
+      this.reseat.delete(id);
     }
 
     for (const visitor of visitors) {
@@ -347,12 +376,58 @@ export class VisitorManager {
      */
     character.setCarrying(true);
 
-    // Drink in hand, crossing to their chair.
-    if (!this.arrived(visitor, "toSeat", [COUNTER_POSITION, seatPos])) {
-      this.ordering.delete(visitor.id);
-      this.stride(character, visitor, "toSeat", [COUNTER_POSITION, seatPos], delta, now >= visitor.seatedAt + LATE_SNAP_MS);
+    /**
+     * **A chair that moves gets up its occupant rather than carrying them.**
+     *
+     * Ellis, 2026-09-19: *"if i move a chair while someones sat on it they stay
+     * sat and hover over to new location… they should walk ofc."*
+     *
+     * Two separate things made that happen, and only fixing both helps. The
+     * seat position is copied onto the guest every frame, so the chair carries
+     * them; and `arrived("toSeat")` compares travelled distance against the
+     * *current* route length, so moving the chair silently lengthens the route
+     * and the guest is quietly "not arrived" again — already striding, but
+     * still flagged as seated and still in the sit pose. That is the hover.
+     *
+     * **So this has to come before the `arrived` test, not after it.** Put
+     * after, it is unreachable for as long as they are gliding, and then fires
+     * on arrival and sends them back to walk the whole route a second time —
+     * which is exactly what the first version of this did.
+     *
+     * It reuses the `toSeat` leg rather than inventing a fourth one: it is the
+     * same journey from a different starting point, and `LEG_ORDER` exists to
+     * stop legs being revisited, so a new leg would need its own rule about
+     * when it may happen. Deleting the walk is what re-opens `toSeat`.
+     *
+     * The threshold only has to reject floating-point noise — seats rebuild to
+     * identical numbers when untouched, and any real move is a 0.25 grid step.
+     */
+    const sat = this.seatedPos.get(visitor.id);
+    if (sat && sat.distanceTo(seatPos) > SEAT_MOVED) {
+      this.seated.delete(visitor.id);
+      this.seatedPos.delete(visitor.id);
+      this.walks.delete(visitor.id);
+      this.reseat.set(visitor.id, { from: mesh.position.clone(), at: now });
+      // Out of the sit pose on the same frame, so they read as standing up
+      // rather than as a seated figure sliding across the floor.
+      character.walk();
       return;
     }
+
+    /**
+     * Drink in hand, crossing to their chair — from the counter normally, or
+     * from wherever they were standing if the chair has moved since they sat
+     * in it.
+     */
+    const again = this.reseat.get(visitor.id);
+    const from = again?.from ?? COUNTER_POSITION;
+    const snapAt = (again?.at ?? visitor.seatedAt) + LATE_SNAP_MS;
+    if (!this.arrived(visitor, "toSeat", [from, seatPos])) {
+      this.ordering.delete(visitor.id);
+      this.stride(character, visitor, "toSeat", [from, seatPos], delta, now >= snapAt);
+      return;
+    }
+    this.reseat.delete(visitor.id);
 
     mesh.position.copy(seatPos);
     // **Aimed every frame, not once on sitting down.** The position is
@@ -365,6 +440,7 @@ export class VisitorManager {
     mesh.rotation.set(0, this.facings[visitor.seatIndex] ?? 0, 0);
     if (!this.seated.has(visitor.id)) {
       this.seated.add(visitor.id);
+      this.seatedPos.set(visitor.id, seatPos.clone());
       character.sit(SEAT_KINDS[visitor.seatIndex] ?? "floor");
       // Settled with a drink — the one moment a guest has an opinion. Keyed
       // off the same seed as their appearance so a given guest is consistent

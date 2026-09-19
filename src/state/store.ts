@@ -1001,13 +1001,27 @@ export const gameStore = createStore<GameState>((set, get) => ({
     // nudges it to the nearest spot it fits (see `beginPlacing` in main.ts) —
     // a bed you cannot see is a bed you cannot use.
     const id = `inst-${state.nextInstanceId}`;
+    /**
+     * **Nothing is taken and nothing is awarded here** — see `pendingPurchase`
+     * and `settlePurchase`. The bed was the last thing in the shop still
+     * charging on the button press rather than on the piece landing, which made
+     * it the one purchase where the money dropped and the xp ring filled while
+     * the ghost was still in your hand, and where cancelling visibly took both
+     * back. Ellis, 2026-09-19: *"its still like giving me the xp and reward for
+     * buying something BEFORE i place it. and then like taking it away when i
+     * cancel… it should be only counting it as actually purchased once i press
+     * put it here."*
+     *
+     * It is also the *first* thing the walkthrough has you buy, so this was the
+     * first purchase a new player ever made and the one most likely to be
+     * cancelled while they worked out what they were doing.
+     */
     set({
-      money: state.money - cost,
       nextInstanceId: state.nextInstanceId + 1,
       instances: [...state.instances, { id, item: CAT_BED_ITEM, x: 0, z: 0 }],
+      pendingPurchase: { id, cost },
     });
     logEvent({ name: "bed_bought", beds: owned.length + 1, cost });
-    get().grantXp(XP_AWARDS.furniture(cost));
     return id;
   },
 

@@ -1370,6 +1370,16 @@ textarea,
    arrived — a panel that repeats the screen behind it has no reason to be
    opened. */
 
+/* Upgrade cards are appended straight to the panel rather than into a
+   `.hub-grid`, so unlike every other card here they had nothing separating
+   them and sat flush — two rounded rectangles touching read as one shape with
+   a seam, which is what "better brews and bigger till are kinda inside each
+   other" was describing (Ellis, 2026-09-19). Same 10px the hub grid uses, so
+   the two halves of this panel are spaced alike. */
+.upgrade-card + .upgrade-card {
+  margin-top: 10px;
+}
+
 .upgrade-card {
   padding: 14px 14px 13px;
   border-radius: var(--r-card);

@@ -23,7 +23,11 @@ This file is the shared brain for the project. **Read it before starting work in
 > starts growing past a screen or two of status, that is the signal to promote
 > and prune again.
 
-**Last updated:** 2026-09-08, night (**the screenshot tool could not hear
+**Last updated:** 2026-09-19 (**the cat bed was the last thing in the shop
+still charging on the button press** — money and xp now both land with the
+furniture, on every path; a chair dragged out from under a guest gets them up
+and walking instead of carrying them along; and the two upgrade cards have a
+gap. Earlier: **the screenshot tool could not hear
 audio, and had been confirming a soundtrack that was producing no sound at
 all** — Chrome's autoplay policy left every context suspended with a frozen
 clock; the playlist now runs off a repeating tick that also resumes a suspended
@@ -552,6 +556,29 @@ being read into context every session. Every *rule* it taught has been promoted
 into the numbered sections; the archive holds the reasoning and the dead ends.
 **Append new entries there**, and mirror only the newest handful here.
 
+- *2026-09-19* — **The last purchase still charging on the button press, a
+  guest carried off in their chair, and two cards in one shape.**
+  ([full entry](docs/session-log.md))
+  - **`buyBed` was never converted.** §8's "money moves when the piece lands"
+    was implemented in `buyShopItem` and `buyCopy` a fortnight ago and the bed
+    kept debiting *and* granting xp on the button press — so the **first**
+    purchase a new player makes, the one the walkthrough asks for, was the one
+    still doing the wrong thing. A rule written for a system has to be checked
+    against every path in it, not the path that was reported.
+  - **The chime moved too.** Two buy paths played `playPurchase()` immediately
+    while a third stayed deliberately quiet; the sale completes at placement, so
+    they are all quiet now and main.ts makes the noise.
+  - **A moved chair carried its occupant.** Two mechanisms, and fixing one does
+    nothing: the seat position is copied onto the guest every frame, *and*
+    `arrived("toSeat")` compares travelled distance against the live route
+    length, so moving the chair silently makes them "not arrived" — striding,
+    but still flagged seated and still in the sit pose. They stand up and walk
+    now. **Where the check goes was the whole difficulty**: after the `arrived`
+    test it is unreachable while they glide, then fires on arrival and makes
+    them walk the route twice.
+  - **The upgrade cards had no gap** because they are appended straight to the
+    panel rather than into a `.hub-grid`. Two rounded rectangles touching read
+    as one shape with a seam.
 - *2026-09-08, night (fourth)* — **"after the first song ends another song
   never comes on either": the harness could not hear.**
   ([full entry](docs/session-log.md))
@@ -1109,11 +1136,21 @@ gets priced rather than being facts about what shipped:
 - **Buying a second of something taps off.** Copies get a rising price and half
   appeal: two plants are lovelier than one, ten are not ten times lovelier, and
   without the taper the cheapest item in the shop is an appeal machine.
-- **A change of mind is not something to charge for.** Cancelling a placement
-  refunds in full (and takes the XP back, or buy-then-cancel is a free XP tap);
-  taking a window out again refunds in full. Money moves **when the piece
-  lands**, not when the button is pressed — the till must not drop for a
-  decision the player has not finished making.
+- **A change of mind is not something to charge for.** Money **and xp** move
+  when the piece *lands* (`settlePurchase`), not when the button is pressed —
+  the till must not drop, and the level ring must not fill, for a decision the
+  player has not finished making. Cancelling then has nothing to undo, which is
+  the point: an award that has to be clawed back is one the player already saw,
+  and watching a level-up reverse itself is worse than never having had it.
+  Taking a window out again refunds in full.
+  **Every buy path has to be checked, not just the one that was reported.**
+  This rule was written for the shop, implemented in `buyShopItem`/`buyCopy`,
+  and `buyBed` went on charging and granting on the button press for another
+  fortnight — so the *first* purchase a new player ever makes, the one the
+  walkthrough asks for and the one most likely to be cancelled, was the one
+  case still doing the wrong thing (Ellis, 2026-09-19: *"its still like giving
+  me the xp and reward for buying something BEFORE i place it"*). Grep
+  `grantXp` and `pendingPurchase` together when touching this.
 - **An upside-only mechanic has to be checked in the *unavailable* direction,
   not just the neglected one.** Chores pay appeal while fresh and nothing while
   due, which is the pillar-1 shape — but "fresh" was written as "not due", and

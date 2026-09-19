@@ -1801,7 +1801,11 @@ export function mountUI(root: HTMLElement): MountedUI {
           show();
           return;
         }
-        playPurchase();
+        // **No chime here either.** The sale completes when the piece lands
+        // (`settlePurchase`), which is where main.ts plays it and spawns the
+        // coins — the first-purchase branch above has always been quiet, and a
+        // copy sounding different from a first was simply an oversight.
+        playTap();
         startPlacing(id, true);
       });
       move.addEventListener("click", () => {
@@ -1972,7 +1976,8 @@ export function mountUI(root: HTMLElement): MountedUI {
           playTap();
           return;
         }
-        playPurchase();
+        // Quiet until it lands — see `settlePurchase`.
+        playTap();
         startPlacing(id, true);
       });
       action.appendChild(buy);
